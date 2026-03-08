@@ -25,6 +25,74 @@ type ApiKey struct {
 	CreatedAt      time.Time    `json:"created_at"`
 }
 
+type ConsultingMessage struct {
+	ID           uuid.UUID             `json:"id"`
+	SessionID    uuid.UUID             `json:"session_id"`
+	Role         string                `json:"role"`
+	Content      string                `json:"content"`
+	Citations    pqtype.NullRawMessage `json:"citations"`
+	ActionsTaken pqtype.NullRawMessage `json:"actions_taken"`
+	CreatedAt    time.Time             `json:"created_at"`
+}
+
+type ConsultingSession struct {
+	ID               uuid.UUID     `json:"id"`
+	OrganizationID   uuid.UUID     `json:"organization_id"`
+	Title            string        `json:"title"`
+	IndustryConfigID uuid.NullUUID `json:"industry_config_id"`
+	Status           string        `json:"status"`
+	CreatedAt        time.Time     `json:"created_at"`
+	UpdatedAt        time.Time     `json:"updated_at"`
+}
+
+type Evaluation struct {
+	ID             uuid.UUID             `json:"id"`
+	ExecutionLogID uuid.UUID             `json:"execution_log_id"`
+	OverallScore   sql.NullString        `json:"overall_score"`
+	AccuracyScore  sql.NullString        `json:"accuracy_score"`
+	RelevanceScore sql.NullString        `json:"relevance_score"`
+	FluencyScore   sql.NullString        `json:"fluency_score"`
+	SafetyScore    sql.NullString        `json:"safety_score"`
+	Feedback       sql.NullString        `json:"feedback"`
+	EvaluatorType  string                `json:"evaluator_type"`
+	EvaluatorID    sql.NullString        `json:"evaluator_id"`
+	Metadata       pqtype.NullRawMessage `json:"metadata"`
+	CreatedAt      time.Time             `json:"created_at"`
+}
+
+type ExecutionLog struct {
+	ID             uuid.UUID             `json:"id"`
+	OrganizationID uuid.UUID             `json:"organization_id"`
+	PromptID       uuid.UUID             `json:"prompt_id"`
+	VersionNumber  int32                 `json:"version_number"`
+	RequestBody    json.RawMessage       `json:"request_body"`
+	ResponseBody   pqtype.NullRawMessage `json:"response_body"`
+	Model          string                `json:"model"`
+	Provider       string                `json:"provider"`
+	InputTokens    int32                 `json:"input_tokens"`
+	OutputTokens   int32                 `json:"output_tokens"`
+	TotalTokens    int32                 `json:"total_tokens"`
+	LatencyMs      int32                 `json:"latency_ms"`
+	EstimatedCost  string                `json:"estimated_cost"`
+	Status         string                `json:"status"`
+	ErrorMessage   sql.NullString        `json:"error_message"`
+	Environment    string                `json:"environment"`
+	Metadata       pqtype.NullRawMessage `json:"metadata"`
+	ExecutedAt     time.Time             `json:"executed_at"`
+	CreatedAt      time.Time             `json:"created_at"`
+}
+
+type IndustryConfig struct {
+	ID              uuid.UUID       `json:"id"`
+	Slug            string          `json:"slug"`
+	Name            string          `json:"name"`
+	Description     sql.NullString  `json:"description"`
+	KnowledgeBase   json.RawMessage `json:"knowledge_base"`
+	ComplianceRules json.RawMessage `json:"compliance_rules"`
+	CreatedAt       time.Time       `json:"created_at"`
+	UpdatedAt       time.Time       `json:"updated_at"`
+}
+
 type Organization struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
@@ -39,6 +107,20 @@ type OrganizationMember struct {
 	UserID         uuid.UUID `json:"user_id"`
 	Role           string    `json:"role"`
 	JoinedAt       time.Time `json:"joined_at"`
+}
+
+type PlatformBenchmark struct {
+	ID                uuid.UUID      `json:"id"`
+	IndustryConfigID  uuid.UUID      `json:"industry_config_id"`
+	Period            string         `json:"period"`
+	AvgQualityScore   sql.NullString `json:"avg_quality_score"`
+	AvgLatencyMs      sql.NullInt32  `json:"avg_latency_ms"`
+	AvgCostPerRequest sql.NullString `json:"avg_cost_per_request"`
+	TotalExecutions   int64          `json:"total_executions"`
+	P50Quality        sql.NullString `json:"p50_quality"`
+	P90Quality        sql.NullString `json:"p90_quality"`
+	OptInCount        int32          `json:"opt_in_count"`
+	CreatedAt         time.Time      `json:"created_at"`
 }
 
 type Project struct {
@@ -64,6 +146,11 @@ type Prompt struct {
 	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
+type PromptTag struct {
+	PromptID uuid.UUID `json:"prompt_id"`
+	TagID    uuid.UUID `json:"tag_id"`
+}
+
 type PromptVersion struct {
 	ID                uuid.UUID             `json:"id"`
 	PromptID          uuid.UUID             `json:"prompt_id"`
@@ -77,6 +164,15 @@ type PromptVersion struct {
 	AuthorID          uuid.UUID             `json:"author_id"`
 	PublishedAt       sql.NullTime          `json:"published_at"`
 	CreatedAt         time.Time             `json:"created_at"`
+	Embedding         []float32             `json:"embedding"`
+}
+
+type Tag struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Name           string    `json:"name"`
+	Color          string    `json:"color"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type Task struct {

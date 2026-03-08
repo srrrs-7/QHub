@@ -56,6 +56,11 @@ func (h *PromptHandler) PostVersion() http.HandlerFunc {
 			return
 		}
 
+		// Generate embedding asynchronously (fire-and-forget)
+		if h.embeddingSvc != nil {
+			h.embeddingSvc.EmbedVersionAsync(v.ID.UUID(), v.Content)
+		}
+
 		response.Created(w, toVersionResponse(v))
 	}
 }

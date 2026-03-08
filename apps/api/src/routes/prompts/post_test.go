@@ -85,7 +85,7 @@ func TestPostPromptHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo).Post()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).Post()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -157,7 +157,7 @@ func TestPostPromptHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo).Post()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).Post()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -184,7 +184,7 @@ func TestPostPromptHandler(t *testing.T) {
 
 		pRepo := prompt_repository.NewPromptRepository(q)
 		vRepo := prompt_repository.NewVersionRepository(q)
-		handler := NewPromptHandler(pRepo, vRepo).Post()
+		handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).Post()
 		handler.ServeHTTP(w, req)
 
 		resp := w.Result()

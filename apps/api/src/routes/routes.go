@@ -1,10 +1,19 @@
 package routes
 
 import (
+	"api/src/routes/analytics"
+	"api/src/routes/apikeys"
+	"api/src/routes/search"
+	"api/src/routes/consulting"
+	"api/src/routes/evaluations"
+	"api/src/routes/industries"
+	"api/src/routes/logs"
+	"api/src/routes/members"
 	mw "api/src/routes/middleware"
 	"api/src/routes/organizations"
 	"api/src/routes/projects"
 	"api/src/routes/prompts"
+	"api/src/routes/tags"
 	"api/src/routes/tasks"
 	"net/http"
 
@@ -18,6 +27,15 @@ type Handlers struct {
 	Organization *organizations.OrganizationHandler
 	Project      *projects.ProjectHandler
 	Prompt       *prompts.PromptHandler
+	Log          *logs.LogHandler
+	Evaluation   *evaluations.EvaluationHandler
+	Consulting   *consulting.ConsultingHandler
+	Tag          *tags.TagHandler
+	Industry     *industries.IndustryHandler
+	Analytics    *analytics.AnalyticsHandler
+	ApiKey       *apikeys.ApiKeyHandler
+	Member       *members.MemberHandler
+	Search       *search.SearchHandler
 }
 
 func NewRouter(h Handlers) http.Handler {
@@ -70,12 +88,94 @@ func NewRouter(h Handlers) http.Handler {
 			})
 
 			// Prompt Versions (nested under prompt)
-			r.Route("/prompts/{prompt_id}/versions", func(r chi.Router) {
-				r.Get("/", h.Prompt.ListVersions())
-				r.Post("/", h.Prompt.PostVersion())
-				r.Get("/{version}", h.Prompt.GetVersion())
-				r.Put("/{version}/status", h.Prompt.PutVersionStatus())
+			r.Route("/prompts/{prompt_id}", func(r chi.Router) {
+				r.Route("/versions", func(r chi.Router) {
+					r.Get("/", h.Prompt.ListVersions())
+					r.Post("/", h.Prompt.PostVersion())
+					r.Get("/{version}", h.Prompt.GetVersion())
+					r.Put("/{version}/status", h.Prompt.PutVersionStatus())
+					r.Get("/{version}/lint", h.Prompt.GetLint())
+					r.Get("/{version}/text-diff", h.Prompt.GetTextDiff())
+					r.Get("/{version}/analytics", h.Analytics.GetVersionAnalytics())
+				})
+				r.Get("/semantic-diff/{v1}/{v2}", h.Prompt.GetDiff())
+				r.Get("/analytics", h.Analytics.GetPromptAnalytics())
+				r.Get("/trend", h.Analytics.GetDailyTrend())
 			})
+
+			// Project Analytics
+			r.Get("/projects/{project_id}/analytics", h.Analytics.GetProjectAnalytics())
+
+			// Execution Logs
+			r.Route("/logs", func(r chi.Router) {
+				r.Get("/", h.Log.List())
+				r.Post("/", h.Log.Post())
+				r.Post("/batch", h.Log.PostBatch())
+				r.Get("/{id}", h.Log.Get())
+			})
+
+			// Evaluations
+			r.Route("/evaluations", func(r chi.Router) {
+				r.Post("/", h.Evaluation.Post())
+				r.Get("/{id}", h.Evaluation.Get())
+			})
+			r.Get("/logs/{log_id}/evaluations", h.Evaluation.List())
+
+			// Consulting Sessions
+			r.Route("/consulting/sessions", func(r chi.Router) {
+				r.Post("/", h.Consulting.PostSession())
+				r.Get("/", h.Consulting.ListSessions())
+				r.Get("/{id}", h.Consulting.GetSession())
+			})
+
+			// Consulting Messages
+			r.Route("/consulting/sessions/{session_id}/messages", func(r chi.Router) {
+				r.Get("/", h.Consulting.ListMessages())
+				r.Post("/", h.Consulting.PostMessage())
+			})
+
+			// Tags
+			r.Route("/tags", func(r chi.Router) {
+				r.Post("/", h.Tag.Post())
+				r.Get("/", h.Tag.List())
+				r.Delete("/{id}", h.Tag.Delete())
+			})
+
+			// Prompt Tags
+			r.Route("/prompts/{prompt_id}/tags", func(r chi.Router) {
+				r.Post("/", h.Tag.AddToPrompt())
+				r.Get("/", h.Tag.ListByPrompt())
+				r.Delete("/{tag_id}", h.Tag.RemoveFromPrompt())
+			})
+
+			// Industry Configs
+			r.Route("/industries", func(r chi.Router) {
+				r.Post("/", h.Industry.Post())
+				r.Get("/", h.Industry.List())
+				r.Get("/{slug}", h.Industry.GetBySlug())
+				r.Put("/{slug}", h.Industry.PutBySlug())
+				r.Get("/{slug}/benchmarks", h.Industry.ListBenchmarks())
+				r.Post("/{slug}/compliance-check", h.Industry.ComplianceCheck())
+			})
+
+			// API Keys (nested under org)
+			r.Route("/organizations/{org_id}/api-keys", func(r chi.Router) {
+				r.Post("/", h.ApiKey.Post())
+				r.Get("/", h.ApiKey.List())
+				r.Delete("/{id}", h.ApiKey.Delete())
+			})
+
+			// Members (nested under org)
+			r.Route("/organizations/{org_id}/members", func(r chi.Router) {
+				r.Post("/", h.Member.Post())
+				r.Get("/", h.Member.List())
+				r.Delete("/{user_id}", h.Member.Delete())
+				r.Put("/{user_id}", h.Member.Put())
+			})
+
+			// Semantic Search
+			r.Post("/search/semantic", h.Search.SemanticSearch())
+			r.Get("/search/embedding-status", h.Search.EmbeddingStatus())
 		})
 	})
 

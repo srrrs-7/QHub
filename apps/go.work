@@ -4,5 +4,6 @@ use (
 	./api
 	./cli
 	./pkgs
+	./sdk
 	./web
 )

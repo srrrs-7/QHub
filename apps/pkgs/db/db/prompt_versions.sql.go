@@ -9,8 +9,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/sqlc-dev/pqtype"
 )
 
@@ -28,7 +30,7 @@ func (q *Queries) ArchiveProductionVersion(ctx context.Context, promptID uuid.UU
 const createPromptVersion = `-- name: CreatePromptVersion :one
 INSERT INTO prompt_versions (prompt_id, version_number, status, content, variables, change_description, author_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at
+RETURNING id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding
 `
 
 type CreatePromptVersionParams struct {
@@ -65,12 +67,13 @@ func (q *Queries) CreatePromptVersion(ctx context.Context, arg CreatePromptVersi
 		&i.AuthorID,
 		&i.PublishedAt,
 		&i.CreatedAt,
+		pq.Array(&i.Embedding),
 	)
 	return i, err
 }
 
 const getLatestPromptVersion = `-- name: GetLatestPromptVersion :one
-SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at FROM prompt_versions
+SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding FROM prompt_versions
 WHERE prompt_id = $1
 ORDER BY version_number DESC
 LIMIT 1
@@ -92,12 +95,13 @@ func (q *Queries) GetLatestPromptVersion(ctx context.Context, promptID uuid.UUID
 		&i.AuthorID,
 		&i.PublishedAt,
 		&i.CreatedAt,
+		pq.Array(&i.Embedding),
 	)
 	return i, err
 }
 
 const getProductionPromptVersion = `-- name: GetProductionPromptVersion :one
-SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at FROM prompt_versions
+SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding FROM prompt_versions
 WHERE prompt_id = $1 AND status = 'production'
 LIMIT 1
 `
@@ -118,12 +122,13 @@ func (q *Queries) GetProductionPromptVersion(ctx context.Context, promptID uuid.
 		&i.AuthorID,
 		&i.PublishedAt,
 		&i.CreatedAt,
+		pq.Array(&i.Embedding),
 	)
 	return i, err
 }
 
 const getPromptVersion = `-- name: GetPromptVersion :one
-SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at FROM prompt_versions
+SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding FROM prompt_versions
 WHERE prompt_id = $1 AND version_number = $2
 `
 
@@ -148,12 +153,13 @@ func (q *Queries) GetPromptVersion(ctx context.Context, arg GetPromptVersionPara
 		&i.AuthorID,
 		&i.PublishedAt,
 		&i.CreatedAt,
+		pq.Array(&i.Embedding),
 	)
 	return i, err
 }
 
 const getPromptVersionByID = `-- name: GetPromptVersionByID :one
-SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at FROM prompt_versions WHERE id = $1
+SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding FROM prompt_versions WHERE id = $1
 `
 
 func (q *Queries) GetPromptVersionByID(ctx context.Context, id uuid.UUID) (PromptVersion, error) {
@@ -172,12 +178,13 @@ func (q *Queries) GetPromptVersionByID(ctx context.Context, id uuid.UUID) (Promp
 		&i.AuthorID,
 		&i.PublishedAt,
 		&i.CreatedAt,
+		pq.Array(&i.Embedding),
 	)
 	return i, err
 }
 
 const listPromptVersions = `-- name: ListPromptVersions :many
-SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at FROM prompt_versions
+SELECT id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding FROM prompt_versions
 WHERE prompt_id = $1
 ORDER BY version_number DESC
 `
@@ -204,6 +211,7 @@ func (q *Queries) ListPromptVersions(ctx context.Context, promptID uuid.UUID) ([
 			&i.AuthorID,
 			&i.PublishedAt,
 			&i.CreatedAt,
+			pq.Array(&i.Embedding),
 		); err != nil {
 			return nil, err
 		}
@@ -216,6 +224,105 @@ func (q *Queries) ListPromptVersions(ctx context.Context, promptID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const searchPromptVersionsByEmbedding = `-- name: SearchPromptVersionsByEmbedding :many
+SELECT
+    pv.id,
+    pv.prompt_id,
+    pv.version_number,
+    pv.status,
+    pv.content,
+    pv.variables,
+    pv.change_description,
+    pv.author_id,
+    pv.published_at,
+    pv.created_at,
+    p.name AS prompt_name,
+    p.slug AS prompt_slug,
+    cosine_similarity(pv.embedding, $1::real[]) AS similarity
+FROM prompt_versions pv
+JOIN prompts p ON pv.prompt_id = p.id
+JOIN projects pr ON p.project_id = pr.id
+WHERE pv.embedding IS NOT NULL
+  AND pr.organization_id = $2
+ORDER BY cosine_similarity(pv.embedding, $1::real[]) DESC
+LIMIT $3
+`
+
+type SearchPromptVersionsByEmbeddingParams struct {
+	Column1        []float32 `json:"column_1"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Limit          int32     `json:"limit"`
+}
+
+type SearchPromptVersionsByEmbeddingRow struct {
+	ID                uuid.UUID             `json:"id"`
+	PromptID          uuid.UUID             `json:"prompt_id"`
+	VersionNumber     int32                 `json:"version_number"`
+	Status            string                `json:"status"`
+	Content           json.RawMessage       `json:"content"`
+	Variables         pqtype.NullRawMessage `json:"variables"`
+	ChangeDescription sql.NullString        `json:"change_description"`
+	AuthorID          uuid.UUID             `json:"author_id"`
+	PublishedAt       sql.NullTime          `json:"published_at"`
+	CreatedAt         time.Time             `json:"created_at"`
+	PromptName        string                `json:"prompt_name"`
+	PromptSlug        string                `json:"prompt_slug"`
+	Similarity        float64               `json:"similarity"`
+}
+
+func (q *Queries) SearchPromptVersionsByEmbedding(ctx context.Context, arg SearchPromptVersionsByEmbeddingParams) ([]SearchPromptVersionsByEmbeddingRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchPromptVersionsByEmbedding, pq.Array(arg.Column1), arg.OrganizationID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchPromptVersionsByEmbeddingRow
+	for rows.Next() {
+		var i SearchPromptVersionsByEmbeddingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PromptID,
+			&i.VersionNumber,
+			&i.Status,
+			&i.Content,
+			&i.Variables,
+			&i.ChangeDescription,
+			&i.AuthorID,
+			&i.PublishedAt,
+			&i.CreatedAt,
+			&i.PromptName,
+			&i.PromptSlug,
+			&i.Similarity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updatePromptVersionEmbedding = `-- name: UpdatePromptVersionEmbedding :exec
+UPDATE prompt_versions
+SET embedding = $2
+WHERE id = $1
+`
+
+type UpdatePromptVersionEmbeddingParams struct {
+	ID        uuid.UUID `json:"id"`
+	Embedding []float32 `json:"embedding"`
+}
+
+func (q *Queries) UpdatePromptVersionEmbedding(ctx context.Context, arg UpdatePromptVersionEmbeddingParams) error {
+	_, err := q.db.ExecContext(ctx, updatePromptVersionEmbedding, arg.ID, pq.Array(arg.Embedding))
+	return err
 }
 
 const updatePromptVersionLintResult = `-- name: UpdatePromptVersionLintResult :exec
@@ -255,7 +362,7 @@ UPDATE prompt_versions
 SET status = $2,
     published_at = CASE WHEN $2 = 'production' THEN NOW() ELSE published_at END
 WHERE id = $1
-RETURNING id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at
+RETURNING id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding
 `
 
 type UpdatePromptVersionStatusParams struct {
@@ -279,6 +386,7 @@ func (q *Queries) UpdatePromptVersionStatus(ctx context.Context, arg UpdatePromp
 		&i.AuthorID,
 		&i.PublishedAt,
 		&i.CreatedAt,
+		pq.Array(&i.Embedding),
 	)
 	return i, err
 }
