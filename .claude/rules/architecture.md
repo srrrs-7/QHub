@@ -3,10 +3,9 @@
 ## Layered Architecture
 
 ```
-routes/          → HTTP layer (routing, request/response)
-  handlers/      → Request handling, orchestration
-domain/model/    → Domain entities, business logic, validation
-infra/rds/       → Data access, repository implementations
+routes/          → HTTP layer (handlers, request/response, middleware)
+domain/          → Domain entities, value objects, business logic, repository interfaces
+infra/rds/       → Data access, repository implementations (sqlc + PostgreSQL)
 ```
 
 **Dependency direction**: routes → domain ← infra (domain is independent)
@@ -14,16 +13,26 @@ infra/rds/       → Data access, repository implementations
 ## Clean Architecture Principles
 
 1. **Domain layer is pure**: No external dependencies (HTTP, DB)
-2. **Handlers orchestrate**: Validate request → call domain/repository → format response
-3. **Repository pattern**: Abstract data access behind interfaces
+2. **Handlers orchestrate**: Parse request → call repository → format response
+3. **Repository pattern**: Interfaces in domain, implementations in infra
 4. **Value objects**: Encapsulate validation and domain rules
+5. **Dependency inversion**: Handlers depend on domain interfaces, not infra structs
+
+## DI Wiring
+
+All DI is wired in `cmd/main.go`:
+```
+db.Querier → NewXxxRepository(q) → NewXxxHandler(repo) → routes.Handlers → NewRouter(h)
+```
 
 ## API Design
 
 - RESTful endpoints: `/api/v1/{resource}`, `/api/v1/{resource}/{id}`
-- Use Chi router with middleware
+- Nested resources: `/api/v1/organizations/{org_id}/projects`
+- Use Chi router with middleware (Logger, BearerAuth, Recoverer)
 - JSON request/response format
 - Graceful shutdown with context cancellation
+- Bearer auth on all `/api/v1/*` routes
 
 ## Frontend Architecture (templ + HTMX)
 
@@ -34,10 +43,10 @@ infra/rds/       → Data access, repository implementations
 
 ## Database Migrations
 
-- **Atlas**: Schema-first migrations
-- **sqlc**: Generate type-safe query code
+- **Atlas**: Schema-first migrations in `apps/pkgs/db/migrations/`
+- **sqlc**: Generate type-safe query code from `apps/pkgs/db/queries/*.sql`
 - Migration workflow:
-  1. Update schema in `apps/pkgs/db/schema.sql`
+  1. Update schema or queries
   2. Run `make atlas-diff NAME=description`
   3. Review generated migration
   4. Run `make atlas-apply`
@@ -45,28 +54,20 @@ infra/rds/       → Data access, repository implementations
 
 ## Error Handling Strategy
 
-1. **Domain validation**: Return `ValidationError` with specific field errors
+1. **Domain validation**: Return `ValidationError` via value object constructors
 2. **Not found**: Return `NotFoundError` when resource doesn't exist
-3. **Database errors**: Wrap with `DatabaseError` and log details
-4. **HTTP mapping**: Use `response.HandleAppError()` to map domain errors to HTTP status codes
-
-## Concurrency Patterns
-
-- Use `parallel.Parallel2`-`Parallel5` for independent concurrent operations
-- Use `parallel.KeyShard` for key-based work distribution
-- Always pass `context.Context` for cancellation
-- Handle graceful shutdown in main.go
+3. **Database errors**: Use `repoerr.Handle()` for consistent DB→domain error mapping
+4. **HTTP mapping**: `response.HandleError(w, err)` maps `AppError` to HTTP status codes via `errors.As`
 
 ## Security
 
 - Validate all inputs using domain value objects
 - Use parameterized queries (sqlc handles this)
 - Environment-based configuration (no hardcoded secrets)
-- CORS middleware for API endpoints
+- Bearer auth middleware for API endpoints
 
 ## Performance
 
-- Use connection pooling for database
-- Concurrent operations for independent tasks
+- Connection pooling for database
+- Context timeouts on all DB operations (5s default in repositories)
 - Index database columns used in WHERE clauses
-- Use `LIMIT` and `OFFSET` for pagination

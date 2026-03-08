@@ -87,8 +87,8 @@ func TestNewTaskTitle(t *testing.T) {
         {testName: "empty string", args: args{title: ""}, expected: expected{wantErr: true, errName: "ValidationError"}},
 
         // 境界値
-        {testName: "max length", args: args{title: strings.Repeat("a", 200)}, expected: expected{wantErr: false}},
-        {testName: "over max", args: args{title: strings.Repeat("a", 201)}, expected: expected{wantErr: true}},
+        {testName: "max length", args: args{title: strings.Repeat("a", 100)}, expected: expected{wantErr: false}},
+        {testName: "over max", args: args{title: strings.Repeat("a", 101)}, expected: expected{wantErr: true}},
 
         // 特殊文字
         {testName: "emoji", args: args{title: "Task 📋"}, expected: expected{wantErr: false}},
@@ -103,28 +103,27 @@ func TestNewTaskTitle(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.testName, func(t *testing.T) {
-            result := model.NewTaskTitle(tt.args.title)
+            got, err := task.NewTaskTitle(tt.args.title)
 
             if tt.expected.wantErr {
-                assert.True(t, result.IsErr())
-                assert.Equal(t, tt.expected.errName, result.UnwrapErr().ErrorName())
+                if err == nil {
+                    t.Fatal("expected error but got nil")
+                }
+                var appErr apperror.AppError
+                if errors.As(err, &appErr) {
+                    if diff := cmp.Diff(tt.expected.errName, appErr.ErrorName()); diff != "" {
+                        t.Errorf("error name mismatch (-want +got):\n%s", diff)
+                    }
+                }
             } else {
-                assert.True(t, result.IsOk())
+                if err != nil {
+                    t.Fatalf("unexpected error: %v", err)
+                }
+                _ = got
             }
         })
     }
 }
-```
-
-## Result Monad Testing
-
-```go
-result := service.CreateTask(input)
-
-result.Match(
-    func(task Task) { assert.Equal(t, expected, task) },
-    func(err AppError) { assert.Equal(t, "ValidationError", err.ErrorName()) },
-)
 ```
 
 ## Pre-commit Coverage Check

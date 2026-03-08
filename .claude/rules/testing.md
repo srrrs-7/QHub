@@ -26,37 +26,53 @@ for _, tt := range tests {
 
 ## HTTP Handler Testing
 
-Use `testutil` package helpers:
+Integration tests use real DB with transaction isolation:
 
 ```go
-import "pkgs/testutil"
+func TestGetHandler(t *testing.T) {
+    q := testutil.SetupTestTx(t)  // transaction-isolated DB
+    tt.setup(t, q)                // seed test data
 
-req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
-w := httptest.NewRecorder()
-handler(w, req)
+    repo := task_repository.NewTaskRepository(q)
+    handler := NewTaskHandler(repo).Get()
 
-// Use testutil for assertions
-testutil.AssertStatusCode(t, w, http.StatusOK)
-testutil.AssertJSONResponse(t, w, expectedResponse)
+    req := httptest.NewRequest(http.MethodGet, "/tasks/"+id, nil)
+    testutil.SetAuthHeader(req)   // set Bearer token
+    w := httptest.NewRecorder()
+
+    handler.ServeHTTP(w, req)
+
+    if diff := cmp.Diff(http.StatusOK, w.Result().StatusCode); diff != "" {
+        t.Errorf("status code mismatch (-want +got):\n%s", diff)
+    }
+}
+```
+
+For chi URL params in tests:
+```go
+rctx := chi.NewRouteContext()
+rctx.URLParams.Add("id", taskID)
+req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 ```
 
 ## Database Testing
 
-Use `testutil.SetupTestDB` for integration tests:
+Use `testutil.SetupTestTx(t)` for transaction-wrapped tests (auto-rollback on cleanup):
 
 ```go
-db := testutil.SetupTestDB(t)
-defer db.Close()
+q := testutil.SetupTestTx(t)
+repo := NewTaskRepository(q)
 
 // Test repository methods with real database
+got, err := repo.FindByID(context.Background(), id)
 ```
 
 ## Test Organization
 
-- Unit tests: Test individual functions with mocked dependencies
-- Integration tests: Test with real database (requires `docker compose up -d db`)
+- Unit tests: Test value objects and domain logic
+- Integration tests: Test repositories and handlers with real DB (requires `docker compose up -d db`)
 - Table-driven tests: Group related test cases together
-- Test naming: Use descriptive names that explain the scenario and expected behavior
+- Test naming: Use descriptive names that explain the scenario
 
 ## Running Tests
 
@@ -71,9 +87,9 @@ cd apps/api && go test ./src/routes/tasks/
 cd apps/api && go test -run TestListHandler ./src/routes/tasks/
 
 # With coverage
-go test -cover ./...
+cd apps/api && go test -cover ./...
 ```
 
-## Test Database Migrations
+## Test Database
 
-Tests automatically run migrations using `make atlas-apply` before test execution.
+`make test` automatically runs `make atlas-apply` before test execution.

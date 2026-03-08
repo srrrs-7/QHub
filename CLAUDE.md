@@ -4,213 +4,176 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Go monorepo using Go 1.25 with workspaces, Docker Compose for services, and PostgreSQL 18.
-
-## Coding Guidelines
-
-**CRITICAL: This repository requires Test-Driven Development (TDD) for all code changes.**
-
-Detailed coding standards and patterns are documented in `.claude/rules/`:
-
-- **architecture.md**: Layered architecture (routes → domain ← infra), clean architecture principles, API design, database migrations, error handling strategy
-- **go-patterns.md**: Domain model value objects, error handling with `AppError` interface, concurrency patterns
-- **testing.md**: Table-driven test pattern (mandatory), HTTP handler testing with `testutil`, database testing, test organization
-- **tdd.md**: **TDD workflow (Red → Green → Refactor → Commit)**, required test categories (6 categories: 正常系, 異常系, 境界値, 特殊文字, 空文字, Null/Nil), coverage requirements (≥80% overall, ≥80% per function, 100% for critical paths)
-
-**TDD is mandatory. Always follow this workflow:**
-
-1. 🔴 **RED**: Write failing test first
-2. 🟢 **GREEN**: Write minimal code to pass
-3. 🔵 **REFACTOR**: Improve code quality
-4. ✅ **COMMIT**: Commit after green with ≥80% coverage
-5. ♻️ **REPEAT**: Next test case
-
-**Never write production code without writing the test first.** Coverage below 80% blocks commits.
-
-## Repository Structure
-
-```
-apps/
-  api/          # Backend API (go-chi router, port 8080)
-  pkgs/         # Shared packages (db, logger, env, testutil)
-  web/          # Frontend (templ + HTMX, port 3000)
-  migrate/      # Database migration app
-  iac/          # Terraform infrastructure (AWS)
-```
-
-Go workspace: `apps/go.work` manages `api`, `pkgs`, and `web` modules.
+QHub — a system for creating questions (prompts) and version-managing answers. Go monorepo (Go 1.25, workspaces), PostgreSQL 18, Docker Compose.
 
 ## Development Commands
 
 ```bash
-# Local services (from repo root)
-docker compose up -d          # Start all services (api, web, db, cache, queue)
-docker compose up -d db       # Start only PostgreSQL
+# Services
+docker compose up -d          # Start all (api, web, db, cache, queue)
+docker compose up -d db       # PostgreSQL only (required for tests)
+make run-api                  # API on :8080
+make run-web                  # Web on :3000 (run make templ-gen first)
+make run-all                  # Migrate + API + Web
 
-# Run servers locally (alternative to Docker Compose)
-make run-api                  # Run API server on port 8080
-make run-web                  # Run web server on port 3000 (requires make templ-gen first)
-make run-all                  # Run migrations, then start API and web servers
+# Quality & Tests
+make check                    # fmt + vet + lint + cspell + test (full CI check)
+make test                     # All tests (requires DB)
+make fmt && make vet          # Format + static analysis
+make lint                     # golangci-lint
 
-# Tests (all modules)
-make test                     # Run all tests (requires DB running)
-make check                    # Run fmt, vet, lint, cspell, and test
+# Single test
+cd apps/api && go test -run TestGetHandler ./src/routes/tasks/
 
-# Run single test
-cd apps/api && go test -run TestListHandler ./src/routes/tasks/
+# Coverage
+cd apps/api && go test -coverprofile=c.out ./... && go tool cover -func=c.out
 
-# Code quality
-make fmt      # Format Go code
-make vet      # Static analysis
-make lint     # Run golangci-lint
-make fix      # Run go fix
-make tidy     # go mod tidy
-make cspell   # Check spelling (misspell)
-make tf-fmt   # Format Terraform files
+# Database
+make atlas-diff NAME=<name>   # Generate migration from schema diff
+make atlas-apply              # Apply pending migrations
+make sqlc-gen                 # Regenerate Go from SQL queries (after query changes)
 
-# Database migrations (Atlas)
-make atlas-diff NAME=<name>  # Generate migration from schema changes
-make atlas-apply             # Apply pending migrations
-make atlas-new NAME=<name>   # Create new migration file
-make atlas-status            # Show migration status
-# Use ATLAS_ENV=docker for Docker environment: make atlas-apply ATLAS_ENV=docker
+# Frontend
+make templ-gen                # Generate Go from .templ templates
 
-# sqlc code generation
-make sqlc-gen      # Generate Go code from SQL queries
-make sqlc-compile  # Validate SQL queries
-
-# templ template generation (web frontend)
-make templ-gen     # Generate Go code from .templ templates
-make templ-watch   # Watch and regenerate on template changes
-make templ-fmt     # Format .templ files
-
-# Git hooks (optional)
-make hooks-install   # Install pre-commit (fmt, vet) and pre-push (test) hooks
-make hooks-uninstall # Remove git hooks
+# Terraform
+make tf-fmt                   # Format .tf files
 ```
 
 ## Architecture
 
+### Layered Clean Architecture
+
+```
+routes/  → HTTP handlers (depend on domain interfaces only)
+domain/  → Value objects, entities, repository interfaces (no external deps)
+infra/   → Repository implementations (sqlc + PostgreSQL)
+```
+
+Dependency direction: `routes → domain ← infra` (domain is independent).
+
+DI wiring in `cmd/main.go`: `db.Querier → *Repository → *Handler → routes.Handlers → NewRouter`
+
+### Domain Entities
+
+| Entity | Domain Package | Repository Interface | Infra Package |
+|--------|---------------|---------------------|---------------|
+| Task | `domain/task/` | `TaskRepository` | `task_repository/` |
+| Organization | `domain/organization/` | `OrganizationRepository`, `MemberRepository` | `organization_repository/` |
+| Project | `domain/project/` | `ProjectRepository` | `project_repository/` |
+| Prompt | `domain/prompt/` | `PromptRepository`, `VersionRepository` | `prompt_repository/` |
+
+### API Routes (`/api/v1`, Bearer auth required)
+
+```
+/tasks                                    GET POST
+/tasks/{id}                               GET PUT
+/organizations                            POST
+/organizations/{org_slug}                 GET PUT
+/organizations/{org_id}/projects          GET POST
+/organizations/{org_id}/projects/{slug}   GET PUT DELETE
+/projects/{project_id}/prompts            GET POST
+/projects/{project_id}/prompts/{slug}     GET PUT
+/prompts/{prompt_id}/versions             GET POST
+/prompts/{prompt_id}/versions/{version}   GET
+/prompts/{prompt_id}/versions/{version}/status  PUT
+/health                                   GET (no auth)
+```
+
 ### Error Handling
 
-The codebase uses standard Go `(value, error)` returns. Domain errors implement the `AppError` interface from `domain/apperror/`:
+Standard Go `(value, error)` returns. Domain errors implement `AppError` interface (`domain/apperror/`):
 
 ```go
 type AppError interface {
-    Error() string
-    ErrorName() string
-    DomainName() string
+    error
+    ErrorName() string   // "ValidationError", "NotFoundError", etc.
+    DomainName() string  // "Task", "Organization", etc.
+    Unwrap() error
 }
 ```
 
-Error types: `ValidationError`, `NotFoundError`, `DatabaseError`, `ConflictError`.
-The response layer maps `AppError` to HTTP status codes via `response.HandleAppError()`.
+Error types: `ValidationError`, `NotFoundError`, `DatabaseError`, `InternalServerError`, `BadRequestError`, `ConflictError`, `UnauthorizedError`, `ForbiddenError`.
 
-### Domain Model Pattern
+`response.HandleError(w, err)` maps `AppError` → HTTP status via `errors.As`. Repository errors use shared `repoerr.Handle()` for DB→domain error mapping.
 
-- Value objects with type safety: `TaskID`, `TaskTitle`, `TaskDescription`, `TaskStatus`
-- Validation in value object constructors (e.g., `NewTaskTitle` validates length 3-100)
-- Repository interfaces defined in domain layer (dependency inversion)
-- Domain layer has no external dependencies
+### Struct-Based DI Pattern
 
 ```go
-// domain/task/repository.go — interface in domain, implemented by infra
-type TaskRepository interface {
-    FindByID(ctx context.Context, id TaskID) (Task, error)
-    FindAll(ctx context.Context) ([]Task, error)
-    Create(ctx context.Context, cmd TaskCmd) (Task, error)
-    Update(ctx context.Context, id TaskID, cmd TaskCmd) (Task, error)
+// Domain: interface defined here
+type TaskRepository interface { FindByID(ctx, id) (Task, error) }
+
+// Infra: struct implements interface
+type TaskRepository struct { q db.Querier }
+func NewTaskRepository(q db.Querier) *TaskRepository { ... }
+var _ task.TaskRepository = (*TaskRepository)(nil)  // compile-time check
+
+// Routes: handler depends on interface
+type TaskHandler struct { repo task.TaskRepository }
+func NewTaskHandler(repo task.TaskRepository) *TaskHandler { ... }
+func (h *TaskHandler) Get() http.HandlerFunc { ... }
+```
+
+### Value Objects
+
+Type-safe wrappers with validation in constructors: `TaskID`, `TaskTitle(3-100 chars)`, `TaskDescription(≤500)`, `TaskStatus(pending|completed)`, `OrganizationSlug`, `ProjectSlug`, `PromptSlug`, etc.
+
+### Module Structure
+
+Go workspace `apps/go.work` manages three modules:
+
+- `apps/api` (module: `api`) — Backend API
+- `apps/pkgs` (module: `utils`) — Shared: `db/`, `env/`, `logger/`, `testutil/`
+- `apps/web` (module: web) — templ + HTMX frontend
+
+`apps/iac/` — Terraform AWS infrastructure (VPC, ECS, Aurora, Cognito, CloudFront, WAF, etc.)
+
+### Database
+
+- **Atlas**: Schema-first migrations (`apps/pkgs/db/migrations/`)
+- **sqlc**: Type-safe queries (`apps/pkgs/db/queries/*.sql` → `apps/pkgs/db/db/*.go`)
+- Workflow: edit schema/queries → `make atlas-diff NAME=x` → review → `make atlas-apply` → `make sqlc-gen`
+
+## Coding Conventions
+
+### TDD Mandatory (Red → Green → Refactor → Commit)
+
+1. Write failing test first
+2. Write minimal code to pass
+3. Refactor
+4. Coverage ≥80% overall, ≥80% per function, 100% critical paths
+
+### Required Test Categories (all 6 for every function)
+
+1. 正常系 (Happy Path)
+2. 異常系 (Error Cases)
+3. 境界値 (Boundary Values)
+4. 特殊文字 (Special Chars: emoji, Japanese, SQL injection)
+5. 空文字 (Empty/whitespace)
+6. Null/Nil
+
+### Table-Driven Tests
+
+```go
+tests := []struct {
+    testName string
+    args     args
+    expected expected
+}{...}
+for _, tt := range tests {
+    t.Run(tt.testName, func(t *testing.T) { ... })
 }
 ```
 
-### API Layer Structure (apps/api/src)
+Integration tests use `testutil.SetupTestTx(t)` for transaction-isolated DB. `testutil.SetAuthHeader(req)` for Bearer token.
 
-```
-cmd/main.go              # Entry point, graceful shutdown
-routes/
-  routes.go              # Chi router setup, /api/v1 prefix, DI wiring
-  middleware/             # Logger, Bearer auth middleware
-  response/response.go   # JSON response helpers, error mapping
-  tasks/                 # Handler per endpoint (list.go, post.go, get.go, put.go)
-domain/
-  apperror/              # AppError interface and error types
-  task/                  # Value objects, aggregate, repository interface
-infra/rds/
-  task_repository/       # Repository implementation using sqlc
-```
+### Handler File Layout (per resource)
 
-DI flow in `routes.go`: sqlc Querier → `TaskRepository` → `TaskHandler`
+`handler.go` (struct + constructor), `get.go`, `post.go`, `put.go`, `list.go`, `request.go`, `response_types.go`, `*_test.go`
 
-Route pattern: `/api/v1/tasks`, `/api/v1/tasks/{id}` (Bearer auth required)
+### Git Commits
 
-### Web Frontend (apps/web)
+Conventional format: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
+Include `Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>`
 
-Go server-side rendered frontend using templ + HTMX:
-- `cmd/main.go` - Entry point (port 3000), graceful shutdown, API client initialization
-- `templates/*.templ` - Type-safe Go templates compiled to `*_templ.go` files
-- `handlers/` - HTTP handlers returning templ components
-- `routes/` - Chi router, serves full pages and HTMX partials
-- `client/` - API client for communicating with backend API
-
-**templ workflow**: Edit `.templ` files → `make templ-gen` → compile-time checked Go code.
-
-### Database Layer (apps/pkgs/db)
-
-- **Atlas**: Schema-first migrations in `migrations/`
-- **sqlc**: Type-safe query generation from `queries/*.sql` → `db/*.go`
-- Config files: `atlas.hcl` (environments: local, docker, ci), `sqlc.yaml`
-- Migration workflow: Update schema → `make atlas-diff` → review → `make atlas-apply` → `make sqlc-gen`
-
-### Shared Packages (apps/pkgs)
-
-- `db/` - Database connection (`connect.go`) and sqlc-generated queries
-- `env/` - Environment variable utilities (`GetString`, `GetStringOrDefault`, `GetInt`, `GetBool`)
-- `logger/` - Structured logging with slog (JSON output)
-- `testutil/` - Test helpers: `SetupTestTx()` for transaction-wrapped DB tests, `SetAuthHeader()` for Bearer token in HTTP tests
-
-### Docker Compose Services
-
-- **api** (port 8080) - Backend, depends on db/cache/queue
-- **web** (port 3000) - Frontend, depends on api
-- **db** - PostgreSQL 18 (port 5432)
-- **cache** - Redis (port 6379)
-- **queue** - ElasticMQ (port 9324)
-- **migrate** - Database migration runner
-
-## Testing Patterns
-
-**All code must follow TDD workflow** (see `.claude/rules/tdd.md` for details).
-
-Tests use table-driven pattern with `args`/`expected` structs. HTTP handlers tested with `httptest.NewRequest` and `httptest.NewRecorder`.
-
-**Required test coverage**: ≥80% overall, ≥80% per function, 100% for critical paths.
-
-**Required test categories** (cover all 6 for every function):
-1. ✅ 正常系 (Happy Path)
-2. ❌ 異常系 (Error Cases)
-3. 📏 境界値 (Boundary Values)
-4. 🔤 特殊文字 (Special Chars)
-5. 📭 空文字 (Empty String)
-6. ⚠️ Null/Nil
-
-## Infrastructure (apps/iac)
-
-Terraform modules for AWS: VPC, ECS Fargate, ECR, ALB, Aurora PostgreSQL Serverless v2, Cognito, CloudFront, S3, WAF, ACM, Route53, IAM (OIDC), Security Groups.
-
-Naming convention: `${project}-${environment}-${resource}`
-
-## Git Workflow
-
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
-- Include `Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>`
-- Stage specific files (avoid `git add -A`)
-- If pre-commit hook fails: fix and create NEW commit (never `--amend`)
-- Never force push to `main`; use `--force-with-lease` if needed
-
-## CI/CD Pipeline
-
-**CI**: GitHub Actions runs in devcontainer on push/PR to main: `make vet && make atlas-apply && make test`
-
-**CD**: Triggered by push to `main` (→ dev) or manual workflow dispatch (→ dev/stg/prd)
-- Flow: Database Migration → Build & Push to ECR → Deploy to ECS
-- Environments configured in GitHub Settings → Environments with AWS OIDC credentials
+Detailed rules in `.claude/rules/`: `architecture.md`, `go-patterns.md`, `testing.md`, `tdd.md`

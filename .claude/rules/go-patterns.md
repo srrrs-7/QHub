@@ -1,44 +1,17 @@
-# Go Functional Programming Patterns
-
-## Result Type Monad
-
-Always use `Result[T, E]` monad from `apps/pkgs/types/result.go` for error handling:
-
-```go
-// Use Pipe2-5 for sequential operations
-res := types.Pipe2(
-    validateInput(),
-    func(input Input) types.Result[Output, model.AppError] {
-        return processInput(input)
-    },
-    func(output Output) Response { return toResponse(output) },
-)
-
-// Use Match for handling success/error cases
-res.Match(
-    func(success Response) { /* handle success */ },
-    func(err model.AppError) { /* handle error */ },
-)
-```
-
-**Never use traditional Go (value, error) pattern in new code** - always return `Result[T, E]`.
-
-## Domain Model Value Objects
-
-- Create type-safe value objects for all domain entities
-- Example: `TaskID`, `TaskTitle`, `TaskDescription`, `TaskCompleted`
-- Validation logic belongs in value object constructors
-- Value objects should be immutable
+# Go Idiomatic Patterns
 
 ## Error Handling
 
-All domain errors must implement `AppError` interface:
+Standard Go `(value, error)` returns with `if err != nil` pattern. Never use Result monads.
+
+All domain errors implement `AppError` interface:
 
 ```go
 type AppError interface {
-    Error() string
+    error
     ErrorName() string
     DomainName() string
+    Unwrap() error
 }
 ```
 
@@ -47,36 +20,58 @@ Use specific error types:
 - `NotFoundError` - Resource not found
 - `DatabaseError` - Database operation failures
 - `ConflictError` - Business rule violations
+- `BadRequestError` - Malformed requests
+- `UnauthorizedError` - Authentication failures
+- `ForbiddenError` - Authorization failures
+- `InternalServerError` - Unexpected errors
 
-## Concurrency with parallel Package
-
-Use `parallel.Parallel2`-`Parallel5` for concurrent operations:
-
+Use `errors.As` for type checking:
 ```go
-result1, result2, err := parallel.Parallel2(ctx,
-    func(ctx context.Context) (Type1, error) { /* operation 1 */ },
-    func(ctx context.Context) (Type2, error) { /* operation 2 */ },
-)
+var appErr apperror.AppError
+if errors.As(err, &appErr) {
+    // handle AppError
+}
 ```
 
-For key-sharded operations, use `parallel.KeyShard`:
+Repository error mapping uses shared `repoerr.Handle(err, repoName, entity)`.
+
+## Struct-Based Dependency Injection
+
+Dependencies are injected via constructor functions. Interfaces defined in domain layer.
 
 ```go
-pool := parallel.NewKeyShard[Key, Result](workerCount, taskFunc)
-defer pool.Close()
-result := pool.Process(ctx, key)
+// Repository struct with db.Querier
+type TaskRepository struct { q db.Querier }
+func NewTaskRepository(q db.Querier) *TaskRepository { return &TaskRepository{q: q} }
+var _ task.TaskRepository = (*TaskRepository)(nil)  // compile-time check
+
+// Handler struct with domain interface
+type TaskHandler struct { repo task.TaskRepository }
+func NewTaskHandler(repo task.TaskRepository) *TaskHandler { return &TaskHandler{repo: repo} }
 ```
+
+## Domain Model Value Objects
+
+- Create type-safe value objects for all domain entities
+- Example: `TaskID`, `TaskTitle`, `TaskDescription`, `TaskStatus`, `OrganizationSlug`, `ProjectSlug`
+- Validation logic belongs in value object constructors returning `(T, error)`
+- Value objects should be immutable
+- Use `XxxFromYyy` constructors for trusted sources (e.g., `TaskIDFromUUID` from DB)
 
 ## Code Organization
 
 - **Handlers**: One file per endpoint (e.g., `list.go`, `post.go`, `get.go`, `put.go`)
-- **Repository**: Use interface-based design in `infra/rds/`
-- **Domain logic**: Keep in `domain/model/`
+- **Handler struct**: Defined in `handler.go` with constructor
+- **Request types**: Defined in `request.go` with validation
+- **Response types**: Defined in `response_types.go` with conversion functions
+- **Repository**: Struct in `{entity}_repository.go`, reads in `read.go`, writes in `write.go`
+- **Domain logic**: Keep in `domain/{entity}/` with repository interface in `repository.go`
 - **No business logic in handlers** - handlers orchestrate, domain logic validates and processes
 
 ## Naming Conventions
 
-- Handlers: `{action}Handler` (e.g., `listHandler`, `createHandler`)
-- Requests: `{action}Request` (e.g., `listRequest`, `createRequest`)
-- Responses: `{action}Response` (e.g., `listResponse`, `createResponse`)
-- Repositories: `{Entity}Repository` with methods like `Find{Entity}`, `Create{Entity}`
+- Handler struct: `{Entity}Handler` with methods `Get()`, `Post()`, `Put()`, `List()`, `Delete()`
+- Requests: `{action}Request` (e.g., `getRequest`, `postRequest`)
+- Responses: `{entity}Response` (e.g., `taskResponse`) with `to{Entity}Response()` converter
+- Repositories: `{Entity}Repository` with methods like `FindByID`, `FindAll`, `Create`, `Update`
+- Constructors: `New{Type}(deps) *{Type}`
