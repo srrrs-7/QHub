@@ -153,14 +153,64 @@ var versionStatusCmd = &cobra.Command{
 	},
 }
 
+var versionDiffCmd = &cobra.Command{
+	Use:   "diff <v1> <v2>",
+	Short: "Get semantic diff between two versions",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(_ *cobra.Command, args []string) error {
+		var result any
+		path := "/api/v1/prompts/" + versionPromptID + "/semantic-diff/" + args[0] + "/" + args[1]
+		if err := apiGet(path, &result); err != nil {
+			return err
+		}
+		printJSON(result)
+		return nil
+	},
+}
+
+var versionTextDiffCmd = &cobra.Command{
+	Use:   "text-diff <version>",
+	Short: "Get line-by-line text diff (against previous version)",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		from, _ := cmd.Flags().GetString("from")
+		path := versionPath(args[0], "text-diff")
+		if from != "" {
+			path += "?from=" + from
+		}
+		var result any
+		if err := apiGet(path, &result); err != nil {
+			return err
+		}
+		printJSON(result)
+		return nil
+	},
+}
+
+var versionLintCmd = &cobra.Command{
+	Use:   "lint <version>",
+	Short: "Lint a prompt version",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		var result any
+		if err := apiGet(versionPath(args[0], "lint"), &result); err != nil {
+			return err
+		}
+		printJSON(result)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	versionCmd.PersistentFlags().StringVar(&versionPromptID, "prompt", "", "Prompt ID (required)")
 
-	versionCmd.AddCommand(versionListCmd, versionGetCmd, versionCreateCmd, versionPromoteCmd, versionStatusCmd)
+	versionCmd.AddCommand(versionListCmd, versionGetCmd, versionCreateCmd, versionPromoteCmd, versionStatusCmd, versionDiffCmd, versionTextDiffCmd, versionLintCmd)
 
 	versionCreateCmd.Flags().String("content", "", "Prompt content")
 	versionCreateCmd.Flags().String("content-file", "", "Read content from file (use - for stdin)")
 	versionCreateCmd.Flags().String("change-description", "", "Description of changes")
 	versionCreateCmd.Flags().StringSlice("variables", nil, "Template variables (comma-separated)")
+
+	versionTextDiffCmd.Flags().String("from", "", "Base version number (defaults to version-1)")
 }
