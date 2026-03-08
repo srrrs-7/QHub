@@ -15,6 +15,8 @@ docker compose up -d db       # PostgreSQL only (required for tests)
 make run-api                  # API on :8080
 make run-web                  # Web on :3000 (run make templ-gen first)
 make run-all                  # Migrate + API + Web
+make build-cli                # Build qhub CLI to bin/qhub
+make run-cli ARGS="prompt list --project <id>"  # Run CLI directly
 
 # Quality & Tests
 make check                    # fmt + vet + lint + cspell + test (full CI check)
@@ -120,11 +122,12 @@ Type-safe wrappers with validation in constructors: `TaskID`, `TaskTitle(3-100 c
 
 ### Module Structure
 
-Go workspace `apps/go.work` manages three modules:
+Go workspace `apps/go.work` manages four modules:
 
 - `apps/api` (module: `api`) — Backend API
 - `apps/pkgs` (module: `utils`) — Shared: `db/`, `env/`, `logger/`, `testutil/`
-- `apps/web` (module: web) — templ + HTMX frontend
+- `apps/web` (module: `web`) — templ + HTMX frontend (M3 design system)
+- `apps/cli` (module: `cli`) — `qhub` CLI (cobra-based, JSON output)
 
 `apps/iac/` — Terraform AWS infrastructure (VPC, ECS, Aurora, Cognito, CloudFront, WAF, etc.)
 

@@ -1,77 +1,148 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"web/src/client"
-	"web/src/templates/components"
+	"web/src/templates"
 )
 
-// TaskListPartial handles HTMX requests to refresh the task list.
-func TaskListPartial(apiClient *client.APIClient) http.HandlerFunc {
+type PartialHandler struct {
+	api *client.APIClient
+}
+
+func NewPartialHandler(api *client.APIClient) *PartialHandler {
+	return &PartialHandler{api: api}
+}
+
+// CreatePrompt handles HTMX POST to create a prompt and return updated list.
+func (h *PartialHandler) CreatePrompt() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tasks, err := apiClient.ListTasks(r.Context())
-		if err != nil {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_ = components.TaskList([]client.Task{}).Render(r.Context(), w)
-			_ = components.Status("Error loading tasks: "+err.Error(), true).Render(r.Context(), w)
+		projectID := chi.URLParam(r, "project_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = components.TaskList(tasks.Tasks).Render(r.Context(), w)
+		body := map[string]string{
+			"name":        r.FormValue("name"),
+			"slug":        r.FormValue("slug"),
+			"prompt_type": r.FormValue("prompt_type"),
+			"description": r.FormValue("description"),
+		}
+
+		if _, err := h.api.CreatePrompt(r.Context(), projectID, body); err != nil {
+			renderSnackbar(w, r, "Error creating prompt: "+err.Error(), true)
+			return
+		}
+
+		prompts, err := h.api.ListPrompts(r.Context(), projectID)
+		if err != nil {
+			prompts = []client.Prompt{}
+		}
+
+		// Re-render the prompt list (need page data from referer or just use empty for partials)
+		page := templates.PageData{}
+		render(w, r, templates.PromptList(page, prompts))
 	}
 }
 
-// AddTaskPartial handles HTMX requests to add a new task.
-func AddTaskPartial(apiClient *client.APIClient) http.HandlerFunc {
+// CreateVersion handles HTMX POST to create a version and return updated version list.
+func (h *PartialHandler) CreateVersion() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Parse form data
+		promptID := chi.URLParam(r, "prompt_id")
+
 		if err := r.ParseForm(); err != nil {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_ = components.Status("Error parsing form: "+err.Error(), true).Render(r.Context(), w)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
-		title := r.FormValue("title")
-		description := r.FormValue("description")
+		content := r.FormValue("content")
+		contentJSON, _ := json.Marshal(content)
 
-		// Validate
-		if title == "" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			tasks, _ := apiClient.ListTasks(r.Context())
-			if tasks == nil {
-				tasks = &client.TasksResponse{Tasks: []client.Task{}}
-			}
-			_ = components.TaskList(tasks.Tasks).Render(r.Context(), w)
-			_ = components.Status("Title is required", true).Render(r.Context(), w)
+		body := map[string]any{
+			"content":            json.RawMessage(contentJSON),
+			"change_description": r.FormValue("change_description"),
+		}
+
+		if _, err := h.api.CreateVersion(r.Context(), promptID, body); err != nil {
+			renderSnackbar(w, r, "Error creating version: "+err.Error(), true)
 			return
 		}
 
-		// Create task
-		_, err := apiClient.CreateTask(r.Context(), client.CreateTaskRequest{
-			Title:       title,
-			Description: description,
-		})
-
-		// Fetch updated list
-		tasks, listErr := apiClient.ListTasks(r.Context())
-		if tasks == nil {
-			tasks = &client.TasksResponse{Tasks: []client.Task{}}
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-		// Render task list
-		_ = components.TaskList(tasks.Tasks).Render(r.Context(), w)
-
-		// Render status message (OOB swap)
+		versions, err := h.api.ListVersions(r.Context(), promptID)
 		if err != nil {
-			_ = components.Status("Error adding task: "+err.Error(), true).Render(r.Context(), w)
-		} else if listErr != nil {
-			_ = components.Status("Task added, but failed to refresh list", true).Render(r.Context(), w)
-		} else {
-			_ = components.Status("Task added successfully!", false).Render(r.Context(), w)
+			versions = []client.PromptVersion{}
+		}
+
+		prompt := &client.Prompt{ID: promptID}
+		page := templates.PageData{}
+		for _, v := range versions {
+			render(w, r, templates.VersionItem(page, prompt, v, v.VersionNumber == versions[0].VersionNumber))
 		}
 	}
+}
+
+// GetVersionDetail handles HTMX GET for version detail panel.
+func (h *PartialHandler) GetVersionDetail() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		versionNum := chi.URLParam(r, "version")
+
+		v, err := h.api.GetVersion(r.Context(), promptID, versionNum)
+		if err != nil {
+			http.Error(w, "Version not found", http.StatusNotFound)
+			return
+		}
+
+		prompt := &client.Prompt{ID: promptID}
+		page := templates.PageData{}
+		render(w, r, templates.VersionDetail(page, prompt, *v))
+	}
+}
+
+// UpdateVersionStatus handles HTMX PUT for version status change.
+func (h *PartialHandler) UpdateVersionStatus() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		versionNum := chi.URLParam(r, "version")
+
+		var body struct {
+			Status string `json:"status"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		v, err := h.api.UpdateVersionStatus(r.Context(), promptID, versionNum, body.Status)
+		if err != nil {
+			renderSnackbar(w, r, "Error updating status: "+err.Error(), true)
+			return
+		}
+
+		prompt := &client.Prompt{ID: promptID}
+		page := templates.PageData{}
+		render(w, r, templates.VersionDetail(page, prompt, *v))
+	}
+}
+
+func renderSnackbar(w http.ResponseWriter, _ *http.Request, msg string, isError bool) {
+	cls := "snackbar--success"
+	if isError {
+		cls = "snackbar--error"
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<div class="snackbar %s" hx-swap-oob="innerHTML:#snackbar">%s</div>`, cls, msg)
+}
+
+// HealthHandler returns a simple health check response.
+func HealthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
 }

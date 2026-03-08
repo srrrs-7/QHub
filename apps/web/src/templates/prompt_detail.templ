@@ -1,0 +1,164 @@
+package templates
+
+import (
+	"fmt"
+	"web/src/client"
+)
+
+templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Prompt, versions []client.PromptVersion, activeVersion *client.PromptVersion) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/">Home</a>
+			<span class="breadcrumb__sep">/</span>
+			<a href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects") }>Projects</a>
+			<span class="breadcrumb__sep">/</span>
+			<a href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts") }>{ project.Name }</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ prompt.Name }</span>
+		</div>
+		<div class="detail-layout">
+			<!-- Sidebar: Version History -->
+			<div class="detail-sidebar">
+				<div class="flex items-center justify-between mb-16">
+					<h2 class="page-header__title">{ prompt.Name }</h2>
+				</div>
+				<div class="flex gap-8 mb-16">
+					<span class="type-badge">{ prompt.PromptType }</span>
+					@StatusBadge(prompt.StatusLabel())
+				</div>
+				if prompt.Description != "" {
+					<p class="prompt-card__desc mb-16">{ prompt.Description }</p>
+				}
+				<hr class="divider"/>
+				<div class="flex items-center justify-between mb-8">
+					<span style="font: var(--md-sys-typescale-label-large)">Version History</span>
+					<button class="btn btn--tonal" style="padding: 6px 12px; font-size: 0.75rem;" onclick="document.getElementById('new-version-dialog').showModal()">
+						<span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+						New
+					</button>
+				</div>
+				<div class="version-list" id="version-list">
+					for _, v := range versions {
+						@VersionItem(page, prompt, v, activeVersion != nil && v.VersionNumber == activeVersion.VersionNumber)
+					}
+				</div>
+			</div>
+			<!-- Main: Version Detail -->
+			<div class="detail-content" id="version-detail">
+				if activeVersion != nil {
+					@VersionDetail(page, prompt, *activeVersion)
+				} else if len(versions) > 0 {
+					@VersionDetail(page, prompt, versions[0])
+				} else {
+					<div class="empty-state">
+						<span class="material-symbols-outlined">history</span>
+						<div class="empty-state__title">No versions</div>
+						<div class="empty-state__desc">Create the first version of this prompt.</div>
+					</div>
+				}
+			</div>
+		</div>
+		<!-- New Version Dialog -->
+		<dialog id="new-version-dialog">
+			<form
+				method="dialog"
+				hx-post={ "/partials/prompts/" + prompt.ID + "/versions" }
+				hx-target="#version-list"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Version</h2>
+				<div class="form-field">
+					<label for="content">Content</label>
+					<textarea id="content" name="content" required style="min-height: 200px; font-family: monospace;"></textarea>
+				</div>
+				<div class="form-field">
+					<label for="change_description">Change Description</label>
+					<input type="text" id="change_description" name="change_description"/>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create Version</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}
+
+templ VersionItem(page PageData, prompt *client.Prompt, v client.PromptVersion, active bool) {
+	<a
+		class={ "version-item", templ.KV("version-item--active", active) }
+		href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + prompt.Slug + "/v/" + fmt.Sprintf("%d", v.VersionNumber)) }
+		hx-get={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) }
+		hx-target="#version-detail"
+		hx-swap="innerHTML"
+		hx-push-url={ "/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + prompt.Slug + "/v/" + fmt.Sprintf("%d", v.VersionNumber) }
+	>
+		<span class="version-item__number">{ fmt.Sprintf("v%d", v.VersionNumber) }</span>
+		@StatusBadge(v.Status)
+		<span class="version-item__desc">{ v.ChangeDescription }</span>
+	</a>
+}
+
+templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion) {
+	<div class="flex items-center justify-between mb-16">
+		<h2 style="font: var(--md-sys-typescale-title-large)">
+			{ fmt.Sprintf("Version %d", v.VersionNumber) }
+		</h2>
+		<div class="flex gap-8">
+			if v.IsDraft() {
+				<button
+					class="btn btn--tonal"
+					hx-put={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/status" }
+					hx-vals='{"status":"review"}'
+					hx-target="#version-detail"
+					hx-swap="innerHTML"
+				>
+					Submit for Review
+				</button>
+			}
+			if v.IsReview() {
+				<button
+					class="btn btn--filled"
+					hx-put={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/status" }
+					hx-vals='{"status":"production"}'
+					hx-target="#version-detail"
+					hx-swap="innerHTML"
+				>
+					Promote to Production
+				</button>
+			}
+			if v.IsProduction() {
+				<button
+					class="btn btn--outlined"
+					hx-put={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/status" }
+					hx-vals='{"status":"archived"}'
+					hx-target="#version-detail"
+					hx-swap="innerHTML"
+				>
+					Archive
+				</button>
+			}
+		</div>
+	</div>
+	<div class="meta-grid mb-16">
+		<span class="meta-grid__label">Status</span>
+		<span>@StatusBadge(v.Status)</span>
+		<span class="meta-grid__label">Author</span>
+		<span>{ v.AuthorID }</span>
+		if v.ChangeDescription != "" {
+			<span class="meta-grid__label">Changes</span>
+			<span>{ v.ChangeDescription }</span>
+		}
+	</div>
+	if len(v.VariablesList()) > 0 {
+		<div class="mb-16">
+			<span class="meta-grid__label mb-8" style="display: block;">Variables</span>
+			<div class="chip-list">
+				for _, varName := range v.VariablesList() {
+					<span class="chip">{ varName }</span>
+				}
+			</div>
+		</div>
+	}
+	<div class="prompt-content">{ v.ContentString() }</div>
+}

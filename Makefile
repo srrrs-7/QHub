@@ -10,9 +10,10 @@ help:
 API_MOD = ./apps/api
 PKGS_MOD = ./apps/pkgs
 WEB_MOD = ./apps/web
+CLI_MOD = ./apps/cli
 DB_MOD = ./apps/pkgs/db
 IAC_DIR = ./apps/iac
-MODS = $(API_MOD) $(PKGS_MOD) $(WEB_MOD)
+MODS = $(API_MOD) $(PKGS_MOD) $(WEB_MOD) $(CLI_MOD)
 ATLAS_ENV ?= local
 ATLAS_DIR = $(DB_MOD)
 
@@ -37,6 +38,15 @@ run-api:
 # Requires: make templ-gen (run once after templ file changes)
 run-web:
 	cd ${WEB_MOD}/src && go run ./cmd
+
+# Build CLI binary
+build-cli:
+	cd ${CLI_MOD} && go build -o ../../bin/qhub .
+
+# Run CLI (pass ARGS to forward arguments)
+# Usage: make run-cli ARGS="prompt list --project <id>"
+run-cli:
+	cd ${CLI_MOD} && go run . $(ARGS)
 
 # Run database migrations (Atlas)
 run-migrate:

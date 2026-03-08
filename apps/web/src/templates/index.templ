@@ -1,28 +1,13 @@
 package templates
 
-import (
-	"web/src/client"
-	"web/src/templates/components"
-)
-
-templ Index(tasks []client.Task) {
-	@Layout() {
-		<div class="container">
-			<h1>{ "\U0001f4dd" } Task Manager</h1>
-			<p class="subtitle">Go + templ + HTMX Demo</p>
-			@components.AddForm()
-			<div class="actions">
-				<button
-					hx-get="/partials/tasks"
-					hx-target="#tasks-container"
-					hx-swap="outerHTML"
-				>
-					{ "\U0001f504" } Refresh Tasks
-					<span class="htmx-indicator">...</span>
-				</button>
+templ IndexPage() {
+	@Layout(PageData{}) {
+		<div class="empty-state" style="min-height: 60vh;">
+			<span class="material-symbols-outlined" style="font-size: 64px;">edit_note</span>
+			<div class="empty-state__title" style="font: var(--md-sys-typescale-headline-small);">Welcome to PromptLab</div>
+			<div class="empty-state__desc">
+				LLM prompt version management, quality tracking, and improvement cycles.
 			</div>
-			@components.TaskList(tasks)
-			@components.StatusEmpty()
 		</div>
 	}
 }

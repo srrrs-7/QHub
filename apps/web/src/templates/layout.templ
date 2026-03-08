@@ -1,187 +1,522 @@
 package templates
 
-templ Layout() {
+type PageData struct {
+	OrgSlug     string
+	ProjectSlug string
+	ActiveNav   string
+}
+
+templ Layout(page PageData) {
 	<!DOCTYPE html>
 	<html lang="ja">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>Task Manager - Go templ</title>
+			<title>PromptLab</title>
+			<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"/>
+			<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 			<style>
-				* {
-					box-sizing: border-box;
-					margin: 0;
-					padding: 0;
+				/* --- M3 Design Tokens --- */
+				:root {
+					--md-sys-color-primary: #4F46E5;
+					--md-sys-color-on-primary: #FFFFFF;
+					--md-sys-color-primary-container: #E0E7FF;
+					--md-sys-color-on-primary-container: #312E81;
+					--md-sys-color-surface: #FFFBFE;
+					--md-sys-color-surface-variant: #E7E0EC;
+					--md-sys-color-on-surface: #1C1B1F;
+					--md-sys-color-on-surface-variant: #49454F;
+					--md-sys-color-outline: #79747E;
+					--md-sys-color-outline-variant: #CAC4D0;
+					--md-sys-color-surface-container: #F3EDF7;
+					--md-sys-color-surface-container-low: #F7F2FA;
+					--md-sys-color-surface-container-high: #ECE6F0;
+					--md-sys-color-error: #B3261E;
+					--md-sys-color-on-error: #FFFFFF;
+					--md-sys-color-success: #16A34A;
+					--md-sys-color-warning: #CA8A04;
+					--md-sys-color-info: #2563EB;
+
+					/* Status colors */
+					--status-draft: #6B7280;
+					--status-review: #D97706;
+					--status-production: #16A34A;
+					--status-archived: #9CA3AF;
+
+					/* Typography */
+					--md-sys-typescale-body-large: 400 1rem/1.5 'Roboto', sans-serif;
+					--md-sys-typescale-body-medium: 400 0.875rem/1.43 'Roboto', sans-serif;
+					--md-sys-typescale-body-small: 400 0.75rem/1.33 'Roboto', sans-serif;
+					--md-sys-typescale-title-large: 500 1.375rem/1.27 'Roboto', sans-serif;
+					--md-sys-typescale-title-medium: 500 1rem/1.5 'Roboto', sans-serif;
+					--md-sys-typescale-label-large: 500 0.875rem/1.43 'Roboto', sans-serif;
+					--md-sys-typescale-label-medium: 500 0.75rem/1.33 'Roboto', sans-serif;
+					--md-sys-typescale-headline-small: 500 1.5rem/1.33 'Roboto', sans-serif;
+
+					/* Shape */
+					--md-sys-shape-corner-small: 8px;
+					--md-sys-shape-corner-medium: 12px;
+					--md-sys-shape-corner-large: 16px;
+					--md-sys-shape-corner-extra-large: 28px;
 				}
 
+				/* --- Reset --- */
+				*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 				body {
-					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-					background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+					font: var(--md-sys-typescale-body-large);
+					color: var(--md-sys-color-on-surface);
+					background: var(--md-sys-color-surface);
 					min-height: 100vh;
-					padding: 2rem;
 				}
 
-				.container {
-					max-width: 600px;
-					margin: 0 auto;
-					background: white;
-					border-radius: 16px;
-					padding: 2rem;
-					box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+				/* --- App Shell --- */
+				.app-shell {
+					display: grid;
+					grid-template-columns: 80px 1fr;
+					grid-template-rows: 64px 1fr;
+					min-height: 100vh;
 				}
 
-				h1 {
-					color: #333;
-					margin-bottom: 0.5rem;
+				/* --- Top App Bar --- */
+				.top-app-bar {
+					grid-column: 1 / -1;
+					display: flex;
+					align-items: center;
+					padding: 0 16px;
+					height: 64px;
+					background: var(--md-sys-color-surface);
+					border-bottom: 1px solid var(--md-sys-color-outline-variant);
+					z-index: 10;
 				}
-
-				.subtitle {
-					color: #666;
-					margin-bottom: 2rem;
-					font-size: 0.9rem;
+				.top-app-bar__brand {
+					font: var(--md-sys-typescale-title-large);
+					color: var(--md-sys-color-primary);
+					margin-left: 16px;
+					text-decoration: none;
 				}
+				.top-app-bar__spacer { flex: 1; }
 
-				.add-task {
+				/* --- Navigation Rail --- */
+				.nav-rail {
 					display: flex;
 					flex-direction: column;
-					gap: 0.5rem;
-					margin-bottom: 1rem;
+					align-items: center;
+					width: 80px;
+					background: var(--md-sys-color-surface-container-low);
+					border-right: 1px solid var(--md-sys-color-outline-variant);
+					padding: 12px 0;
+					gap: 4px;
+				}
+				.nav-rail__item {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					width: 56px;
+					padding: 12px 0 4px;
+					border-radius: var(--md-sys-shape-corner-large);
+					text-decoration: none;
+					color: var(--md-sys-color-on-surface-variant);
+					font: var(--md-sys-typescale-label-medium);
+					transition: background-color 0.2s, color 0.2s;
+					cursor: pointer;
+				}
+				.nav-rail__item:hover {
+					background: var(--md-sys-color-surface-container-high);
+				}
+				.nav-rail__item--active {
+					color: var(--md-sys-color-primary);
+					background: var(--md-sys-color-primary-container);
+				}
+				.nav-rail__item .material-symbols-outlined {
+					font-size: 24px;
+					margin-bottom: 4px;
+				}
+				.nav-rail__spacer { flex: 1; }
+
+				/* --- Content Area --- */
+				.content-area {
+					padding: 24px 32px;
+					overflow-y: auto;
+					background: var(--md-sys-color-surface);
 				}
 
-				input[type="text"] {
-					padding: 0.75rem 1rem;
-					border: 2px solid #e0e0e0;
+				/* --- Page Header --- */
+				.page-header {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					margin-bottom: 24px;
+				}
+				.page-header__title {
+					font: var(--md-sys-typescale-headline-small);
+				}
+				.page-header__actions {
+					display: flex;
+					gap: 8px;
+				}
+
+				/* --- Breadcrumb --- */
+				.breadcrumb {
+					display: flex;
+					align-items: center;
+					gap: 4px;
+					margin-bottom: 16px;
+					font: var(--md-sys-typescale-body-small);
+					color: var(--md-sys-color-on-surface-variant);
+				}
+				.breadcrumb a {
+					color: var(--md-sys-color-on-surface-variant);
+					text-decoration: none;
+				}
+				.breadcrumb a:hover { text-decoration: underline; }
+				.breadcrumb__sep { margin: 0 2px; }
+
+				/* --- Buttons (M3) --- */
+				.btn {
+					display: inline-flex;
+					align-items: center;
+					gap: 8px;
+					padding: 10px 24px;
+					border: none;
+					border-radius: 20px;
+					font: var(--md-sys-typescale-label-large);
+					cursor: pointer;
+					transition: box-shadow 0.2s, background-color 0.2s;
+					text-decoration: none;
+				}
+				.btn--filled {
+					background: var(--md-sys-color-primary);
+					color: var(--md-sys-color-on-primary);
+				}
+				.btn--filled:hover {
+					box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+				}
+				.btn--outlined {
+					background: transparent;
+					color: var(--md-sys-color-primary);
+					border: 1px solid var(--md-sys-color-outline);
+				}
+				.btn--outlined:hover {
+					background: var(--md-sys-color-primary-container);
+				}
+				.btn--tonal {
+					background: var(--md-sys-color-primary-container);
+					color: var(--md-sys-color-on-primary-container);
+				}
+				.btn--text {
+					background: transparent;
+					color: var(--md-sys-color-primary);
+					padding: 10px 12px;
+				}
+
+				/* --- Cards --- */
+				.card {
+					background: var(--md-sys-color-surface-container-low);
+					border-radius: var(--md-sys-shape-corner-medium);
+					padding: 16px;
+					transition: box-shadow 0.2s;
+				}
+				.card:hover {
+					box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.16);
+				}
+				.card--clickable {
+					cursor: pointer;
+					text-decoration: none;
+					color: inherit;
+					display: block;
+				}
+
+				/* --- Status Badge --- */
+				.status-badge {
+					display: inline-flex;
+					align-items: center;
+					gap: 4px;
+					padding: 2px 10px;
+					border-radius: 12px;
+					font: var(--md-sys-typescale-label-medium);
+				}
+				.status-badge--draft {
+					background: #F3F4F6; color: var(--status-draft);
+				}
+				.status-badge--review {
+					background: #FEF3C7; color: var(--status-review);
+				}
+				.status-badge--production {
+					background: #DCFCE7; color: var(--status-production);
+				}
+				.status-badge--archived {
+					background: #F3F4F6; color: var(--status-archived);
+				}
+
+				/* --- Type Badge --- */
+				.type-badge {
+					display: inline-flex;
+					padding: 2px 8px;
 					border-radius: 8px;
-					font-size: 1rem;
+					font: var(--md-sys-typescale-label-medium);
+					background: var(--md-sys-color-surface-container-high);
+					color: var(--md-sys-color-on-surface-variant);
+				}
+
+				/* --- Prompt Card --- */
+				.prompt-card {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 16px;
+				}
+				.prompt-card__info { flex: 1; }
+				.prompt-card__name {
+					font: var(--md-sys-typescale-title-medium);
+					margin-bottom: 4px;
+				}
+				.prompt-card__desc {
+					font: var(--md-sys-typescale-body-medium);
+					color: var(--md-sys-color-on-surface-variant);
+				}
+				.prompt-card__meta {
+					display: flex;
+					align-items: center;
+					gap: 8px;
+					margin-top: 8px;
+				}
+				.prompt-card__version {
+					font: var(--md-sys-typescale-body-small);
+					color: var(--md-sys-color-on-surface-variant);
+				}
+
+				/* --- Version Item --- */
+				.version-list { display: flex; flex-direction: column; gap: 2px; }
+				.version-item {
+					display: flex;
+					align-items: center;
+					gap: 12px;
+					padding: 12px 16px;
+					border-radius: var(--md-sys-shape-corner-small);
+					cursor: pointer;
+					transition: background-color 0.15s;
+				}
+				.version-item:hover { background: var(--md-sys-color-surface-container); }
+				.version-item--active { background: var(--md-sys-color-primary-container); }
+				.version-item__number {
+					font: var(--md-sys-typescale-label-large);
+					min-width: 32px;
+				}
+				.version-item__desc {
+					flex: 1;
+					font: var(--md-sys-typescale-body-medium);
+					color: var(--md-sys-color-on-surface-variant);
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+
+				/* --- Detail Layout (master-detail) --- */
+				.detail-layout {
+					display: grid;
+					grid-template-columns: 280px 1fr;
+					gap: 24px;
+					min-height: calc(100vh - 64px - 48px);
+				}
+				.detail-sidebar {
+					border-right: 1px solid var(--md-sys-color-outline-variant);
+					padding-right: 24px;
+				}
+				.detail-content { min-width: 0; }
+
+				/* --- Prompt Content --- */
+				.prompt-content {
+					background: var(--md-sys-color-surface-container-low);
+					border-radius: var(--md-sys-shape-corner-medium);
+					padding: 24px;
+					font-family: 'Roboto Mono', monospace;
+					font-size: 0.875rem;
+					line-height: 1.6;
+					white-space: pre-wrap;
+					word-break: break-word;
+				}
+
+				/* --- Meta Grid --- */
+				.meta-grid {
+					display: grid;
+					grid-template-columns: auto 1fr;
+					gap: 8px 16px;
+					font: var(--md-sys-typescale-body-medium);
+				}
+				.meta-grid__label {
+					color: var(--md-sys-color-on-surface-variant);
+				}
+
+				/* --- Empty State --- */
+				.empty-state {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					padding: 64px 24px;
+					color: var(--md-sys-color-on-surface-variant);
+					text-align: center;
+				}
+				.empty-state .material-symbols-outlined {
+					font-size: 48px;
+					margin-bottom: 16px;
+					opacity: 0.5;
+				}
+				.empty-state__title {
+					font: var(--md-sys-typescale-title-medium);
+					margin-bottom: 8px;
+				}
+				.empty-state__desc {
+					font: var(--md-sys-typescale-body-medium);
+					max-width: 360px;
+				}
+
+				/* --- Chip list --- */
+				.chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+				.chip {
+					display: inline-flex;
+					align-items: center;
+					padding: 4px 12px;
+					border-radius: 8px;
+					background: var(--md-sys-color-surface-container-high);
+					font: var(--md-sys-typescale-label-medium);
+					color: var(--md-sys-color-on-surface-variant);
+				}
+
+				/* --- Grid --- */
+				.card-grid {
+					display: grid;
+					grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+					gap: 12px;
+				}
+
+				/* --- Dialog / Form --- */
+				.form-field {
+					display: flex;
+					flex-direction: column;
+					gap: 4px;
+					margin-bottom: 16px;
+				}
+				.form-field label {
+					font: var(--md-sys-typescale-label-large);
+					color: var(--md-sys-color-on-surface-variant);
+				}
+				.form-field input,
+				.form-field textarea,
+				.form-field select {
+					padding: 12px 16px;
+					border: 1px solid var(--md-sys-color-outline);
+					border-radius: var(--md-sys-shape-corner-small);
+					font: var(--md-sys-typescale-body-large);
+					background: var(--md-sys-color-surface);
 					transition: border-color 0.2s;
 				}
-
-				input[type="text"]:focus {
+				.form-field input:focus,
+				.form-field textarea:focus,
+				.form-field select:focus {
 					outline: none;
-					border-color: #667eea;
+					border-color: var(--md-sys-color-primary);
+					box-shadow: 0 0 0 1px var(--md-sys-color-primary);
 				}
+				.form-field textarea { min-height: 120px; resize: vertical; }
 
-				button {
-					padding: 0.75rem 1.5rem;
-					background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+				/* --- Status message (OOB) --- */
+				.snackbar {
+					position: fixed;
+					bottom: 24px;
+					left: 50%;
+					transform: translateX(-50%);
+					padding: 12px 24px;
+					border-radius: var(--md-sys-shape-corner-small);
+					font: var(--md-sys-typescale-body-medium);
 					color: white;
+					z-index: 100;
+					animation: snackbar-in 0.3s ease;
+				}
+				.snackbar--success { background: var(--md-sys-color-success); }
+				.snackbar--error { background: var(--md-sys-color-error); }
+				@keyframes snackbar-in {
+					from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+					to { opacity: 1; transform: translateX(-50%) translateY(0); }
+				}
+
+				/* --- Divider --- */
+				.divider {
 					border: none;
-					border-radius: 8px;
-					font-size: 1rem;
-					cursor: pointer;
-					transition: transform 0.2s, box-shadow 0.2s;
+					border-top: 1px solid var(--md-sys-color-outline-variant);
+					margin: 16px 0;
 				}
 
-				button:hover {
-					transform: translateY(-2px);
-					box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-				}
+				/* --- Utility --- */
+				.flex { display: flex; }
+				.flex-col { display: flex; flex-direction: column; }
+				.gap-8 { gap: 8px; }
+				.gap-16 { gap: 16px; }
+				.gap-24 { gap: 24px; }
+				.items-center { align-items: center; }
+				.justify-between { justify-content: space-between; }
+				.mt-16 { margin-top: 16px; }
+				.mt-24 { margin-top: 24px; }
+				.mb-8 { margin-bottom: 8px; }
+				.mb-16 { margin-bottom: 16px; }
 
-				button:active {
-					transform: translateY(0);
-				}
-
-				.actions {
-					margin-bottom: 1.5rem;
-				}
-
-				.task-list {
-					list-style: none;
-				}
-
-				.task-item {
-					display: flex;
-					align-items: flex-start;
-					gap: 1rem;
-					padding: 1rem;
-					background: #f8f9fa;
-					border-radius: 8px;
-					margin-bottom: 0.5rem;
-					transition: background-color 0.2s;
-				}
-
-				.task-item:hover {
-					background: #f0f0f0;
-				}
-
-				.task-item.completed {
-					opacity: 0.6;
-				}
-
-				.task-item.completed .task-content strong {
-					text-decoration: line-through;
-				}
-
-				.task-status {
-					font-size: 1.2rem;
-				}
-
-				.task-content {
-					flex: 1;
-				}
-
-				.task-content strong {
-					display: block;
-					color: #333;
-					margin-bottom: 0.25rem;
-				}
-
-				.task-desc {
-					color: #666;
-					font-size: 0.9rem;
-				}
-
-				.status {
-					margin-top: 1.5rem;
-					padding: 0.75rem;
-					background: #f0f0f0;
-					border-radius: 8px;
-					text-align: center;
-					font-size: 0.9rem;
-					color: #666;
-					min-height: 2.5rem;
-				}
-
-				.status.error {
-					background: #fee;
-					color: #c00;
-				}
-
-				.status.success {
-					background: #efe;
-					color: #060;
-				}
-
-				.hint {
-					color: #999;
-					text-align: center;
-					padding: 2rem;
-				}
-
-				.empty {
-					color: #999;
-					text-align: center;
-					padding: 2rem;
-				}
-
-				.loading {
-					text-align: center;
-					padding: 3rem;
-					color: #666;
-				}
-
-				.htmx-request .htmx-indicator {
-					display: inline;
-				}
-
-				.htmx-indicator {
-					display: none;
-				}
+				/* --- HTMX --- */
+				.htmx-indicator { display: none; }
+				.htmx-request .htmx-indicator { display: inline; }
+				.htmx-request.htmx-indicator { display: inline; }
 			</style>
-			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 		</head>
 		<body>
-			{ children... }
+			<div class="app-shell">
+				<!-- Top App Bar -->
+				<header class="top-app-bar">
+					<a class="top-app-bar__brand" href="/">PromptLab</a>
+					<div class="top-app-bar__spacer"></div>
+				</header>
+				<!-- Navigation Rail -->
+				<nav class="nav-rail">
+					if page.OrgSlug != "" && page.ProjectSlug != "" {
+						<a
+							class={ "nav-rail__item", templ.KV("nav-rail__item--active", page.ActiveNav == "prompts") }
+							href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts") }
+						>
+							<span class="material-symbols-outlined">edit_note</span>
+							Prompts
+						</a>
+						<a
+							class={ "nav-rail__item", templ.KV("nav-rail__item--active", page.ActiveNav == "logs") }
+							href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/logs") }
+						>
+							<span class="material-symbols-outlined">receipt_long</span>
+							Logs
+						</a>
+						<a
+							class={ "nav-rail__item", templ.KV("nav-rail__item--active", page.ActiveNav == "analytics") }
+							href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/analytics") }
+						>
+							<span class="material-symbols-outlined">bar_chart</span>
+							Analytics
+						</a>
+					}
+					<div class="nav-rail__spacer"></div>
+					if page.OrgSlug != "" {
+						<a
+							class={ "nav-rail__item", templ.KV("nav-rail__item--active", page.ActiveNav == "settings") }
+							href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/settings") }
+						>
+							<span class="material-symbols-outlined">settings</span>
+							Settings
+						</a>
+					}
+				</nav>
+				<!-- Content Area -->
+				<main class="content-area">
+					{ children... }
+				</main>
+			</div>
+			<div id="snackbar"></div>
 		</body>
 	</html>
 }

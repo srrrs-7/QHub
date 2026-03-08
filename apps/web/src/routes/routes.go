@@ -10,26 +10,33 @@ import (
 	"web/src/handlers"
 )
 
-// NewRouter creates and configures the HTTP router.
 func NewRouter(apiClient *client.APIClient) http.Handler {
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Health check
+	pages := handlers.NewPageHandler(apiClient)
+	partials := handlers.NewPartialHandler(apiClient)
+
+	// Health
 	r.Get("/health", handlers.HealthHandler)
 
-	// Main page
-	r.Get("/", handlers.IndexHandler(apiClient))
+	// Pages
+	r.Get("/", pages.Index())
+	r.Get("/orgs/{org_slug}/projects", pages.Projects())
+	r.Get("/orgs/{org_slug}/projects/{project_slug}/prompts", pages.Prompts())
+	r.Get("/orgs/{org_slug}/projects/{project_slug}/prompts/{prompt_slug}", pages.PromptDetail())
+	r.Get("/orgs/{org_slug}/projects/{project_slug}/prompts/{prompt_slug}/v/{version}", pages.PromptDetail())
 
-	// HTMX partial endpoints
+	// HTMX Partials
 	r.Route("/partials", func(r chi.Router) {
-		r.Get("/tasks", handlers.TaskListPartial(apiClient))
-		r.Post("/tasks", handlers.AddTaskPartial(apiClient))
+		r.Post("/projects/{project_id}/prompts", partials.CreatePrompt())
+		r.Post("/prompts/{prompt_id}/versions", partials.CreateVersion())
+		r.Get("/prompts/{prompt_id}/versions/{version}", partials.GetVersionDetail())
+		r.Put("/prompts/{prompt_id}/versions/{version}/status", partials.UpdateVersionStatus())
 	})
 
 	return r

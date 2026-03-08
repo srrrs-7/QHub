@@ -1,0 +1,69 @@
+package templates
+
+import "web/src/client"
+
+templ ProjectsPage(page PageData, org *client.Organization, projects []client.Project) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/">Home</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ org.Name }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">Projects</h1>
+			<div class="page-header__actions">
+				<button class="btn btn--filled" onclick="document.getElementById('new-project-dialog').showModal()">
+					<span class="material-symbols-outlined">add</span>
+					New Project
+				</button>
+			</div>
+		</div>
+		if len(projects) == 0 {
+			<div class="empty-state">
+				<span class="material-symbols-outlined">folder_open</span>
+				<div class="empty-state__title">No projects yet</div>
+				<div class="empty-state__desc">Create your first project to start managing prompts.</div>
+			</div>
+		} else {
+			<div class="card-grid">
+				for _, p := range projects {
+					<a
+						class="card card--clickable"
+						href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + p.Slug + "/prompts") }
+					>
+						<div class="prompt-card__name">{ p.Name }</div>
+						if p.Description != "" {
+							<div class="prompt-card__desc">{ p.Description }</div>
+						}
+					</a>
+				}
+			</div>
+		}
+		<dialog id="new-project-dialog">
+			<form
+				method="dialog"
+				hx-post={ "/partials/orgs/" + org.ID + "/projects" }
+				hx-target="#snackbar"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Project</h2>
+				<div class="form-field">
+					<label for="name">Name</label>
+					<input type="text" id="name" name="name" required/>
+				</div>
+				<div class="form-field">
+					<label for="slug">Slug</label>
+					<input type="text" id="slug" name="slug" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"/>
+				</div>
+				<div class="form-field">
+					<label for="description">Description</label>
+					<textarea id="description" name="description"></textarea>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}
