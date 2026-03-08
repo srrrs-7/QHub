@@ -2,18 +2,16 @@ package prompts
 
 import (
 	"api/src/domain/prompt"
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
 func (h *PromptHandler) PostVersion() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		promptID := chi.URLParam(r, "prompt_id")
-
-		parsedPromptID, err := uuid.Parse(promptID)
+		promptID, err := requtil.ParseUUID(r, "prompt_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return
@@ -37,31 +35,23 @@ func (h *PromptHandler) PostVersion() http.HandlerFunc {
 			return
 		}
 
-		// Get prompt to determine next version number
-		p, err := h.promptRepo.FindByID(r.Context(), prompt.PromptIDFromUUID(parsedPromptID))
+		p, err := h.promptRepo.FindByID(r.Context(), prompt.PromptIDFromUUID(promptID))
 		if err != nil {
 			response.HandleError(w, err)
 			return
-		}
-
-		cmd := prompt.VersionCmd{
-			PromptID:          prompt.PromptIDFromUUID(parsedPromptID),
-			Content:           req.Content,
-			Variables:         req.Variables,
-			ChangeDescription: changeDesc,
-			AuthorID:          authorID,
 		}
 
 		nextVersion := p.LatestVersion + 1
-		v, err := h.versionRepo.Create(r.Context(), cmd, nextVersion)
+		v, err := h.versionRepo.Create(r.Context(), prompt.VersionCmd{
+			PromptID: prompt.PromptIDFromUUID(promptID), Content: req.Content,
+			Variables: req.Variables, ChangeDescription: changeDesc, AuthorID: authorID,
+		}, nextVersion)
 		if err != nil {
 			response.HandleError(w, err)
 			return
 		}
 
-		// Update prompt's latest_version
-		_, err = h.promptRepo.UpdateLatestVersion(r.Context(), p.ID, nextVersion)
-		if err != nil {
+		if _, err = h.promptRepo.UpdateLatestVersion(r.Context(), p.ID, nextVersion); err != nil {
 			response.HandleError(w, err)
 			return
 		}

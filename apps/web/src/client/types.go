@@ -34,10 +34,6 @@ type Prompt struct {
 	ProductionVersion *int   `json:"production_version"`
 }
 
-func (p Prompt) HasProduction() bool {
-	return p.ProductionVersion != nil
-}
-
 func (p Prompt) StatusLabel() string {
 	if p.ProductionVersion != nil {
 		return "production"
@@ -61,7 +57,6 @@ type PromptVersion struct {
 func (v PromptVersion) IsProduction() bool { return v.Status == "production" }
 func (v PromptVersion) IsDraft() bool      { return v.Status == "draft" }
 func (v PromptVersion) IsReview() bool     { return v.Status == "review" }
-func (v PromptVersion) IsArchived() bool   { return v.Status == "archived" }
 
 func (v PromptVersion) ContentString() string {
 	if v.Content == nil {
@@ -79,30 +74,6 @@ func (v PromptVersion) VariablesList() []string {
 		return nil
 	}
 	var vars []string
-	if err := json.Unmarshal(v.Variables, &vars); err != nil {
-		return nil
-	}
+	_ = json.Unmarshal(v.Variables, &vars)
 	return vars
-}
-
-// --- Legacy Task types (kept for backward compatibility) ---
-
-type Task struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-}
-
-func (t Task) IsCompleted() bool {
-	return t.Status == "completed"
-}
-
-type TasksResponse struct {
-	Tasks []Task `json:"tasks"`
-}
-
-type CreateTaskRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
 }

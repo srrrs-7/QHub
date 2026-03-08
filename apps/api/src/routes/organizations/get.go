@@ -10,15 +10,7 @@ import (
 
 func (h *OrganizationHandler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		slugParam := chi.URLParam(r, "org_slug")
-
-		req, err := newGetRequest(slugParam)
-		if err != nil {
-			response.HandleError(w, err)
-			return
-		}
-
-		slug, err := organization.NewOrganizationSlug(req.Slug)
+		slug, err := organization.NewOrganizationSlug(chi.URLParam(r, "org_slug"))
 		if err != nil {
 			response.HandleError(w, err)
 			return

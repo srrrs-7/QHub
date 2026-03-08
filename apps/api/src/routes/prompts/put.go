@@ -2,31 +2,28 @@ package prompts
 
 import (
 	"api/src/domain/prompt"
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 func (h *PromptHandler) Put() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		projectID := chi.URLParam(r, "project_id")
-		slugParam := chi.URLParam(r, "prompt_slug")
-
-		parsedProjectID, err := uuid.Parse(projectID)
+		projectID, err := requtil.ParseUUID(r, "project_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return
 		}
 
-		slug, err := prompt.NewPromptSlug(slugParam)
+		slug, err := prompt.NewPromptSlug(chi.URLParam(r, "prompt_slug"))
 		if err != nil {
 			response.HandleError(w, err)
 			return
 		}
 
-		existing, err := h.promptRepo.FindByProjectAndSlug(r.Context(), parsedProjectID, slug)
+		existing, err := h.promptRepo.FindByProjectAndSlug(r.Context(), projectID, slug)
 		if err != nil {
 			response.HandleError(w, err)
 			return
@@ -38,42 +35,27 @@ func (h *PromptHandler) Put() http.HandlerFunc {
 			return
 		}
 
-		name := existing.Name
-		if req.Name != "" {
-			name, err = prompt.NewPromptName(req.Name)
-			if err != nil {
-				response.HandleError(w, err)
-				return
-			}
+		name, err := requtil.MergeField(existing.Name, req.Name, prompt.NewPromptName)
+		if err != nil {
+			response.HandleError(w, err)
+			return
 		}
 
-		newSlug := existing.Slug
-		if req.Slug != "" {
-			newSlug, err = prompt.NewPromptSlug(req.Slug)
-			if err != nil {
-				response.HandleError(w, err)
-				return
-			}
+		newSlug, err := requtil.MergeField(existing.Slug, req.Slug, prompt.NewPromptSlug)
+		if err != nil {
+			response.HandleError(w, err)
+			return
 		}
 
-		desc := existing.Description
-		if req.Description != "" {
-			desc, err = prompt.NewPromptDescription(req.Description)
-			if err != nil {
-				response.HandleError(w, err)
-				return
-			}
+		desc, err := requtil.MergeField(existing.Description, req.Description, prompt.NewPromptDescription)
+		if err != nil {
+			response.HandleError(w, err)
+			return
 		}
 
-		cmd := prompt.PromptCmd{
-			ProjectID:   parsedProjectID,
-			Name:        name,
-			Slug:        newSlug,
-			PromptType:  existing.PromptType,
-			Description: desc,
-		}
-
-		updated, err := h.promptRepo.Update(r.Context(), existing.ID, cmd)
+		updated, err := h.promptRepo.Update(r.Context(), existing.ID, prompt.PromptCmd{
+			ProjectID: projectID, Name: name, Slug: newSlug, PromptType: existing.PromptType, Description: desc,
+		})
 		if err != nil {
 			response.HandleError(w, err)
 			return

@@ -2,18 +2,14 @@ package prompts
 
 import (
 	"api/src/domain/prompt"
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 func (h *PromptHandler) Post() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		projectID := chi.URLParam(r, "project_id")
-
-		parsedProjectID, err := uuid.Parse(projectID)
+		projectID, err := requtil.ParseUUID(r, "project_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return
@@ -49,15 +45,9 @@ func (h *PromptHandler) Post() http.HandlerFunc {
 			return
 		}
 
-		cmd := prompt.PromptCmd{
-			ProjectID:   parsedProjectID,
-			Name:        name,
-			Slug:        slug,
-			PromptType:  promptType,
-			Description: desc,
-		}
-
-		p, err := h.promptRepo.Create(r.Context(), cmd)
+		p, err := h.promptRepo.Create(r.Context(), prompt.PromptCmd{
+			ProjectID: projectID, Name: name, Slug: slug, PromptType: promptType, Description: desc,
+		})
 		if err != nil {
 			response.HandleError(w, err)
 			return

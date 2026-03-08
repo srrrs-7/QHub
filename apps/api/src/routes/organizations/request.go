@@ -1,7 +1,6 @@
 package organizations
 
 import (
-	"api/src/domain/apperror"
 	"api/src/routes/requtil"
 	"net/http"
 )
@@ -14,24 +13,10 @@ type postRequest struct {
 }
 
 func decodePostRequest(r *http.Request) (postRequest, error) {
-	return requtil.Decode[postRequest](r, func(req *postRequest) {
+	return requtil.Decode(r, func(req *postRequest) {
 		req.Name = requtil.Sanitize.Sanitize(req.Name)
 		req.Slug = requtil.Sanitize.Sanitize(req.Slug)
 	})
-}
-
-// --- GET (by slug) ---
-
-type getRequest struct {
-	Slug string `validate:"required,min=2,max=50"`
-}
-
-func newGetRequest(slug string) (getRequest, error) {
-	req := getRequest{Slug: slug}
-	if err := requtil.Validate.Struct(req); err != nil {
-		return getRequest{}, apperror.NewValidationError(err, "getRequest")
-	}
-	return req, nil
 }
 
 // --- PUT ---
@@ -43,7 +28,7 @@ type putRequest struct {
 }
 
 func decodePutRequest(r *http.Request) (putRequest, error) {
-	return requtil.Decode[putRequest](r, func(req *putRequest) {
+	return requtil.Decode(r, func(req *putRequest) {
 		req.Name = requtil.Sanitize.Sanitize(req.Name)
 		req.Slug = requtil.Sanitize.Sanitize(req.Slug)
 	})

@@ -8,19 +8,11 @@ import (
 )
 
 func OK(w http.ResponseWriter, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 func Created(w http.ResponseWriter, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	writeJSON(w, http.StatusCreated, body)
 }
 
 func Accepted(w http.ResponseWriter) {
@@ -31,7 +23,6 @@ func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// MapSlice converts a slice of S to a slice of D using the given function.
 func MapSlice[S any, D any](src []S, fn func(S) D) []D {
 	result := make([]D, 0, len(src))
 	for _, s := range src {
@@ -40,89 +31,53 @@ func MapSlice[S any, D any](src []S, fn func(S) D) []D {
 	return result
 }
 
-// HandleError handles any error by checking if it's an AppError.
-// If it's not an AppError, it falls back to a 500 Internal Server Error.
+// HandleError maps any error to an HTTP response.
 func HandleError(w http.ResponseWriter, err error) {
 	var appErr apperror.AppError
 	if errors.As(err, &appErr) {
-		HandleAppError(w, appErr)
+		handleAppError(w, appErr)
 		return
 	}
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
-// HandleAppError handles AppError with exhaustive HTTP response mapping.
-func HandleAppError(w http.ResponseWriter, err apperror.AppError) {
-	errName := err.ErrorName()
-
-	switch errName {
-	case apperror.ValidationErrorName:
-		badRequest(w, err)
-	case apperror.NotFoundErrorName:
-		notFound(w, err)
-	case apperror.UnauthorizedErrorName:
-		unauthorized(w, err)
-	case apperror.ForbiddenErrorName:
-		forbidden(w, err)
-	case apperror.BadRequestErrorName:
-		badRequest(w, err)
-	case apperror.ConflictErrorName:
-		conflict(w, err)
-	case apperror.DatabaseErrorName:
-		internalError(w, err)
-	case apperror.InternalServerErrorName:
-		internalError(w, err)
-	default:
-		unexpectedError(w, err)
-	}
+var errorStatusMap = map[string]int{
+	apperror.ValidationErrorName:     http.StatusBadRequest,
+	apperror.BadRequestErrorName:     http.StatusBadRequest,
+	apperror.NotFoundErrorName:       http.StatusNotFound,
+	apperror.UnauthorizedErrorName:   http.StatusUnauthorized,
+	apperror.ForbiddenErrorName:      http.StatusForbidden,
+	apperror.ConflictErrorName:       http.StatusConflict,
+	apperror.DatabaseErrorName:       http.StatusInternalServerError,
+	apperror.InternalServerErrorName: http.StatusInternalServerError,
 }
 
-type ErrorResponse struct {
+func handleAppError(w http.ResponseWriter, err apperror.AppError) {
+	status, ok := errorStatusMap[err.ErrorName()]
+	if !ok {
+		status = http.StatusInternalServerError
+	}
+	writeError(w, status, err)
+}
+
+type errorResponse struct {
 	Message string `json:"message"`
 	Type    string `json:"type"`
 	Domain  string `json:"domain"`
 }
 
-func newErrorResponse(err apperror.AppError) ErrorResponse {
-	return ErrorResponse{
-		Message: err.Error(),
-		Type:    err.ErrorName(),
-		Domain:  err.DomainName(),
+func writeJSON(w http.ResponseWriter, status int, body any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func writeError(w http.ResponseWriter, status int, err apperror.AppError) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if encErr := json.NewEncoder(w).Encode(newErrorResponse(err)); encErr != nil {
-		http.Error(w, encErr.Error(), http.StatusInternalServerError)
-	}
-}
-
-func badRequest(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusBadRequest, err)
-}
-
-func notFound(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusNotFound, err)
-}
-
-func unauthorized(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusUnauthorized, err)
-}
-
-func internalError(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusInternalServerError, err)
-}
-
-func forbidden(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusForbidden, err)
-}
-
-func conflict(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusConflict, err)
-}
-
-func unexpectedError(w http.ResponseWriter, err apperror.AppError) {
-	writeError(w, http.StatusInternalServerError, err)
+	writeJSON(w, status, errorResponse{
+		Message: err.Error(),
+		Type:    err.ErrorName(),
+		Domain:  err.DomainName(),
+	})
 }

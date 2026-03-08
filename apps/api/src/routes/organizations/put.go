@@ -2,6 +2,7 @@ package organizations
 
 import (
 	"api/src/domain/organization"
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
 
@@ -10,9 +11,7 @@ import (
 
 func (h *OrganizationHandler) Put() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		slugParam := chi.URLParam(r, "org_slug")
-
-		slug, err := organization.NewOrganizationSlug(slugParam)
+		slug, err := organization.NewOrganizationSlug(chi.URLParam(r, "org_slug"))
 		if err != nil {
 			response.HandleError(w, err)
 			return
@@ -30,37 +29,25 @@ func (h *OrganizationHandler) Put() http.HandlerFunc {
 			return
 		}
 
-		// Use existing values if not provided in request
-		name := org.Name
-		if req.Name != "" {
-			name, err = organization.NewOrganizationName(req.Name)
-			if err != nil {
-				response.HandleError(w, err)
-				return
-			}
+		name, err := requtil.MergeField(org.Name, req.Name, organization.NewOrganizationName)
+		if err != nil {
+			response.HandleError(w, err)
+			return
 		}
 
-		newSlug := org.Slug
-		if req.Slug != "" {
-			newSlug, err = organization.NewOrganizationSlug(req.Slug)
-			if err != nil {
-				response.HandleError(w, err)
-				return
-			}
+		newSlug, err := requtil.MergeField(org.Slug, req.Slug, organization.NewOrganizationSlug)
+		if err != nil {
+			response.HandleError(w, err)
+			return
 		}
 
-		plan := org.Plan
-		if req.Plan != "" {
-			plan, err = organization.NewPlan(req.Plan)
-			if err != nil {
-				response.HandleError(w, err)
-				return
-			}
+		plan, err := requtil.MergeField(org.Plan, req.Plan, organization.NewPlan)
+		if err != nil {
+			response.HandleError(w, err)
+			return
 		}
 
-		cmd := organization.NewOrganizationCmd(name, newSlug, plan)
-
-		updated, err := h.repo.Update(r.Context(), org.ID, cmd)
+		updated, err := h.repo.Update(r.Context(), org.ID, organization.NewOrganizationCmd(name, newSlug, plan))
 		if err != nil {
 			response.HandleError(w, err)
 			return

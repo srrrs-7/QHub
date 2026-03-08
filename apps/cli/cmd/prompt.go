@@ -11,15 +11,18 @@ var promptProjectID string
 var promptCmd = &cobra.Command{
 	Use:   "prompt",
 	Short: "Manage prompts",
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		if promptProjectID == "" {
+			return fmt.Errorf("--project is required")
+		}
+		return nil
+	},
 }
 
 var promptListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List prompts in a project",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		if promptProjectID == "" {
-			return fmt.Errorf("--project is required")
-		}
 		var prompts any
 		if err := apiGet("/api/v1/projects/"+promptProjectID+"/prompts", &prompts); err != nil {
 			return err
@@ -34,9 +37,6 @@ var promptGetCmd = &cobra.Command{
 	Short: "Get prompt details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		if promptProjectID == "" {
-			return fmt.Errorf("--project is required")
-		}
 		var prompt any
 		if err := apiGet("/api/v1/projects/"+promptProjectID+"/prompts/"+args[0], &prompt); err != nil {
 			return err
@@ -50,9 +50,6 @@ var promptCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a prompt",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		if promptProjectID == "" {
-			return fmt.Errorf("--project is required")
-		}
 		name, _ := cmd.Flags().GetString("name")
 		slug, _ := cmd.Flags().GetString("slug")
 		promptType, _ := cmd.Flags().GetString("type")
@@ -63,11 +60,8 @@ var promptCreateCmd = &cobra.Command{
 		}
 
 		body := map[string]string{
-			"project_id":  promptProjectID,
-			"name":        name,
-			"slug":        slug,
-			"prompt_type": promptType,
-			"description": desc,
+			"project_id": promptProjectID, "name": name, "slug": slug,
+			"prompt_type": promptType, "description": desc,
 		}
 		var result any
 		if err := apiPost("/api/v1/projects/"+promptProjectID+"/prompts", body, &result); err != nil {
@@ -82,9 +76,7 @@ func init() {
 	rootCmd.AddCommand(promptCmd)
 	promptCmd.PersistentFlags().StringVar(&promptProjectID, "project", "", "Project ID (required)")
 
-	promptCmd.AddCommand(promptListCmd)
-	promptCmd.AddCommand(promptGetCmd)
-	promptCmd.AddCommand(promptCreateCmd)
+	promptCmd.AddCommand(promptListCmd, promptGetCmd, promptCreateCmd)
 
 	promptCreateCmd.Flags().String("name", "", "Prompt name (required)")
 	promptCreateCmd.Flags().String("slug", "", "Prompt slug (required)")

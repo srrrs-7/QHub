@@ -16,7 +16,7 @@ type postPromptRequest struct {
 }
 
 func decodePostPromptRequest(r *http.Request) (postPromptRequest, error) {
-	return requtil.Decode[postPromptRequest](r, func(req *postPromptRequest) {
+	return requtil.Decode(r, func(req *postPromptRequest) {
 		req.Name = requtil.Sanitize.Sanitize(req.Name)
 		req.Slug = requtil.Sanitize.Sanitize(req.Slug)
 		req.Description = requtil.Sanitize.Sanitize(req.Description)
@@ -32,7 +32,7 @@ type putPromptRequest struct {
 }
 
 func decodePutPromptRequest(r *http.Request) (putPromptRequest, error) {
-	return requtil.Decode[putPromptRequest](r, func(req *putPromptRequest) {
+	return requtil.Decode(r, func(req *putPromptRequest) {
 		req.Name = requtil.Sanitize.Sanitize(req.Name)
 		req.Slug = requtil.Sanitize.Sanitize(req.Slug)
 		req.Description = requtil.Sanitize.Sanitize(req.Description)
@@ -49,7 +49,7 @@ type postVersionRequest struct {
 }
 
 func decodePostVersionRequest(r *http.Request) (postVersionRequest, error) {
-	return requtil.Decode[postVersionRequest](r, func(req *postVersionRequest) {
+	return requtil.Decode(r, func(req *postVersionRequest) {
 		req.ChangeDescription = requtil.Sanitize.Sanitize(req.ChangeDescription)
 	})
 }

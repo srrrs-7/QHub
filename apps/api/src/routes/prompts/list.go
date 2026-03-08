@@ -1,24 +1,20 @@
 package prompts
 
 import (
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 func (h *PromptHandler) List() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		projectID := chi.URLParam(r, "project_id")
-
-		parsedProjectID, err := uuid.Parse(projectID)
+		projectID, err := requtil.ParseUUID(r, "project_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return
 		}
 
-		prompts, err := h.promptRepo.FindAllByProject(r.Context(), parsedProjectID)
+		prompts, err := h.promptRepo.FindAllByProject(r.Context(), projectID)
 		if err != nil {
 			response.HandleError(w, err)
 			return

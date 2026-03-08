@@ -659,7 +659,7 @@ func TestHandleAppError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			HandleAppError(w, tt.args.err)
+			HandleError(w, tt.args.err)
 
 			resp := w.Result()
 			if diff := cmp.Diff(tt.expected.statusCode, resp.StatusCode); diff != "" {

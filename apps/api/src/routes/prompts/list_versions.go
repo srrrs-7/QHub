@@ -2,24 +2,20 @@ package prompts
 
 import (
 	"api/src/domain/prompt"
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 func (h *PromptHandler) ListVersions() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		promptID := chi.URLParam(r, "prompt_id")
-
-		parsedPromptID, err := uuid.Parse(promptID)
+		promptID, err := requtil.ParseUUID(r, "prompt_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return
 		}
 
-		versions, err := h.versionRepo.FindAllByPrompt(r.Context(), prompt.PromptIDFromUUID(parsedPromptID))
+		versions, err := h.versionRepo.FindAllByPrompt(r.Context(), prompt.PromptIDFromUUID(promptID))
 		if err != nil {
 			response.HandleError(w, err)
 			return

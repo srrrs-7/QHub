@@ -1,30 +1,20 @@
 package projects
 
 import (
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 func (h *ProjectHandler) List() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		orgID := chi.URLParam(r, "org_id")
-
-		req, err := newListRequest(orgID)
+		orgID, err := requtil.ParseUUID(r, "org_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return
 		}
 
-		parsedOrgID, err := uuid.Parse(req.OrgID)
-		if err != nil {
-			response.HandleError(w, err)
-			return
-		}
-
-		projects, err := h.repo.FindAllByOrg(r.Context(), parsedOrgID)
+		projects, err := h.repo.FindAllByOrg(r.Context(), orgID)
 		if err != nil {
 			response.HandleError(w, err)
 			return

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -13,17 +14,28 @@ var versionPromptID string
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Manage prompt versions",
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		if versionPromptID == "" {
+			return fmt.Errorf("--prompt is required")
+		}
+		return nil
+	},
+}
+
+func versionPath(parts ...string) string {
+	path := "/api/v1/prompts/" + versionPromptID + "/versions"
+	for _, p := range parts {
+		path += "/" + p
+	}
+	return path
 }
 
 var versionListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List versions of a prompt",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		if versionPromptID == "" {
-			return fmt.Errorf("--prompt is required")
-		}
 		var versions any
-		if err := apiGet("/api/v1/prompts/"+versionPromptID+"/versions", &versions); err != nil {
+		if err := apiGet(versionPath(), &versions); err != nil {
 			return err
 		}
 		printJSON(versions)
@@ -36,11 +48,8 @@ var versionGetCmd = &cobra.Command{
 	Short: "Get a specific version",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		if versionPromptID == "" {
-			return fmt.Errorf("--prompt is required")
-		}
 		var version any
-		if err := apiGet("/api/v1/prompts/"+versionPromptID+"/versions/"+args[0], &version); err != nil {
+		if err := apiGet(versionPath(args[0]), &version); err != nil {
 			return err
 		}
 		printJSON(version)
@@ -51,28 +60,26 @@ var versionGetCmd = &cobra.Command{
 var versionCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new version",
-	Long:  `Create a new version. Provide content via --content flag or --content-file to read from file (use - for stdin).`,
+	Long:  "Create a new version. Provide content via --content or --content-file (use - for stdin).",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		if versionPromptID == "" {
-			return fmt.Errorf("--prompt is required")
-		}
-
 		content, _ := cmd.Flags().GetString("content")
 		contentFile, _ := cmd.Flags().GetString("content-file")
 		changeDesc, _ := cmd.Flags().GetString("change-description")
 		variables, _ := cmd.Flags().GetStringSlice("variables")
 
-		// Read content from file or stdin
 		if contentFile != "" {
-			var data []byte
-			var err error
-			if contentFile == "-" {
-				data, err = os.ReadFile("/dev/stdin")
-			} else {
-				data, err = os.ReadFile(contentFile)
+			var r io.Reader = os.Stdin
+			if contentFile != "-" {
+				f, err := os.Open(contentFile)
+				if err != nil {
+					return fmt.Errorf("opening content file: %w", err)
+				}
+				defer f.Close()
+				r = f
 			}
+			data, err := io.ReadAll(r)
 			if err != nil {
-				return fmt.Errorf("reading content file: %w", err)
+				return fmt.Errorf("reading content: %w", err)
 			}
 			content = string(data)
 		}
@@ -81,18 +88,25 @@ var versionCreateCmd = &cobra.Command{
 			return fmt.Errorf("--content or --content-file is required")
 		}
 
-		contentJSON, _ := json.Marshal(content)
+		contentJSON, err := json.Marshal(content)
+		if err != nil {
+			return fmt.Errorf("encoding content: %w", err)
+		}
+
 		body := map[string]any{
 			"content":            json.RawMessage(contentJSON),
 			"change_description": changeDesc,
 		}
 		if len(variables) > 0 {
-			varsJSON, _ := json.Marshal(variables)
+			varsJSON, err := json.Marshal(variables)
+			if err != nil {
+				return fmt.Errorf("encoding variables: %w", err)
+			}
 			body["variables"] = json.RawMessage(varsJSON)
 		}
 
 		var result any
-		if err := apiPost("/api/v1/prompts/"+versionPromptID+"/versions", body, &result); err != nil {
+		if err := apiPost(versionPath(), body, &result); err != nil {
 			return err
 		}
 		printJSON(result)
@@ -102,52 +116,22 @@ var versionCreateCmd = &cobra.Command{
 
 var versionPromoteCmd = &cobra.Command{
 	Use:   "promote <version-number>",
-	Short: "Promote a version (draft→review→production)",
+	Short: "Promote a version (draft->review->production)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		if versionPromptID == "" {
-			return fmt.Errorf("--prompt is required")
-		}
-
-		// Get current version to determine next status
 		var current map[string]any
-		if err := apiGet("/api/v1/prompts/"+versionPromptID+"/versions/"+args[0], &current); err != nil {
+		if err := apiGet(versionPath(args[0]), &current); err != nil {
 			return err
 		}
 
 		status, _ := current["status"].(string)
-		var nextStatus string
-		switch status {
-		case "draft":
-			nextStatus = "review"
-		case "review":
-			nextStatus = "production"
-		default:
+		nextStatus := map[string]string{"draft": "review", "review": "production"}[status]
+		if nextStatus == "" {
 			return fmt.Errorf("cannot promote version in '%s' status", status)
 		}
 
 		var result any
-		if err := apiPut("/api/v1/prompts/"+versionPromptID+"/versions/"+args[0]+"/status",
-			map[string]string{"status": nextStatus}, &result); err != nil {
-			return err
-		}
-		printJSON(result)
-		return nil
-	},
-}
-
-var versionArchiveCmd = &cobra.Command{
-	Use:   "archive <version-number>",
-	Short: "Archive a version",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
-		if versionPromptID == "" {
-			return fmt.Errorf("--prompt is required")
-		}
-
-		var result any
-		if err := apiPut("/api/v1/prompts/"+versionPromptID+"/versions/"+args[0]+"/status",
-			map[string]string{"status": "archived"}, &result); err != nil {
+		if err := apiPut(versionPath(args[0], "status"), map[string]string{"status": nextStatus}, &result); err != nil {
 			return err
 		}
 		printJSON(result)
@@ -160,13 +144,8 @@ var versionStatusCmd = &cobra.Command{
 	Short: "Set version status (draft, review, production, archived)",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(_ *cobra.Command, args []string) error {
-		if versionPromptID == "" {
-			return fmt.Errorf("--prompt is required")
-		}
-
 		var result any
-		if err := apiPut("/api/v1/prompts/"+versionPromptID+"/versions/"+args[0]+"/status",
-			map[string]string{"status": args[1]}, &result); err != nil {
+		if err := apiPut(versionPath(args[0], "status"), map[string]string{"status": args[1]}, &result); err != nil {
 			return err
 		}
 		printJSON(result)
@@ -178,12 +157,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	versionCmd.PersistentFlags().StringVar(&versionPromptID, "prompt", "", "Prompt ID (required)")
 
-	versionCmd.AddCommand(versionListCmd)
-	versionCmd.AddCommand(versionGetCmd)
-	versionCmd.AddCommand(versionCreateCmd)
-	versionCmd.AddCommand(versionPromoteCmd)
-	versionCmd.AddCommand(versionArchiveCmd)
-	versionCmd.AddCommand(versionStatusCmd)
+	versionCmd.AddCommand(versionListCmd, versionGetCmd, versionCreateCmd, versionPromoteCmd, versionStatusCmd)
 
 	versionCreateCmd.Flags().String("content", "", "Prompt content")
 	versionCreateCmd.Flags().String("content-file", "", "Read content from file (use - for stdin)")

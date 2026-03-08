@@ -40,9 +40,7 @@ func (h *ProjectHandler) Post() http.HandlerFunc {
 			return
 		}
 
-		cmd := project.NewProjectCmd(orgID, name, slug, desc)
-
-		p, err := h.repo.Create(r.Context(), cmd)
+		p, err := h.repo.Create(r.Context(), project.NewProjectCmd(orgID, name, slug, desc))
 		if err != nil {
 			response.HandleError(w, err)
 			return
