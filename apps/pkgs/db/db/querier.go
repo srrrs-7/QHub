@@ -12,19 +12,63 @@ import (
 )
 
 type Querier interface {
+	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
+	ArchiveProductionVersion(ctx context.Context, promptID uuid.UUID) error
+	CountOrganizationMembers(ctx context.Context, organizationID uuid.UUID) (int64, error)
 	CountTasksByStatus(ctx context.Context, status string) (int64, error)
 	CountTasksByUser(ctx context.Context, userID uuid.NullUUID) (int64, error)
+	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ApiKey, error)
+	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
+	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
+	CreatePrompt(ctx context.Context, arg CreatePromptParams) (Prompt, error)
+	CreatePromptVersion(ctx context.Context, arg CreatePromptVersionParams) (PromptVersion, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteOrganization(ctx context.Context, id uuid.UUID) error
+	DeleteProject(ctx context.Context, id uuid.UUID) error
 	DeleteTask(ctx context.Context, id uuid.UUID) error
+	GetApiKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
+	GetLatestPromptVersion(ctx context.Context, promptID uuid.UUID) (PromptVersion, error)
+	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
+	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
+	GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (OrganizationMember, error)
+	GetProductionPromptVersion(ctx context.Context, promptID uuid.UUID) (PromptVersion, error)
+	GetProject(ctx context.Context, id uuid.UUID) (Project, error)
+	GetProjectByOrgAndSlug(ctx context.Context, arg GetProjectByOrgAndSlugParams) (Project, error)
+	GetPrompt(ctx context.Context, id uuid.UUID) (Prompt, error)
+	GetPromptByProjectAndSlug(ctx context.Context, arg GetPromptByProjectAndSlugParams) (Prompt, error)
+	GetPromptVersion(ctx context.Context, arg GetPromptVersionParams) (PromptVersion, error)
+	GetPromptVersionByID(ctx context.Context, id uuid.UUID) (PromptVersion, error)
 	GetTask(ctx context.Context, id uuid.UUID) (Task, error)
+	GetUser(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	ListApiKeysByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ApiKey, error)
+	ListOrganizationMembers(ctx context.Context, organizationID uuid.UUID) ([]OrganizationMember, error)
+	ListOrganizationsByUser(ctx context.Context, userID uuid.UUID) ([]Organization, error)
 	ListOverdueTasks(ctx context.Context) ([]Task, error)
+	ListProjectsByOrganization(ctx context.Context, organizationID uuid.UUID) ([]Project, error)
+	ListPromptVersions(ctx context.Context, promptID uuid.UUID) ([]PromptVersion, error)
+	ListPromptsByProject(ctx context.Context, projectID uuid.UUID) ([]Prompt, error)
 	ListTasks(ctx context.Context) ([]Task, error)
 	ListTasksByStatus(ctx context.Context, status string) ([]Task, error)
 	ListTasksByUser(ctx context.Context, userID uuid.NullUUID) ([]Task, error)
 	ListTasksByUserAndStatus(ctx context.Context, arg ListTasksByUserAndStatusParams) ([]Task, error)
 	ListUpcomingTasks(ctx context.Context, dueDate sql.NullTime) ([]Task, error)
+	RemoveOrganizationMember(ctx context.Context, arg RemoveOrganizationMemberParams) error
+	RevokeApiKey(ctx context.Context, arg RevokeApiKeyParams) (ApiKey, error)
+	UpdateApiKeyLastUsed(ctx context.Context, id uuid.UUID) error
+	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error)
+	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
+	UpdatePrompt(ctx context.Context, arg UpdatePromptParams) (Prompt, error)
+	UpdatePromptLatestVersion(ctx context.Context, arg UpdatePromptLatestVersionParams) (Prompt, error)
+	UpdatePromptProductionVersion(ctx context.Context, arg UpdatePromptProductionVersionParams) (Prompt, error)
+	UpdatePromptVersionLintResult(ctx context.Context, arg UpdatePromptVersionLintResultParams) error
+	UpdatePromptVersionSemanticDiff(ctx context.Context, arg UpdatePromptVersionSemanticDiffParams) error
+	UpdatePromptVersionStatus(ctx context.Context, arg UpdatePromptVersionStatusParams) (PromptVersion, error)
 	UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error)
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) (Task, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

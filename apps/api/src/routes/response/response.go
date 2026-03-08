@@ -31,6 +31,15 @@ func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// MapSlice converts a slice of S to a slice of D using the given function.
+func MapSlice[S any, D any](src []S, fn func(S) D) []D {
+	result := make([]D, 0, len(src))
+	for _, s := range src {
+		result = append(result, fn(s))
+	}
+	return result
+}
+
 // HandleError handles any error by checking if it's an AppError.
 // If it's not an AppError, it falls back to a 500 Internal Server Error.
 func HandleError(w http.ResponseWriter, err error) {

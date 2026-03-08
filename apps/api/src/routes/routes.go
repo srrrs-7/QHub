@@ -1,28 +1,27 @@
 package routes
 
 import (
-	"api/src/infra/rds/task_repository"
 	mw "api/src/routes/middleware"
+	"api/src/routes/organizations"
+	"api/src/routes/projects"
+	"api/src/routes/prompts"
 	"api/src/routes/tasks"
-	"context"
-	"database/sql"
-	"encoding/json"
 	"net/http"
-	"time"
-	"utils/db/db"
-	"utils/logger"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(conn *sql.DB) http.Handler {
-	r := chi.NewRouter()
-	q := db.New(conn)
+type Handlers struct {
+	Health       http.HandlerFunc
+	Task         *tasks.TaskHandler
+	Organization *organizations.OrganizationHandler
+	Project      *projects.ProjectHandler
+	Prompt       *prompts.PromptHandler
+}
 
-	// DI: Repository → Handler
-	taskRepo := task_repository.NewTaskRepository(q)
-	taskHandler := tasks.NewTaskHandler(taskRepo)
+func NewRouter(h Handlers) http.Handler {
+	r := chi.NewRouter()
 
 	// ミドルウェア
 	r.Use(middleware.RequestID)
@@ -30,20 +29,52 @@ func NewRouter(conn *sql.DB) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(mw.Logger)
 
-	// health check with DB ping
-	r.Get("/health", healthHandler(conn))
+	// health check
+	r.Get("/health", h.Health)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
 			// Bearer認証を適用
 			r.Use(mw.BearerAuth(validateToken))
 
+			// Organizations
+			r.Route("/organizations", func(r chi.Router) {
+				r.Post("/", h.Organization.Post())
+				r.Get("/{org_slug}", h.Organization.Get())
+				r.Put("/{org_slug}", h.Organization.Put())
+			})
+
 			// Tasks
 			r.Route("/tasks", func(r chi.Router) {
-				r.Get("/", taskHandler.List())
-				r.Post("/", taskHandler.Post())
-				r.Get("/{id}", taskHandler.Get())
-				r.Put("/{id}", taskHandler.Put())
+				r.Get("/", h.Task.List())
+				r.Post("/", h.Task.Post())
+				r.Get("/{id}", h.Task.Get())
+				r.Put("/{id}", h.Task.Put())
+			})
+
+			// Projects (nested under org)
+			r.Route("/organizations/{org_id}/projects", func(r chi.Router) {
+				r.Get("/", h.Project.List())
+				r.Post("/", h.Project.Post())
+				r.Get("/{project_slug}", h.Project.Get())
+				r.Put("/{project_slug}", h.Project.Put())
+				r.Delete("/{project_slug}", h.Project.Delete())
+			})
+
+			// Prompts (nested under project)
+			r.Route("/projects/{project_id}/prompts", func(r chi.Router) {
+				r.Get("/", h.Prompt.List())
+				r.Post("/", h.Prompt.Post())
+				r.Get("/{prompt_slug}", h.Prompt.Get())
+				r.Put("/{prompt_slug}", h.Prompt.Put())
+			})
+
+			// Prompt Versions (nested under prompt)
+			r.Route("/prompts/{prompt_id}/versions", func(r chi.Router) {
+				r.Get("/", h.Prompt.ListVersions())
+				r.Post("/", h.Prompt.PostVersion())
+				r.Get("/{version}", h.Prompt.GetVersion())
+				r.Put("/{version}/status", h.Prompt.PutVersionStatus())
 			})
 		})
 	})
@@ -51,54 +82,12 @@ func NewRouter(conn *sql.DB) http.Handler {
 	return r
 }
 
-// healthHandler returns a handler that checks database connectivity
-func healthHandler(conn *sql.DB) http.HandlerFunc {
-	type healthResponse struct {
-		Status   string `json:"status"`
-		Database string `json:"database"`
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-
-		dbStatus := "ok"
-		if err := conn.PingContext(ctx); err != nil {
-			logger.Error("health check failed", "error", err)
-			dbStatus = "unhealthy"
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(healthResponse{
-				Status:   "unhealthy",
-				Database: dbStatus,
-			})
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(healthResponse{
-			Status:   "ok",
-			Database: dbStatus,
-		})
-	}
-}
-
 // validateToken validates bearer tokens
 // TODO: Replace with actual JWT/Cognito validation logic
 func validateToken(token string) (bool, error) {
-	// Placeholder implementation - replace with actual validation
-	// Example: Parse JWT, verify signature, check expiration, validate claims
 	if token == "" {
 		return false, nil
 	}
-
-	// TODO: Implement actual validation:
-	// 1. Parse JWT token
-	// 2. Verify signature using public key
-	// 3. Check token expiration
-	// 4. Validate issuer and audience claims
-	// 5. Check token revocation if applicable
 
 	// For development only - accept any non-empty token
 	return true, nil

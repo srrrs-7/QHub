@@ -1,2 +1,4 @@
-h1:uuCfIPje577B3yQ5aA8slRSU2T+tlT0sESrxXfaNOec=
+h1:TeoB/ysVq5ZT+n4ABJHIIBJD3Db26AYEgH0v27whzNU=
 20251116110647_add_tasks_table.sql h1:nUMjPD9Jdvdv8FpjXUMqPBvtNOMvHkKJYU3jJKcIeuE=
+20260308000001_add_organizations_users_apikeys.sql h1:aOFCf8YSYlk4V2Zk5VFBzprK5wAfQr+4rbRD+xwUZOs=
+20260308000002_add_projects_prompts_versions.sql h1:n9ny3CqhP7bJp8TZOpTF/KXktFrq04mGZlHhG+sbK/g=

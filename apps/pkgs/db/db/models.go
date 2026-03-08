@@ -6,10 +6,78 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+type ApiKey struct {
+	ID             uuid.UUID    `json:"id"`
+	OrganizationID uuid.UUID    `json:"organization_id"`
+	Name           string       `json:"name"`
+	KeyHash        string       `json:"key_hash"`
+	KeyPrefix      string       `json:"key_prefix"`
+	LastUsedAt     sql.NullTime `json:"last_used_at"`
+	ExpiresAt      sql.NullTime `json:"expires_at"`
+	RevokedAt      sql.NullTime `json:"revoked_at"`
+	CreatedAt      time.Time    `json:"created_at"`
+}
+
+type Organization struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Slug      string    `json:"slug"`
+	Plan      string    `json:"plan"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type OrganizationMember struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Role           string    `json:"role"`
+	JoinedAt       time.Time `json:"joined_at"`
+}
+
+type Project struct {
+	ID             uuid.UUID      `json:"id"`
+	OrganizationID uuid.UUID      `json:"organization_id"`
+	Name           string         `json:"name"`
+	Slug           string         `json:"slug"`
+	Description    sql.NullString `json:"description"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+type Prompt struct {
+	ID                uuid.UUID      `json:"id"`
+	ProjectID         uuid.UUID      `json:"project_id"`
+	Name              string         `json:"name"`
+	Slug              string         `json:"slug"`
+	PromptType        string         `json:"prompt_type"`
+	Description       sql.NullString `json:"description"`
+	LatestVersion     int32          `json:"latest_version"`
+	ProductionVersion sql.NullInt32  `json:"production_version"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+}
+
+type PromptVersion struct {
+	ID                uuid.UUID             `json:"id"`
+	PromptID          uuid.UUID             `json:"prompt_id"`
+	VersionNumber     int32                 `json:"version_number"`
+	Status            string                `json:"status"`
+	Content           json.RawMessage       `json:"content"`
+	Variables         pqtype.NullRawMessage `json:"variables"`
+	ChangeDescription sql.NullString        `json:"change_description"`
+	SemanticDiff      pqtype.NullRawMessage `json:"semantic_diff"`
+	LintResult        pqtype.NullRawMessage `json:"lint_result"`
+	AuthorID          uuid.UUID             `json:"author_id"`
+	PublishedAt       sql.NullTime          `json:"published_at"`
+	CreatedAt         time.Time             `json:"created_at"`
+}
 
 type Task struct {
 	ID          uuid.UUID      `json:"id"`
@@ -22,4 +90,12 @@ type Task struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	CompletedAt sql.NullTime   `json:"completed_at"`
 	UserID      uuid.NullUUID  `json:"user_id"`
+}
+
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
