@@ -1,28 +1,29 @@
 # QHub
 
-プロンプトとバージョンを管理するシステム。Go モノレポ + PostgreSQL + templ/HTMX。
+プロンプトとバージョンを管理し、実行ログ・評価・コンサルティング・セマンティック検索まで提供するプラットフォーム。
 
 ## アーキテクチャ
 
 ```
 apps/
-  api/    → バックエンド API (Go, chi router, :8080)
-  web/    → フロントエンド (templ + HTMX, M3 Design, :3000)
-  cli/    → CLI ツール「qhub」(Cobra)
-  pkgs/   → 共有パッケージ (db, env, logger, testutil)
-  iac/    → Terraform インフラ (AWS: ECS, Aurora, Cognito, CloudFront, WAF)
-  migrate/ → マイグレーション用コンテナ
+  api/      → バックエンド API (Go, chi router, :8080)
+  web/      → フロントエンド (templ + HTMX, M3 Design, :3000)
+  cli/      → CLI ツール「qhub」(Cobra)
+  sdk/      → Go SDK クライアント
+  pkgs/     → 共有パッケージ (db, env, logger, testutil)
+  iac/      → Terraform インフラ (AWS: ECS, Aurora, Cognito, CloudFront, WAF)
+  migrate/  → マイグレーション用コンテナ
 ```
 
-**クリーンアーキテクチャ**: `routes → domain ← infra`（ドメイン層は外部依存なし）
+**クリーンアーキテクチャ**: `routes → domain ← infra`, `routes → services → domain`
 
 **技術スタック**:
-- Go 1.26, Go Workspaces
+- Go 1.26, Go Workspaces (5モジュール: api, pkgs, web, cli, sdk)
 - PostgreSQL 18, Redis, ElasticMQ
+- Text Embeddings Inference (BAAI/bge-m3) + Ollama (ホストマシン)
 - Atlas (スキーマファーストマイグレーション) + sqlc (型安全クエリ生成)
 - templ + HTMX (SSR フロントエンド、JS 不要)
-- Docker Compose (ローカル開発)
-- Dev Containers (開発環境)
+- Dev Containers (PostgreSQL, Redis, ElasticMQ, TEI を自動起動)
 
 ## セットアップ
 
@@ -34,6 +35,8 @@ VS Code の Dev Containers 拡張を使用:
 cp .devcontainer/compose.override.yaml.example .devcontainer/compose.override.yaml
 # VS Code: "Reopen in Container"
 ```
+
+Dev Container は db, cache, queue, embedding サービスを自動起動します。
 
 ### ローカル開発
 
@@ -47,9 +50,20 @@ make run-api                  # API サーバー (:8080)
 make run-web                  # Web サーバー (:3000, 要 make templ-gen)
 make run-all                  # マイグレーション + API + Web
 
-# CLI
+# CLI / SDK
 make build-cli                # bin/qhub にビルド
 make run-cli ARGS="prompt list --project <id>"
+```
+
+### Ollama (ホストマシン)
+
+セマンティック検索やエンベディングに Ollama を使用:
+
+```bash
+make ollama-health            # 接続確認
+make ollama-models            # モデル一覧
+make ollama-pull-embed        # エンベディングモデル取得
+make ollama-embed TEXT="hello" # エンベディング生成
 ```
 
 ## 開発コマンド
@@ -70,7 +84,7 @@ cd apps/api && go test -coverprofile=c.out ./... && go tool cover -func=c.out
 
 # データベース
 make atlas-diff NAME=<name>   # スキーマ差分からマイグレーション生成
-make atlas-apply              # マイグレーション適用
+make atlas-apply              # マイグレーション適用 (ATLAS_ENV=docker で Docker 環境)
 make atlas-status             # マイグレーション状態確認
 make sqlc-gen                 # SQL クエリから Go コード生成
 
@@ -81,6 +95,51 @@ make templ-watch              # ファイル監視モード
 # Terraform
 make tf-fmt                   # .tf ファイルフォーマット
 ```
+
+## API 概要
+
+全エンドポイントは `/api/v1` プレフィックス、Bearer 認証必須 (`/health` を除く)。
+
+### コアリソース
+
+| リソース | エンドポイント | 説明 |
+|----------|--------------|------|
+| Organization | `/organizations` | 組織管理 |
+| Project | `/organizations/{org_id}/projects` | プロジェクト管理 (組織配下) |
+| Prompt | `/projects/{project_id}/prompts` | プロンプト管理 (プロジェクト配下) |
+| Version | `/prompts/{prompt_id}/versions` | バージョン管理 (ステータス変更、lint、diff) |
+| Tag | `/tags`, `/prompts/{prompt_id}/tags` | タグ管理・プロンプトへのタグ付け |
+
+### 実行・評価
+
+| リソース | エンドポイント | 説明 |
+|----------|--------------|------|
+| Execution Log | `/logs`, `/logs/batch` | プロンプト実行ログ (バッチ登録対応) |
+| Evaluation | `/evaluations`, `/logs/{log_id}/evaluations` | 実行結果の評価 |
+
+### コンサルティング・業界設定
+
+| リソース | エンドポイント | 説明 |
+|----------|--------------|------|
+| Consulting | `/consulting/sessions`, `.../messages` | コンサルティングセッション・メッセージ |
+| Industry | `/industries` | 業界設定・ベンチマーク・コンプライアンスチェック |
+
+### インテリジェンス
+
+| リソース | エンドポイント | 説明 |
+|----------|--------------|------|
+| Semantic Diff | `/prompts/{id}/semantic-diff/{v1}/{v2}` | バージョン間のセマンティック差分 |
+| Text Diff | `/prompts/{id}/versions/{v}/text-diff` | テキストベースの差分 |
+| Lint | `/prompts/{id}/versions/{v}/lint` | プロンプト品質スコア (0-100) |
+| Analytics | `/prompts/{id}/analytics`, `/projects/{id}/analytics` | 利用統計・トレンド |
+| Search | `/search/semantic` | セマンティック検索 |
+
+### 組織管理
+
+| リソース | エンドポイント | 説明 |
+|----------|--------------|------|
+| Member | `/organizations/{org_id}/members` | メンバー管理 (招待・ロール変更) |
+| API Key | `/organizations/{org_id}/api-keys` | APIキー管理 |
 
 ## CI/CD
 
