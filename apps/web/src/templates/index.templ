@@ -1,0 +1,28 @@
+package templates
+
+import (
+	"web/src/client"
+	"web/src/templates/components"
+)
+
+templ Index(tasks []client.Task) {
+	@Layout() {
+		<div class="container">
+			<h1>{ "\U0001f4dd" } Task Manager</h1>
+			<p class="subtitle">Go + templ + HTMX Demo</p>
+			@components.AddForm()
+			<div class="actions">
+				<button
+					hx-get="/partials/tasks"
+					hx-target="#tasks-container"
+					hx-swap="outerHTML"
+				>
+					{ "\U0001f504" } Refresh Tasks
+					<span class="htmx-indicator">...</span>
+				</button>
+			</div>
+			@components.TaskList(tasks)
+			@components.StatusEmpty()
+		</div>
+	}
+}

@@ -1,0 +1,149 @@
+# Test-Driven Development (TDD) Rules
+
+## TDD Cycle
+
+**Red → Green → Refactor → Commit → Repeat**
+
+1. 🔴 **RED**: Write failing test first
+2. 🟢 **GREEN**: Write minimal code to pass
+3. 🔵 **REFACTOR**: Improve code quality
+4. ✅ **COMMIT**: Commit after green
+5. ♻️ **REPEAT**: Next test case
+
+## Required Test Cases
+
+**Every function must test these 6 categories**:
+
+1. ✅ **正常系 (Happy Path)**: Valid inputs that succeed
+2. ❌ **異常系 (Error Cases)**: Invalid inputs that fail
+3. 📏 **境界値 (Boundary Values)**: Min/max values, zero, negative
+4. 🔤 **特殊文字 (Special Chars)**: Unicode, emoji, symbols, SQL injection
+5. 📭 **空文字 (Empty String)**: Empty, whitespace-only
+6. ⚠️ **Null/Nil**: Nil pointers, zero values, empty slices
+
+## Coverage Requirements
+
+**Mandatory minimums**:
+- 📊 **Overall**: ≥ 80% package coverage
+- 🎯 **Per Function**: ≥ 80% each function
+- 🔍 **Critical Paths**: 100% (value objects, error handling, repositories, handlers)
+
+**Measurement**:
+```bash
+# Check coverage
+go test -cover ./...
+
+# Find functions below 80%
+go test -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out | awk -F'[ \t]+' '$NF+0 < 80.0 {print $0}'
+
+# HTML view
+go tool cover -html=coverage.out
+```
+
+**Coverage levels**:
+```
+❌ < 60%  - Critical: Block commit
+⚠️ 60-79% - Warning: Add tests before commit
+✅ 80-89% - Good: Meets requirement
+🌟 90%+   - Excellent
+```
+
+## Best Practices
+
+### DO ✅
+
+- Write test before production code (always)
+- Write minimal code to pass (don't over-engineer)
+- Refactor after green (improve quality)
+- Run all tests after refactoring
+- Commit after each green phase
+- Test behavior, not implementation
+- Cover all 6 test categories
+
+### DON'T ❌
+
+- Write production code first
+- Skip the failing test step
+- Write multiple tests at once
+- Ignore failing tests
+- Test implementation details
+- Skip edge cases (empty, nil, boundaries)
+- Commit with < 80% coverage
+
+## Table-Driven Test Pattern
+
+```go
+func TestNewTaskTitle(t *testing.T) {
+    tests := []struct {
+        testName string
+        args     args
+        expected expected
+    }{
+        // 正常系
+        {testName: "valid input", args: args{title: "Valid"}, expected: expected{wantErr: false}},
+
+        // 異常系
+        {testName: "empty string", args: args{title: ""}, expected: expected{wantErr: true, errName: "ValidationError"}},
+
+        // 境界値
+        {testName: "max length", args: args{title: strings.Repeat("a", 200)}, expected: expected{wantErr: false}},
+        {testName: "over max", args: args{title: strings.Repeat("a", 201)}, expected: expected{wantErr: true}},
+
+        // 特殊文字
+        {testName: "emoji", args: args{title: "Task 📋"}, expected: expected{wantErr: false}},
+        {testName: "Japanese", args: args{title: "タスク"}, expected: expected{wantErr: false}},
+
+        // 空文字
+        {testName: "whitespace only", args: args{title: "   "}, expected: expected{wantErr: true}},
+
+        // Nil
+        {testName: "nil slice", args: args{items: nil}, expected: expected{wantErr: false}},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.testName, func(t *testing.T) {
+            result := model.NewTaskTitle(tt.args.title)
+
+            if tt.expected.wantErr {
+                assert.True(t, result.IsErr())
+                assert.Equal(t, tt.expected.errName, result.UnwrapErr().ErrorName())
+            } else {
+                assert.True(t, result.IsOk())
+            }
+        })
+    }
+}
+```
+
+## Result Monad Testing
+
+```go
+result := service.CreateTask(input)
+
+result.Match(
+    func(task Task) { assert.Equal(t, expected, task) },
+    func(err AppError) { assert.Equal(t, "ValidationError", err.ErrorName()) },
+)
+```
+
+## Pre-commit Coverage Check
+
+```bash
+# .githooks/pre-commit
+go test -cover ./... | tee /tmp/coverage.txt
+if grep -E "coverage: [0-7][0-9]\.[0-9]%" /tmp/coverage.txt; then
+    echo "❌ Coverage below 80% - commit blocked"
+    exit 1
+fi
+```
+
+## PR Review Checklist
+
+- [ ] Overall coverage ≥ 80%
+- [ ] No functions below 80%
+- [ ] All 6 test categories covered
+- [ ] All new functions have tests
+- [ ] Coverage didn't decrease
+
+Remember: **Test First, Code Second, Refactor Third** 🔴🟢🔵

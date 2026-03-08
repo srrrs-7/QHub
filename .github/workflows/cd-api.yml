@@ -1,0 +1,143 @@
+# CD API: CI Check → Database Migration → Deploy API
+#
+# Trigger:
+#   - Manual (workflow_dispatch): Select environment
+#
+# Flow:
+#   1. Verify CI has passed for the current commit
+#   2. Run database migrations (calls cd-migrate.yml)
+#   3. Build and deploy API to ECS
+#
+# Authentication:
+#   - AWS OIDC (no long-lived credentials)
+#   - RDS IAM Authentication (no stored DB passwords)
+#
+# Required GitHub Environments: dev, stg, prd
+#
+# Environment Variables (set per environment):
+#   - AWS_REGION: AWS region (e.g., ap-northeast-1)
+#   - AWS_ROLE_ARN: IAM Role ARN for OIDC authentication
+#   - ECR_REPOSITORY_API: ECR repository for API
+#   - CONTAINER_NAME_API: ECS container name for API
+#   - ECS_SERVICE_API: ECS service name
+#   - ECS_CLUSTER: ECS cluster name
+
+name: CD API
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+
+# Prevent concurrent deployments to same environment
+concurrency:
+  group: cd-api-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  # ====================
+  # Verify CI Status
+  # ====================
+  check-ci:
+    name: Verify CI Passed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI status for commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking CI status for commit: ${{ github.sha }}"
+
+          # Get the CI workflow run status for this commit
+          CI_STATUS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+            --jq '.check_runs[] | select(.name == "CI (Lint, Type Check, Build, Test)") | .conclusion' \
+            2>/dev/null || echo "not_found")
+
+          echo "CI Status: $CI_STATUS"
+
+          if [ "$CI_STATUS" != "success" ]; then
+            echo "::error::CI has not passed for this commit. Status: $CI_STATUS"
+            echo "::error::Please ensure CI workflow completes successfully before deploying."
+            exit 1
+          fi
+
+          echo "::notice::CI verification passed"
+
+  # ====================
+  # Database Migration
+  # ====================
+  migrate:
+    name: Migrate
+    needs: check-ci
+    uses: ./.github/workflows/cd-migrate.yml
+    with:
+      environment: ${{ inputs.environment }}
+    secrets: inherit
+
+  # ====================
+  # Deploy API
+  # ====================
+  deploy-api:
+    name: Deploy API (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    needs: migrate
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/aws-auth
+        with:
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/.images/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_API }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_API }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Render ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: .aws/task-definition-api.json
+          container-name: ${{ vars.CONTAINER_NAME_API }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_API }}:${{ github.sha }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ vars.ECS_SERVICE_API }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          wait-for-service-stability: true

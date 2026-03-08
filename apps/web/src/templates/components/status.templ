@@ -1,0 +1,15 @@
+package components
+
+templ Status(message string, isError bool) {
+	<div
+		id="status"
+		hx-swap-oob="true"
+		class={ "status", templ.KV("error", isError), templ.KV("success", !isError && message != "") }
+	>
+		{ message }
+	</div>
+}
+
+templ StatusEmpty() {
+	<div id="status" class="status"></div>
+}

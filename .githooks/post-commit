@@ -1,0 +1,106 @@
+#!/bin/bash
+# post-commit: Generate codebase insights report in background via claude -p
+# Reports are saved to .claude/reports/
+
+# Skip if explicitly disabled (e.g., SKIP_INSIGHTS=1 git commit ...)
+if [ "$SKIP_INSIGHTS" = "1" ]; then
+  exit 0
+fi
+
+# Skip if claude is not installed
+if ! command -v claude >/dev/null 2>&1; then
+  exit 0
+fi
+
+# Prevent recursion when claude -p itself triggers a commit
+if [ "$CLAUDE_INSIGHTS_RUNNING" = "1" ]; then
+  exit 0
+fi
+
+# Skip merge commits
+if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+  exit 0
+fi
+
+# Skip if the commit changed fewer than 3 files (trivial commits)
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | wc -l)
+if [ "$CHANGED_FILES" -lt 3 ]; then
+  exit 0
+fi
+
+# Prepare report output
+REPO_ROOT=$(git rev-parse --show-toplevel)
+REPORT_DIR="${REPO_ROOT}/.claude/reports"
+mkdir -p "$REPORT_DIR"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+COMMIT_SHORT=$(git rev-parse --short HEAD)
+# Generate filename: YYYYMMDD-HHMMSS-<sanitized-commit-title>.md
+COMMIT_TITLE=$(git log -1 --pretty=format:"%s" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//' | cut -c1-60)
+REPORT_FILE="${REPORT_DIR}/${TIMESTAMP}-${COMMIT_TITLE}.md"
+
+# Write commit context to a temp file (avoids shell injection via commit messages)
+CONTEXT_FILE=$(mktemp)
+cat > "$CONTEXT_FILE" <<EOF_CONTEXT
+## Commit Info
+- Message: $(git log -1 --pretty=format:"%s")
+- Hash: ${COMMIT_SHORT}
+- Changed files:
+$(git diff-tree --no-commit-id --stat -r HEAD)
+
+## File List
+$(git diff-tree --no-commit-id --name-only -r HEAD)
+EOF_CONTEXT
+
+# Run insights generation in background (fully detached)
+(
+  export CLAUDE_INSIGHTS_RUNNING=1
+  unset CLAUDECODE
+
+  CONTEXT=$(cat "$CONTEXT_FILE")
+  rm -f "$CONTEXT_FILE"
+
+  claude -p "$(cat <<'PROMPT'
+You are analyzing a Go monorepo after a git commit. Generate a concise insights report in markdown.
+
+PROMPT
+)
+${CONTEXT}
+
+$(cat <<'PROMPT'
+Read the changed files listed above and analyze them. Generate a report with these sections:
+
+## Summary
+One paragraph summarizing what was changed and why.
+
+## Code Quality
+- Adherence to Result[T, E] monad pattern (no bare error returns)
+- Value object usage for domain types
+- Clean architecture (routes -> domain <- infra dependency direction)
+
+## Test Coverage Concerns
+- Are there new functions/methods without corresponding tests?
+- Are all 6 test categories likely covered? (happy path, error, boundary, special chars, empty, nil)
+
+## Potential Issues
+- Security concerns (input validation, SQL injection, etc.)
+- Performance concerns
+- Error handling gaps
+
+## Recommendations
+Prioritized list of improvements (max 5 items).
+
+Keep the report concise. Skip sections that have no findings.
+PROMPT
+)" --max-turns 10 --allowedTools "Read,Grep,Glob" > "$REPORT_FILE" 2>/dev/null
+
+  # Remove report if claude -p failed or output is empty/too small
+  CLAUDE_EXIT=$?
+  if [ $CLAUDE_EXIT -ne 0 ] || [ ! -s "$REPORT_FILE" ] || [ "$(wc -c < "$REPORT_FILE")" -lt 50 ]; then
+    rm -f "$REPORT_FILE"
+  fi
+) >/dev/null 2>&1 &
+
+# Fully detach the background process
+disown 2>/dev/null || true
+
+echo "Insights report generating in background -> .claude/reports/${TIMESTAMP}-${COMMIT_TITLE}.md"

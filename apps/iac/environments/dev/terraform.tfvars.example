@@ -1,0 +1,129 @@
+# =============================================================================
+# Development Environment Configuration (Template)
+# =============================================================================
+#
+# このファイルは Terraform 変数（リソースの設定値）を定義します。
+# terraform plan/apply 時に自動的に読み込まれます。
+#
+# ※ backend.hcl（状態ファイルの保存先）とは用途が異なります
+#
+# 使用方法:
+#   cp terraform.tfvars.example terraform.tfvars
+#   # 値を編集
+#   terraform init -backend-config=backend.hcl
+#   terraform plan
+#   terraform apply
+
+# -----------------------------------------------------------------------------
+# General (必須)
+# -----------------------------------------------------------------------------
+project     = "myapp"
+environment = "dev"
+aws_region  = "ap-northeast-1"
+aws_profile = "terraform"  # ~/.aws/config のプロファイル名
+
+# -----------------------------------------------------------------------------
+# VPC (オプション - デフォルト値あり)
+# -----------------------------------------------------------------------------
+# vpc_cidr             = "10.0.0.0/16"  # VPC CIDRブロック
+# az_count             = 2               # AZ数
+# enable_nat_gateway   = true            # NAT Gateway有効化
+# single_nat_gateway   = true            # dev: コスト削減のため1つのみ
+# enable_flow_logs     = true            # VPC Flow Logs
+# enable_vpc_endpoints = true            # S3, ECR等へのプライベート接続
+
+# -----------------------------------------------------------------------------
+# Application (オプション - デフォルト値あり)
+# -----------------------------------------------------------------------------
+# app_port          = 8080       # APIコンテナのポート
+# health_check_path = "/health"  # ALBヘルスチェックパス
+
+# -----------------------------------------------------------------------------
+# Database (必須: database_name)
+# -----------------------------------------------------------------------------
+database_name = "myapp"
+
+# database_master_username = "postgres"  # マスターユーザー名
+# database_app_username    = "app_user"  # IAM認証用アプリユーザー
+
+# Aurora設定 (dev環境: 最小構成)
+# aurora_engine_version         = "16.4"
+# aurora_instance_count         = 1      # dev: 単一インスタンス
+# aurora_min_capacity           = 0.5    # 最小ACU (コスト最適化)
+# aurora_max_capacity           = 4      # 最大ACU
+# aurora_backup_retention_period = 7     # バックアップ保持日数
+# aurora_deletion_protection    = false  # dev: 削除保護なし
+# aurora_skip_final_snapshot    = true   # dev: 削除時スナップショットスキップ
+
+# -----------------------------------------------------------------------------
+# ECS (オプション - デフォルト値あり)
+# -----------------------------------------------------------------------------
+# ecs_task_cpu              = 256    # CPU units (256 = 0.25 vCPU)
+# ecs_task_memory           = 512    # メモリ (MB)
+# ecs_desired_count         = 1      # タスク数
+# ecs_enable_autoscaling    = false  # dev: オートスケール無効
+# ecs_min_capacity          = 1
+# ecs_max_capacity          = 2
+# ecs_enable_execute_command = true  # dev: ECS Exec有効 (デバッグ用)
+
+# -----------------------------------------------------------------------------
+# ALB (オプション - デフォルト値あり)
+# -----------------------------------------------------------------------------
+# alb_deletion_protection = false  # dev: 削除保護なし
+
+# -----------------------------------------------------------------------------
+# Domain
+# -----------------------------------------------------------------------------
+# オプションA: ドメインなし構成 (ALB直接アクセス)
+# CloudFront/Route53/ACMはスキップされます
+domain_name        = null
+create_hosted_zone = false
+hosted_zone_id     = null
+
+# オプションB: 独自ドメインを使用する場合
+# domain_name        = "dev.example.com"
+# create_hosted_zone = false  # 既存のホストゾーンを使用
+# hosted_zone_id     = "Z1234567890ABC"
+
+# -----------------------------------------------------------------------------
+# CloudFront (ドメイン設定時のみ有効)
+# -----------------------------------------------------------------------------
+# cloudfront_price_class = "PriceClass_200"  # アジア・欧米
+
+# -----------------------------------------------------------------------------
+# WAF (オプション - デフォルト値あり)
+# -----------------------------------------------------------------------------
+# enable_waf     = false  # dev: コスト削減のため無効
+# waf_rate_limit = 2000   # レートリミット (リクエスト/5分)
+
+# -----------------------------------------------------------------------------
+# Cognito
+# -----------------------------------------------------------------------------
+# cognito_mfa_configuration      = "OPTIONAL"  # MFA: OFF | OPTIONAL | ON
+# cognito_deletion_protection    = false       # dev: 削除保護なし
+# cognito_advanced_security_mode = "OFF"       # dev: 高度なセキュリティ無効
+
+cognito_callback_urls = [
+  "http://localhost:3000/callback"
+]
+
+cognito_logout_urls = [
+  "http://localhost:3000"
+]
+
+# -----------------------------------------------------------------------------
+# GitHub Actions OIDC (必須)
+# -----------------------------------------------------------------------------
+github_repository = "your-org/your-repo"  # 例: "srrrs-7/go-fp-devcontainer"
+
+# オプションA: OIDCプロバイダーを新規作成 (初回デプロイ時)
+create_github_oidc_provider = true
+github_oidc_provider_arn    = null
+
+# オプションB: 既存のOIDCプロバイダーを使用 (2回目以降)
+# create_github_oidc_provider = false
+# github_oidc_provider_arn    = "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+#
+# 注意: 同一AWSアカウントでは、OIDCプロバイダーは1つだけ作成してください。
+# stg/prd環境では create_github_oidc_provider = false にして、
+# dev環境で作成したOIDCプロバイダーのARNを指定します。

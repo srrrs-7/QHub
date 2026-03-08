@@ -1,0 +1,52 @@
+version: "0.2"
+ignorePaths:
+  - .git
+  - .gitignore
+dictionaryDefinitions: []
+dictionaries: []
+words:
+  - addgroup
+  - adduser
+  - anthropics
+  - apperror
+  - ariga
+  - arigaio
+  - atlasgo
+  - bluemonday
+  - Buildx
+  - coverprofile
+  - DB_DBNAME
+  - DBTX
+  - dnsutils
+  - elasticmq
+  - errcheck
+  - getenv
+  - GOARCH
+  - gofmt
+  - goimports
+  - golangci
+  - gosimple
+  - govet
+  - healthcheck
+  - HTMX
+  - ineffassign
+  - ipsets
+  - isready
+  - keyshard
+  - ldflags
+  - misspell
+  - pkgs
+  - pypi
+  - pythonhosted
+  - sqlc
+  - sslmode
+  - staticcheck
+  - statsig
+  - synctest
+  - templ
+  - test
+  - testutil
+  - tfstate
+  - tfvars
+  - tzdata
+  - usecase

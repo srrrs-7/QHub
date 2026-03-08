@@ -1,0 +1,23 @@
+services:
+  dev:
+    environment:
+      DB_URI: postgresql://postgres:postgres@db:5432/test?sslmode=disable
+      DB_MIGRATE_URI: postgresql://postgres:postgres@db:5432?sslmode=disable
+      CACHE_URI: redis://cache:6379
+      QUEUE_URI: redis://queue:9324
+      ENABLE_FIREWALL: "true"  # Set to "true" to enable network firewall (restricts outbound to allowlisted domains)
+  db:
+    environment:
+      POSTGRES_DB: test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432
+
+  cache:
+    ports:
+      - 6379:6379
+  
+  queue:
+    ports:
+      - 9324:9324

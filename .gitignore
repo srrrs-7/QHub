@@ -1,0 +1,13 @@
+.env
+compose.override.yaml
+setup.personal.sh
+
+# WASM build artifacts
+*.wasm
+
+# Terraform
+.terraform
+.terraform.lock.hcl
+terraform.tfvars
+*.tfstate
+*.tfstate.backup

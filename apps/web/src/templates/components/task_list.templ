@@ -1,0 +1,17 @@
+package components
+
+import "web/src/client"
+
+templ TaskList(tasks []client.Task) {
+	<div id="tasks-container">
+		if len(tasks) == 0 {
+			<p class="empty">No tasks found</p>
+		} else {
+			<ul class="task-list">
+				for _, task := range tasks {
+					@TaskItem(task)
+				}
+			</ul>
+		}
+	</div>
+}

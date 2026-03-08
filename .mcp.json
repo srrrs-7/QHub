@@ -1,0 +1,24 @@
+{
+    "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/mcp-schema.json",
+    "mcpServers": {
+        "serena": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "git+https://github.com/oraios/serena",
+                "serena",
+                "start-mcp-server",
+                "--context",
+                "ide-assistant",
+                "--project",
+                "/workspace/main"
+            ]
+        },
+        "chrome-devtools": {
+            "command": "bunx",
+            "args": [
+                "chrome-devtools-mcp@latest"
+            ]
+        }
+    }
+}

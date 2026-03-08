@@ -1,0 +1,134 @@
+# CD Web: CI Check → Deploy Web Frontend
+#
+# Trigger:
+#   - Manual (workflow_dispatch): Select environment
+#
+# Flow:
+#   1. Verify CI has passed for the current commit
+#   2. Build WASM and deploy to S3/CloudFront
+#
+# Authentication:
+#   - AWS OIDC (no long-lived credentials)
+#
+# Required GitHub Environments: dev, stg, prd
+#
+# Environment Variables (set per environment):
+#   - AWS_REGION: AWS region (e.g., ap-northeast-1)
+#   - AWS_ROLE_ARN: IAM Role ARN for OIDC authentication
+#   - S3_BUCKET_WEB: S3 bucket for web frontend
+#   - CLOUDFRONT_DISTRIBUTION_ID: CloudFront distribution ID
+
+name: CD Web
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+
+# Prevent concurrent deployments to same environment
+concurrency:
+  group: cd-web-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  # ====================
+  # Verify CI Status
+  # ====================
+  check-ci:
+    name: Verify CI Passed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI status for commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking CI status for commit: ${{ github.sha }}"
+
+          # Get the CI workflow run status for this commit
+          CI_STATUS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+            --jq '.check_runs[] | select(.name == "CI (Lint, Type Check, Build, Test)") | .conclusion' \
+            2>/dev/null || echo "not_found")
+
+          echo "CI Status: $CI_STATUS"
+
+          if [ "$CI_STATUS" != "success" ]; then
+            echo "::error::CI has not passed for this commit. Status: $CI_STATUS"
+            echo "::error::Please ensure CI workflow completes successfully before deploying."
+            exit 1
+          fi
+
+          echo "::notice::CI verification passed"
+
+  # ====================
+  # Deploy Web
+  # ====================
+  deploy-web:
+    name: Deploy Web (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    needs: check-ci
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: apps/web/go.mod
+
+      - name: Build WASM
+        working-directory: apps/web
+        run: |
+          GOOS=js GOARCH=wasm go build -o static/main.wasm .
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ./static/
+          echo "Build complete:"
+          ls -lh static/
+
+      - uses: ./.github/actions/aws-auth
+        with:
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy to S3
+        working-directory: apps/web/static
+        run: |
+          # Sync all files with appropriate cache headers
+          aws s3 sync . s3://${{ vars.S3_BUCKET_WEB }}/ \
+            --delete \
+            --exclude "*.html" \
+            --cache-control "public, max-age=31536000, immutable"
+
+          # Upload HTML files with no-cache
+          aws s3 sync . s3://${{ vars.S3_BUCKET_WEB }}/ \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "::notice::CloudFront invalidation created: $INVALIDATION_ID"
