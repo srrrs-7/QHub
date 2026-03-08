@@ -1,16 +1,17 @@
 package task_repository
 
 import (
-	"api/src/domain/apperror"
 	"api/src/domain/task"
+	"api/src/infra/rds/repoerr"
 	"context"
 	"database/sql"
-	"errors"
 	"utils/db/db"
 
 	"github.com/google/uuid"
 )
 
+// Create inserts a new task and returns the created entity.
+// The task is created with status "pending" and priority "medium".
 func (r *TaskRepository) Create(ctx context.Context, cmd task.TaskCmd) (task.Task, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
@@ -23,10 +24,7 @@ func (r *TaskRepository) Create(ctx context.Context, cmd task.TaskCmd) (task.Tas
 		Priority:    "medium",
 	})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return task.Task{}, apperror.NewInternalServerError(err, "TaskRepository")
-		}
-		return task.Task{}, apperror.NewDatabaseError(err, "TaskRepository")
+		return task.Task{}, repoerr.Handle(err, "TaskRepository", "")
 	}
 
 	return task.NewTask(
@@ -37,6 +35,8 @@ func (r *TaskRepository) Create(ctx context.Context, cmd task.TaskCmd) (task.Tas
 	), nil
 }
 
+// Update modifies an existing task and returns the updated entity.
+// Returns NotFoundError if the task does not exist.
 func (r *TaskRepository) Update(ctx context.Context, id task.TaskID, cmd task.TaskCmd) (task.Task, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
@@ -57,13 +57,7 @@ func (r *TaskRepository) Update(ctx context.Context, id task.TaskID, cmd task.Ta
 		Priority:    sql.NullString{String: "medium", Valid: true},
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return task.Task{}, apperror.NewNotFoundError(err, "Task")
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return task.Task{}, apperror.NewInternalServerError(err, "TaskRepository")
-		}
-		return task.Task{}, apperror.NewDatabaseError(err, "TaskRepository")
+		return task.Task{}, repoerr.Handle(err, "TaskRepository", "Task")
 	}
 
 	return task.NewTask(

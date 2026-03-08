@@ -1,3 +1,5 @@
+// Package task_repository implements the task.TaskRepository interface
+// using PostgreSQL via sqlc-generated queries.
 package task_repository
 
 import (
@@ -6,6 +8,7 @@ import (
 	"utils/db/db"
 )
 
+// dbTimeout is the maximum duration for a single DB operation.
 const dbTimeout = 5 * time.Second
 
 // TaskRepository is the PostgreSQL implementation of task.TaskRepository.
@@ -13,10 +16,10 @@ type TaskRepository struct {
 	q db.Querier
 }
 
-// NewTaskRepository creates a new TaskRepository.
+// NewTaskRepository creates a new TaskRepository backed by the given querier.
 func NewTaskRepository(q db.Querier) *TaskRepository {
 	return &TaskRepository{q: q}
 }
 
-// compile-time check that TaskRepository implements task.TaskRepository
+// Compile-time check that TaskRepository implements the domain interface.
 var _ task.TaskRepository = (*TaskRepository)(nil)

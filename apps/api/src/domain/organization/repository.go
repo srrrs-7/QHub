@@ -2,6 +2,8 @@ package organization
 
 import "context"
 
+// OrganizationRepository defines persistence operations for organizations.
+// Implementations live in the infra layer (dependency inversion).
 type OrganizationRepository interface {
 	FindByID(ctx context.Context, id OrganizationID) (Organization, error)
 	FindBySlug(ctx context.Context, slug OrganizationSlug) (Organization, error)
@@ -10,6 +12,7 @@ type OrganizationRepository interface {
 	Update(ctx context.Context, id OrganizationID, cmd OrganizationCmd) (Organization, error)
 }
 
+// MemberRepository defines persistence operations for organization members.
 type MemberRepository interface {
 	FindByOrgAndUser(ctx context.Context, orgID OrganizationID, userID UserID) (OrganizationMember, error)
 	FindAllByOrg(ctx context.Context, orgID OrganizationID) ([]OrganizationMember, error)

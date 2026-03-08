@@ -1,86 +1,76 @@
+// Package organization defines the Organization aggregate and its value objects.
+//
+// An Organization is the top-level tenant in the system. It has members
+// (users with roles) and contains projects. Plans control feature access.
 package organization
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
 	"api/src/domain/apperror"
+	"api/src/domain/valobj"
 
 	"github.com/google/uuid"
 )
 
 // --- OrganizationID ---
 
+// OrganizationID is the unique identifier for an organization (UUID).
 type OrganizationID uuid.UUID
 
+// NewOrganizationID parses a string UUID into an OrganizationID.
 func NewOrganizationID(id string) (OrganizationID, error) {
-	parsed, err := uuid.Parse(id)
+	parsed, err := valobj.ParseUUID(id, "OrganizationID")
 	if err != nil {
-		return OrganizationID{}, apperror.NewValidationError(fmt.Errorf("invalid organization ID: %w", err), "OrganizationID")
+		return OrganizationID{}, err
 	}
 	return OrganizationID(parsed), nil
 }
 
-func OrganizationIDFromUUID(id uuid.UUID) OrganizationID {
-	return OrganizationID(id)
-}
+// OrganizationIDFromUUID converts a uuid.UUID directly (for DB results).
+func OrganizationIDFromUUID(id uuid.UUID) OrganizationID { return OrganizationID(id) }
 
-func (o OrganizationID) String() string {
-	return uuid.UUID(o).String()
-}
+// String returns the string representation.
+func (o OrganizationID) String() string { return uuid.UUID(o).String() }
 
-func (o OrganizationID) UUID() uuid.UUID {
-	return uuid.UUID(o)
-}
+// UUID returns the underlying uuid.UUID.
+func (o OrganizationID) UUID() uuid.UUID { return uuid.UUID(o) }
 
 // --- OrganizationName ---
 
+// OrganizationName is a validated name (2–100 characters, non-blank).
 type OrganizationName string
 
+// NewOrganizationName validates and creates an OrganizationName.
 func NewOrganizationName(name string) (OrganizationName, error) {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return "", apperror.NewValidationError(fmt.Errorf("organization name must not be empty"), "OrganizationName")
-	}
-	if len(name) < 2 {
-		return "", apperror.NewValidationError(fmt.Errorf("organization name must be at least 2 characters"), "OrganizationName")
-	}
-	if len(name) > 100 {
-		return "", apperror.NewValidationError(fmt.Errorf("organization name must be at most 100 characters"), "OrganizationName")
+	if err := valobj.ValidateName(name, 2, 100, "OrganizationName"); err != nil {
+		return "", err
 	}
 	return OrganizationName(name), nil
 }
 
-func (o OrganizationName) String() string {
-	return string(o)
-}
+// String returns the name as a plain string.
+func (o OrganizationName) String() string { return string(o) }
 
 // --- OrganizationSlug ---
 
+// OrganizationSlug is a URL-safe identifier (2–50 chars, lowercase+hyphens).
 type OrganizationSlug string
 
-var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
-
+// NewOrganizationSlug validates and creates an OrganizationSlug.
 func NewOrganizationSlug(slug string) (OrganizationSlug, error) {
-	if len(slug) < 2 {
-		return "", apperror.NewValidationError(fmt.Errorf("slug must be at least 2 characters"), "OrganizationSlug")
-	}
-	if len(slug) > 50 {
-		return "", apperror.NewValidationError(fmt.Errorf("slug must be at most 50 characters"), "OrganizationSlug")
-	}
-	if !slugRegex.MatchString(slug) {
-		return "", apperror.NewValidationError(fmt.Errorf("slug must contain only lowercase letters, numbers, and hyphens, and must not start or end with a hyphen"), "OrganizationSlug")
+	if err := valobj.ValidateSlug(slug, 2, 50, "OrganizationSlug"); err != nil {
+		return "", err
 	}
 	return OrganizationSlug(slug), nil
 }
 
-func (o OrganizationSlug) String() string {
-	return string(o)
-}
+// String returns the slug as a plain string.
+func (o OrganizationSlug) String() string { return string(o) }
 
 // --- Plan ---
 
+// Plan represents the subscription tier of an organization.
 type Plan string
 
 const (
@@ -90,6 +80,7 @@ const (
 	PlanEnterprise Plan = "enterprise"
 )
 
+// NewPlan validates a plan string against known tiers.
 func NewPlan(plan string) (Plan, error) {
 	switch Plan(plan) {
 	case PlanFree, PlanPro, PlanTeam, PlanEnterprise:
@@ -99,12 +90,12 @@ func NewPlan(plan string) (Plan, error) {
 	}
 }
 
-func (p Plan) String() string {
-	return string(p)
-}
+// String returns the plan as a plain string.
+func (p Plan) String() string { return string(p) }
 
 // --- MemberRole ---
 
+// MemberRole represents a user's role within an organization.
 type MemberRole string
 
 const (
@@ -114,6 +105,7 @@ const (
 	RoleViewer MemberRole = "viewer"
 )
 
+// NewMemberRole validates a role string against known roles.
 func NewMemberRole(role string) (MemberRole, error) {
 	switch MemberRole(role) {
 	case RoleOwner, RoleAdmin, RoleMember, RoleViewer:
@@ -123,12 +115,12 @@ func NewMemberRole(role string) (MemberRole, error) {
 	}
 }
 
-func (r MemberRole) String() string {
-	return string(r)
-}
+// String returns the role as a plain string.
+func (r MemberRole) String() string { return string(r) }
 
 // --- Organization (Aggregate) ---
 
+// Organization is the root aggregate representing a tenant.
 type Organization struct {
 	ID   OrganizationID
 	Name OrganizationName
@@ -136,59 +128,53 @@ type Organization struct {
 	Plan Plan
 }
 
+// NewOrganization constructs an Organization from validated value objects.
 func NewOrganization(id OrganizationID, name OrganizationName, slug OrganizationSlug, plan Plan) Organization {
-	return Organization{
-		ID:   id,
-		Name: name,
-		Slug: slug,
-		Plan: plan,
-	}
+	return Organization{ID: id, Name: name, Slug: slug, Plan: plan}
 }
 
 // --- OrganizationCmd ---
 
+// OrganizationCmd is a command object for creating or updating an organization.
 type OrganizationCmd struct {
 	Name OrganizationName
 	Slug OrganizationSlug
 	Plan Plan
 }
 
+// NewOrganizationCmd constructs an OrganizationCmd.
 func NewOrganizationCmd(name OrganizationName, slug OrganizationSlug, plan Plan) OrganizationCmd {
-	return OrganizationCmd{
-		Name: name,
-		Slug: slug,
-		Plan: plan,
-	}
+	return OrganizationCmd{Name: name, Slug: slug, Plan: plan}
 }
 
 // --- OrganizationMember ---
 
+// OrganizationMember represents the membership of a user in an organization.
 type OrganizationMember struct {
 	OrganizationID OrganizationID
 	UserID         UserID
 	Role           MemberRole
 }
 
-// --- UserID (referenced from user domain, minimal definition here) ---
+// --- UserID ---
 
+// UserID is the unique identifier for a user (UUID).
 type UserID uuid.UUID
 
+// NewUserID parses a string UUID into a UserID.
 func NewUserID(id string) (UserID, error) {
-	parsed, err := uuid.Parse(id)
+	parsed, err := valobj.ParseUUID(id, "UserID")
 	if err != nil {
-		return UserID{}, apperror.NewValidationError(fmt.Errorf("invalid user ID: %w", err), "UserID")
+		return UserID{}, err
 	}
 	return UserID(parsed), nil
 }
 
-func UserIDFromUUID(id uuid.UUID) UserID {
-	return UserID(id)
-}
+// UserIDFromUUID converts a uuid.UUID directly (for DB results).
+func UserIDFromUUID(id uuid.UUID) UserID { return UserID(id) }
 
-func (u UserID) String() string {
-	return uuid.UUID(u).String()
-}
+// String returns the string representation.
+func (u UserID) String() string { return uuid.UUID(u).String() }
 
-func (u UserID) UUID() uuid.UUID {
-	return uuid.UUID(u)
-}
+// UUID returns the underlying uuid.UUID.
+func (u UserID) UUID() uuid.UUID { return uuid.UUID(u) }

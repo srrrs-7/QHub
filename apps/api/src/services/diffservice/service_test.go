@@ -3,6 +3,8 @@ package diffservice
 import (
 	"testing"
 
+	"api/src/services/contentutil"
+
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -131,7 +133,7 @@ func TestFindVariables(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := findVariables(tt.content)
+			got := contentutil.FindVariables(tt.content)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
@@ -181,7 +183,7 @@ func TestExtractContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := extractContent([]byte(tt.input))
+			got := contentutil.ExtractText([]byte(tt.input))
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}

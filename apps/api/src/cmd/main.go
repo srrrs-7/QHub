@@ -109,8 +109,8 @@ func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
 	projectRepo := project_repository.NewProjectRepository(q)
 	promptRepo := prompt_repository.NewPromptRepository(q)
 	versionRepo := prompt_repository.NewVersionRepository(q)
-	diffSvc := diffservice.NewDiffService(q)
-	lintSvc := lintservice.NewLintService(q)
+	diffSvc := diffservice.NewDiffService(versionRepo)
+	lintSvc := lintservice.NewLintService(versionRepo)
 	logRepo := executionlog_repository.NewLogRepository(q)
 	evalRepo := executionlog_repository.NewEvaluationRepository(q)
 	sessionRepo := consulting_repository.NewSessionRepository(q)
@@ -127,7 +127,7 @@ func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
 	} else {
 		logger.Info("Embedding service disabled (set EMBEDDING_URL to enable)")
 	}
-	embSvc := embeddingservice.NewEmbeddingService(embClient, q)
+	embSvc := embeddingservice.NewEmbeddingService(embClient, versionRepo)
 
 	return routes.Handlers{
 		Health:       healthHandler(conn),

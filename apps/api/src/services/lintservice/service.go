@@ -1,32 +1,33 @@
+// Package lintservice performs rule-based quality analysis on prompt versions.
+//
+// Rules include: excessive content length, missing output format specification,
+// undeclared template variables, and vague instructions. Each rule contributes
+// to a 0–100 quality score.
 package lintservice
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"api/src/domain/apperror"
 	"api/src/domain/intelligence"
-	db "utils/db/db"
+	"api/src/domain/prompt"
+	"api/src/services/contentutil"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 // LintService performs rule-based linting on prompt versions.
 type LintService struct {
-	q db.Querier
+	versionRepo prompt.VersionRepository
 }
 
-// NewLintService creates a new LintService with the given querier.
-func NewLintService(q db.Querier) *LintService {
-	return &LintService{q: q}
+// NewLintService creates a new LintService with the given version repository.
+func NewLintService(versionRepo prompt.VersionRepository) *LintService {
+	return &LintService{versionRepo: versionRepo}
 }
-
-// variablePattern matches {{variable}} patterns in prompt content.
-var variablePattern = regexp.MustCompile(`\{\{(\w+)\}\}`)
 
 // vagueWords are words that indicate imprecise instructions.
 var vagueWords = []string{"good", "nice", "appropriate", "proper", "suitable", "reasonable"}
@@ -39,10 +40,7 @@ const maxContentLength = 4000
 
 // LintVersion lints a specific prompt version and stores the result.
 func (s *LintService) LintVersion(ctx context.Context, promptID uuid.UUID, versionNumber int) (*intelligence.LintResult, error) {
-	row, err := s.q.GetPromptVersion(ctx, db.GetPromptVersionParams{
-		PromptID:      promptID,
-		VersionNumber: int32(versionNumber),
-	})
+	v, err := s.versionRepo.FindByPromptAndNumber(ctx, prompt.PromptIDFromUUID(promptID), versionNumber)
 	if err != nil {
 		return nil, apperror.NewNotFoundError(
 			fmt.Errorf("version %d not found for prompt %s", versionNumber, promptID),
@@ -50,8 +48,8 @@ func (s *LintService) LintVersion(ctx context.Context, promptID uuid.UUID, versi
 		)
 	}
 
-	content := extractContent(row.Content)
-	variables := extractVariables(row.Variables)
+	content := contentutil.ExtractText(v.Content)
+	variables := extractVariablesFromJSON(v.Variables)
 
 	result := runLintRules(content, variables)
 
@@ -60,45 +58,23 @@ func (s *LintService) LintVersion(ctx context.Context, promptID uuid.UUID, versi
 		return nil, apperror.NewInternalServerError(fmt.Errorf("failed to marshal lint result: %w", err), "LintResult")
 	}
 
-	if err := s.q.UpdatePromptVersionLintResult(ctx, db.UpdatePromptVersionLintResultParams{
-		ID: row.ID,
-		LintResult: pqtype.NullRawMessage{
-			RawMessage: resultJSON,
-			Valid:      true,
-		},
-	}); err != nil {
+	if err := s.versionRepo.UpdateLintResult(ctx, v.ID, resultJSON); err != nil {
 		return nil, apperror.NewDatabaseError(fmt.Errorf("failed to store lint result: %w", err), "LintResult")
 	}
 
 	return result, nil
 }
 
-// extractContent pulls the text content from the JSON content field.
-func extractContent(raw json.RawMessage) string {
-	var obj map[string]any
-	if err := json.Unmarshal(raw, &obj); err != nil {
-		return string(raw)
-	}
-	for _, key := range []string{"content", "text", "body"} {
-		if v, ok := obj[key]; ok {
-			if s, ok := v.(string); ok {
-				return s
-			}
-		}
-	}
-	return string(raw)
-}
-
-// extractVariables parses the variables JSON array into a set of variable names.
-func extractVariables(raw pqtype.NullRawMessage) map[string]bool {
+// extractVariablesFromJSON parses the variables JSON array into a set of variable names.
+func extractVariablesFromJSON(raw json.RawMessage) map[string]bool {
 	vars := make(map[string]bool)
-	if !raw.Valid {
+	if raw == nil {
 		return vars
 	}
 
 	// Try array of objects with "name" field
 	var arr []map[string]any
-	if err := json.Unmarshal(raw.RawMessage, &arr); err == nil {
+	if err := json.Unmarshal(raw, &arr); err == nil {
 		for _, item := range arr {
 			if name, ok := item["name"].(string); ok {
 				vars[name] = true
@@ -109,7 +85,7 @@ func extractVariables(raw pqtype.NullRawMessage) map[string]bool {
 
 	// Try array of strings
 	var strArr []string
-	if err := json.Unmarshal(raw.RawMessage, &strArr); err == nil {
+	if err := json.Unmarshal(raw, &strArr); err == nil {
 		for _, name := range strArr {
 			vars[name] = true
 		}
@@ -156,7 +132,7 @@ func runLintRules(content string, variables map[string]bool) *intelligence.LintR
 	}
 
 	// Rule: variable-check
-	contentVars := findContentVariables(content)
+	contentVars := contentutil.FindVariables(content)
 	undeclared := findUndeclaredVariables(contentVars, variables)
 	if len(undeclared) > 0 {
 		issues = append(issues, intelligence.LintIssue{
@@ -189,16 +165,6 @@ func runLintRules(content string, variables map[string]bool) *intelligence.LintR
 		Issues: issues,
 		Passed: passed,
 	}
-}
-
-// findContentVariables extracts all {{variable}} names from content.
-func findContentVariables(content string) map[string]bool {
-	vars := make(map[string]bool)
-	matches := variablePattern.FindAllStringSubmatch(content, -1)
-	for _, m := range matches {
-		vars[m[1]] = true
-	}
-	return vars
 }
 
 // findUndeclaredVariables returns variable names used in content but not declared.

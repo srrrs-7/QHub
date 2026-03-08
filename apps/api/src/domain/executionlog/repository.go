@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// LogRepository defines persistence operations for execution logs.
 type LogRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (ExecutionLog, error)
 	FindAllByPrompt(ctx context.Context, promptID uuid.UUID, limit, offset int) ([]ExecutionLog, error)
@@ -14,6 +15,7 @@ type LogRepository interface {
 	CountByPrompt(ctx context.Context, promptID uuid.UUID) (int64, error)
 }
 
+// EvaluationRepository defines persistence operations for evaluations.
 type EvaluationRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (Evaluation, error)
 	FindByLogID(ctx context.Context, logID uuid.UUID) ([]Evaluation, error)

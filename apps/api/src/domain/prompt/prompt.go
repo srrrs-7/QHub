@@ -1,76 +1,79 @@
+// Package prompt defines the Prompt / PromptVersion aggregates, their
+// value objects, and the status lifecycle for version management.
+//
+// A Prompt belongs to a Project. Each Prompt has multiple PromptVersions
+// that move through the status lifecycle: draft → review → production → archived.
 package prompt
 
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"slices"
-	"strings"
 
 	"api/src/domain/apperror"
+	"api/src/domain/valobj"
 
 	"github.com/google/uuid"
 )
 
 // --- PromptID ---
 
+// PromptID is the unique identifier for a prompt (UUID).
 type PromptID uuid.UUID
 
+// NewPromptID parses a string UUID into a PromptID.
 func NewPromptID(id string) (PromptID, error) {
-	parsed, err := uuid.Parse(id)
+	parsed, err := valobj.ParseUUID(id, "PromptID")
 	if err != nil {
-		return PromptID{}, apperror.NewValidationError(fmt.Errorf("invalid prompt ID: %w", err), "PromptID")
+		return PromptID{}, err
 	}
 	return PromptID(parsed), nil
 }
 
+// PromptIDFromUUID converts a uuid.UUID directly (for DB results).
 func PromptIDFromUUID(id uuid.UUID) PromptID { return PromptID(id) }
-func (p PromptID) String() string            { return uuid.UUID(p).String() }
-func (p PromptID) UUID() uuid.UUID           { return uuid.UUID(p) }
+
+// String returns the string representation.
+func (p PromptID) String() string { return uuid.UUID(p).String() }
+
+// UUID returns the underlying uuid.UUID.
+func (p PromptID) UUID() uuid.UUID { return uuid.UUID(p) }
 
 // --- PromptName ---
 
+// PromptName is a validated name (2–200 characters, non-blank).
 type PromptName string
 
+// NewPromptName validates and creates a PromptName.
 func NewPromptName(name string) (PromptName, error) {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return "", apperror.NewValidationError(fmt.Errorf("prompt name must not be empty"), "PromptName")
-	}
-	if len(name) < 2 {
-		return "", apperror.NewValidationError(fmt.Errorf("prompt name must be at least 2 characters"), "PromptName")
-	}
-	if len(name) > 200 {
-		return "", apperror.NewValidationError(fmt.Errorf("prompt name must be at most 200 characters"), "PromptName")
+	if err := valobj.ValidateName(name, 2, 200, "PromptName"); err != nil {
+		return "", err
 	}
 	return PromptName(name), nil
 }
 
+// String returns the name as a plain string.
 func (p PromptName) String() string { return string(p) }
 
 // --- PromptSlug ---
 
+// PromptSlug is a URL-safe identifier (2–80 chars, lowercase+hyphens).
 type PromptSlug string
 
-var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
-
+// NewPromptSlug validates and creates a PromptSlug.
 func NewPromptSlug(slug string) (PromptSlug, error) {
-	if len(slug) < 2 {
-		return "", apperror.NewValidationError(fmt.Errorf("slug must be at least 2 characters"), "PromptSlug")
-	}
-	if len(slug) > 80 {
-		return "", apperror.NewValidationError(fmt.Errorf("slug must be at most 80 characters"), "PromptSlug")
-	}
-	if !slugRegex.MatchString(slug) {
-		return "", apperror.NewValidationError(fmt.Errorf("slug must contain only lowercase letters, numbers, and hyphens"), "PromptSlug")
+	if err := valobj.ValidateSlug(slug, 2, 80, "PromptSlug"); err != nil {
+		return "", err
 	}
 	return PromptSlug(slug), nil
 }
 
+// String returns the slug as a plain string.
 func (p PromptSlug) String() string { return string(p) }
 
 // --- PromptType ---
 
+// PromptType categorises how the prompt is used: system, user, or combined.
 type PromptType string
 
 const (
@@ -79,6 +82,7 @@ const (
 	PromptTypeCombined PromptType = "combined"
 )
 
+// NewPromptType validates a prompt-type string.
 func NewPromptType(pt string) (PromptType, error) {
 	switch PromptType(pt) {
 	case PromptTypeSystem, PromptTypeUser, PromptTypeCombined:
@@ -88,23 +92,28 @@ func NewPromptType(pt string) (PromptType, error) {
 	}
 }
 
+// String returns the prompt type as a plain string.
 func (p PromptType) String() string { return string(p) }
 
 // --- PromptDescription ---
 
+// PromptDescription is an optional description (max 1000 characters).
 type PromptDescription string
 
+// NewPromptDescription validates and creates a PromptDescription.
 func NewPromptDescription(desc string) (PromptDescription, error) {
-	if len(desc) > 1000 {
-		return "", apperror.NewValidationError(fmt.Errorf("description must be at most 1000 characters"), "PromptDescription")
+	if err := valobj.ValidateMaxLength(desc, 1000, "PromptDescription"); err != nil {
+		return "", err
 	}
 	return PromptDescription(desc), nil
 }
 
+// String returns the description as a plain string.
 func (p PromptDescription) String() string { return string(p) }
 
 // --- VersionStatus ---
 
+// VersionStatus represents the lifecycle stage of a prompt version.
 type VersionStatus string
 
 const (
@@ -114,6 +123,7 @@ const (
 	StatusArchived   VersionStatus = "archived"
 )
 
+// NewVersionStatus validates a version-status string.
 func NewVersionStatus(status string) (VersionStatus, error) {
 	switch VersionStatus(status) {
 	case StatusDraft, StatusReview, StatusProduction, StatusArchived:
@@ -123,12 +133,14 @@ func NewVersionStatus(status string) (VersionStatus, error) {
 	}
 }
 
+// String returns the status as a plain string.
 func (v VersionStatus) String() string { return string(v) }
 
-// ValidateStatusTransition checks if a status transition is allowed.
+// ValidateStatusTransition checks if moving from one status to another is
+// allowed by the lifecycle rules:
 //
 //	draft → review → production → archived
-//	draft → archived (discard)
+//	draft → archived (discard without review)
 func ValidateStatusTransition(from, to VersionStatus) error {
 	allowed := map[VersionStatus][]VersionStatus{
 		StatusDraft:      {StatusReview, StatusArchived},
@@ -141,32 +153,31 @@ func ValidateStatusTransition(from, to VersionStatus) error {
 	if !ok {
 		return apperror.NewValidationError(fmt.Errorf("unknown status: %s", from), "VersionStatus")
 	}
-
 	if slices.Contains(targets, to) {
 		return nil
 	}
-
-	return apperror.NewValidationError(
-		fmt.Errorf("invalid status transition: %s → %s", from, to),
-		"VersionStatus",
-	)
+	return apperror.NewValidationError(fmt.Errorf("invalid status transition: %s → %s", from, to), "VersionStatus")
 }
 
 // --- ChangeDescription ---
 
+// ChangeDescription summarises what changed in a version (max 500 characters).
 type ChangeDescription string
 
+// NewChangeDescription validates and creates a ChangeDescription.
 func NewChangeDescription(desc string) (ChangeDescription, error) {
-	if len(desc) > 500 {
-		return "", apperror.NewValidationError(fmt.Errorf("change description must be at most 500 characters"), "ChangeDescription")
+	if err := valobj.ValidateMaxLength(desc, 500, "ChangeDescription"); err != nil {
+		return "", err
 	}
 	return ChangeDescription(desc), nil
 }
 
+// String returns the description as a plain string.
 func (c ChangeDescription) String() string { return string(c) }
 
 // --- Prompt (Aggregate) ---
 
+// Prompt is the aggregate root representing a managed prompt template.
 type Prompt struct {
 	ID                PromptID
 	ProjectID         uuid.UUID
@@ -175,51 +186,58 @@ type Prompt struct {
 	PromptType        PromptType
 	Description       PromptDescription
 	LatestVersion     int
-	ProductionVersion *int
+	ProductionVersion *int // nil when no version is in production
 }
 
+// NewPrompt constructs a Prompt from validated value objects.
 func NewPrompt(id PromptID, projectID uuid.UUID, name PromptName, slug PromptSlug, promptType PromptType, desc PromptDescription, latestVersion int, productionVersion *int) Prompt {
 	return Prompt{
-		ID:                id,
-		ProjectID:         projectID,
-		Name:              name,
-		Slug:              slug,
-		PromptType:        promptType,
-		Description:       desc,
-		LatestVersion:     latestVersion,
-		ProductionVersion: productionVersion,
+		ID: id, ProjectID: projectID, Name: name, Slug: slug,
+		PromptType: promptType, Description: desc,
+		LatestVersion: latestVersion, ProductionVersion: productionVersion,
 	}
 }
 
 // --- PromptVersion ---
 
+// PromptVersion represents a single revision of a prompt's content.
 type PromptVersion struct {
 	ID                PromptVersionID
 	PromptID          PromptID
 	VersionNumber     int
 	Status            VersionStatus
-	Content           json.RawMessage
-	Variables         json.RawMessage
+	Content           json.RawMessage // JSONB content
+	Variables         json.RawMessage // JSONB variable definitions
 	ChangeDescription ChangeDescription
 	AuthorID          uuid.UUID
 }
 
+// --- PromptVersionID ---
+
+// PromptVersionID is the unique identifier for a prompt version (UUID).
 type PromptVersionID uuid.UUID
 
+// NewPromptVersionID parses a string UUID into a PromptVersionID.
 func NewPromptVersionID(id string) (PromptVersionID, error) {
-	parsed, err := uuid.Parse(id)
+	parsed, err := valobj.ParseUUID(id, "PromptVersionID")
 	if err != nil {
-		return PromptVersionID{}, apperror.NewValidationError(fmt.Errorf("invalid prompt version ID: %w", err), "PromptVersionID")
+		return PromptVersionID{}, err
 	}
 	return PromptVersionID(parsed), nil
 }
 
+// PromptVersionIDFromUUID converts a uuid.UUID directly (for DB results).
 func PromptVersionIDFromUUID(id uuid.UUID) PromptVersionID { return PromptVersionID(id) }
-func (p PromptVersionID) String() string                   { return uuid.UUID(p).String() }
-func (p PromptVersionID) UUID() uuid.UUID                  { return uuid.UUID(p) }
+
+// String returns the string representation.
+func (p PromptVersionID) String() string { return uuid.UUID(p).String() }
+
+// UUID returns the underlying uuid.UUID.
+func (p PromptVersionID) UUID() uuid.UUID { return uuid.UUID(p) }
 
 // --- PromptCmd ---
 
+// PromptCmd is a command object for creating or updating a prompt.
 type PromptCmd struct {
 	ProjectID   uuid.UUID
 	Name        PromptName
@@ -230,6 +248,7 @@ type PromptCmd struct {
 
 // --- VersionCmd ---
 
+// VersionCmd is a command object for creating a new prompt version.
 type VersionCmd struct {
 	PromptID          PromptID
 	Content           json.RawMessage

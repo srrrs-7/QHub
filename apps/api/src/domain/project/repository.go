@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// ProjectRepository defines persistence operations for projects.
+// Implementations live in the infra layer (dependency inversion).
 type ProjectRepository interface {
 	FindByID(ctx context.Context, id ProjectID) (Project, error)
 	FindByOrgAndSlug(ctx context.Context, orgID uuid.UUID, slug ProjectSlug) (Project, error)

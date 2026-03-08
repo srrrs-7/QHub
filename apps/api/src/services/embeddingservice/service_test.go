@@ -3,6 +3,8 @@ package embeddingservice
 import (
 	"testing"
 
+	"api/src/services/contentutil"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 )
@@ -32,7 +34,7 @@ func TestExtractText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := extractText([]byte(tt.input))
+			got := contentutil.ExtractText([]byte(tt.input))
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}

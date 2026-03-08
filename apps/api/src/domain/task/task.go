@@ -1,78 +1,74 @@
+// Package task defines the Task aggregate and its value objects.
+//
+// A Task is a simple work item with a title, description, and status.
+// It is used as the reference example for the clean-architecture pattern
+// in this codebase.
 package task
 
 import (
-	"api/src/domain/apperror"
 	"fmt"
-	"strings"
+
+	"api/src/domain/apperror"
+	"api/src/domain/valobj"
 
 	"github.com/google/uuid"
 )
 
-// TaskID represents a unique identifier for a task.
+// --- TaskID ---
+
+// TaskID is the unique identifier for a task (UUID).
 type TaskID uuid.UUID
 
-// NewTaskID creates a new TaskID from a string representation of a UUID.
+// NewTaskID parses a string UUID into a TaskID.
 func NewTaskID(id string) (TaskID, error) {
-	parsed, err := uuid.Parse(id)
+	parsed, err := valobj.ParseUUID(id, "TaskID")
 	if err != nil {
-		return TaskID{}, apperror.NewValidationError(fmt.Errorf("invalid task ID: %w", err), "TaskID")
+		return TaskID{}, err
 	}
 	return TaskID(parsed), nil
 }
 
-// TaskIDFromUUID creates a TaskID directly from a uuid.UUID.
-// Use this when you already have a validated UUID (e.g., from the database).
-func TaskIDFromUUID(id uuid.UUID) TaskID {
-	return TaskID(id)
-}
+// TaskIDFromUUID converts a uuid.UUID directly (for DB results).
+func TaskIDFromUUID(id uuid.UUID) TaskID { return TaskID(id) }
 
-// String returns the string representation of the TaskID.
-func (t TaskID) String() string {
-	return uuid.UUID(t).String()
-}
+// String returns the string representation.
+func (t TaskID) String() string { return uuid.UUID(t).String() }
 
-// TaskTitle represents the title of a task.
+// --- TaskTitle ---
+
+// TaskTitle is a validated title (3–100 characters, non-blank).
 type TaskTitle string
 
-// NewTaskTitle creates a new TaskTitle with validation.
-// Title must be between 3 and 100 characters and not whitespace-only.
+// NewTaskTitle validates and creates a TaskTitle.
 func NewTaskTitle(title string) (TaskTitle, error) {
-	trimmed := strings.TrimSpace(title)
-	if trimmed == "" {
-		return "", apperror.NewValidationError(fmt.Errorf("title must not be empty"), "TaskTitle")
-	}
-	if len(title) < 3 {
-		return "", apperror.NewValidationError(fmt.Errorf("title must be at least 3 characters"), "TaskTitle")
-	}
-	if len(title) > 100 {
-		return "", apperror.NewValidationError(fmt.Errorf("title must be at most 100 characters"), "TaskTitle")
+	if err := valobj.ValidateName(title, 3, 100, "TaskTitle"); err != nil {
+		return "", err
 	}
 	return TaskTitle(title), nil
 }
 
-// String returns the string representation of the TaskTitle.
-func (t TaskTitle) String() string {
-	return string(t)
-}
+// String returns the title as a plain string.
+func (t TaskTitle) String() string { return string(t) }
 
-// TaskDescription represents the detailed description of a task.
+// --- TaskDescription ---
+
+// TaskDescription is an optional description (max 500 characters).
 type TaskDescription string
 
-// NewTaskDescription creates a new TaskDescription with validation.
-// Description must be at most 500 characters. Empty is allowed.
+// NewTaskDescription validates and creates a TaskDescription.
 func NewTaskDescription(description string) (TaskDescription, error) {
-	if len(description) > 500 {
-		return "", apperror.NewValidationError(fmt.Errorf("description must be at most 500 characters"), "TaskDescription")
+	if err := valobj.ValidateMaxLength(description, 500, "TaskDescription"); err != nil {
+		return "", err
 	}
 	return TaskDescription(description), nil
 }
 
-// String returns the string representation of the TaskDescription.
-func (t TaskDescription) String() string {
-	return string(t)
-}
+// String returns the description as a plain string.
+func (t TaskDescription) String() string { return string(t) }
 
-// TaskStatus represents the status of a task.
+// --- TaskStatus ---
+
+// TaskStatus represents the completion state of a task.
 type TaskStatus string
 
 const (
@@ -80,7 +76,7 @@ const (
 	TaskStatusCompleted TaskStatus = "completed"
 )
 
-// NewTaskStatus creates a new TaskStatus with validation.
+// NewTaskStatus validates a status string.
 func NewTaskStatus(status string) (TaskStatus, error) {
 	switch TaskStatus(status) {
 	case TaskStatusPending, TaskStatusCompleted:
@@ -90,12 +86,12 @@ func NewTaskStatus(status string) (TaskStatus, error) {
 	}
 }
 
-// String returns the string representation of the TaskStatus.
-func (t TaskStatus) String() string {
-	return string(t)
-}
+// String returns the status as a plain string.
+func (t TaskStatus) String() string { return string(t) }
 
-// Task represents a task entity in the domain model.
+// --- Task (Aggregate) ---
+
+// Task is the aggregate root representing a work item.
 type Task struct {
 	ID          TaskID
 	Title       TaskTitle
@@ -103,20 +99,13 @@ type Task struct {
 	Status      TaskStatus
 }
 
-// NewTask creates a new Task with the given properties.
+// NewTask constructs a Task from validated value objects.
 func NewTask(id TaskID, title TaskTitle, description TaskDescription, status TaskStatus) Task {
-	return Task{
-		ID:          id,
-		Title:       title,
-		Description: description,
-		Status:      status,
-	}
+	return Task{ID: id, Title: title, Description: description, Status: status}
 }
 
-func (t Task) IsCompleted() bool {
-	return t.Status == TaskStatusCompleted
-}
+// IsCompleted returns true if the task is marked as completed.
+func (t Task) IsCompleted() bool { return t.Status == TaskStatusCompleted }
 
-func (t Task) IsPending() bool {
-	return t.Status == TaskStatusPending
-}
+// IsPending returns true if the task is still pending.
+func (t Task) IsPending() bool { return t.Status == TaskStatusPending }

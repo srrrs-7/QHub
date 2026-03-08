@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// TagRepository defines persistence operations for tags and prompt-tag associations.
 type TagRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (Tag, error)
 	FindAllByOrg(ctx context.Context, orgID uuid.UUID) ([]Tag, error)

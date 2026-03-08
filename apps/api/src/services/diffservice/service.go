@@ -1,3 +1,8 @@
+// Package diffservice generates semantic and text diffs between prompt versions.
+//
+// The semantic diff analyses content-length changes, variable additions/removals,
+// and tone shifts. The text diff produces a line-by-line comparison using the
+// longest common subsequence (LCS) algorithm.
 package diffservice
 
 import (
@@ -5,25 +10,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"regexp"
 	"strings"
 
 	"api/src/domain/apperror"
 	"api/src/domain/intelligence"
-	db "utils/db/db"
+	"api/src/domain/prompt"
+	"api/src/services/contentutil"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 // DiffService generates semantic diffs between prompt versions.
 type DiffService struct {
-	q db.Querier
+	versionRepo prompt.VersionRepository
 }
 
-// NewDiffService creates a new DiffService with the given querier.
-func NewDiffService(q db.Querier) *DiffService {
-	return &DiffService{q: q}
+// NewDiffService creates a new DiffService with the given version repository.
+func NewDiffService(versionRepo prompt.VersionRepository) *DiffService {
+	return &DiffService{versionRepo: versionRepo}
 }
 
 // toneKeywords maps tone categories to their indicator words.
@@ -34,16 +38,12 @@ var toneKeywords = map[string][]string{
 	"friendly": {"feel free", "no worries", "happy to", "glad", "welcome"},
 }
 
-// variablePattern matches {{variable}} patterns in prompt content.
-var variablePattern = regexp.MustCompile(`\{\{(\w+)\}\}`)
-
 // GenerateDiff computes a rule-based semantic diff between two prompt versions
 // and stores the result in the database.
 func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, fromVersion, toVersion int) (*intelligence.SemanticDiff, error) {
-	fromRow, err := s.q.GetPromptVersion(ctx, db.GetPromptVersionParams{
-		PromptID:      promptID,
-		VersionNumber: int32(fromVersion),
-	})
+	pid := prompt.PromptIDFromUUID(promptID)
+
+	fromV, err := s.versionRepo.FindByPromptAndNumber(ctx, pid, fromVersion)
 	if err != nil {
 		return nil, apperror.NewNotFoundError(
 			fmt.Errorf("version %d not found for prompt %s", fromVersion, promptID),
@@ -51,10 +51,7 @@ func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, from
 		)
 	}
 
-	toRow, err := s.q.GetPromptVersion(ctx, db.GetPromptVersionParams{
-		PromptID:      promptID,
-		VersionNumber: int32(toVersion),
-	})
+	toV, err := s.versionRepo.FindByPromptAndNumber(ctx, pid, toVersion)
 	if err != nil {
 		return nil, apperror.NewNotFoundError(
 			fmt.Errorf("version %d not found for prompt %s", toVersion, promptID),
@@ -62,8 +59,8 @@ func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, from
 		)
 	}
 
-	fromContent := extractContent(fromRow.Content)
-	toContent := extractContent(toRow.Content)
+	fromContent := contentutil.ExtractText(fromV.Content)
+	toContent := contentutil.ExtractText(toV.Content)
 
 	diff := buildDiff(fromContent, toContent)
 
@@ -72,13 +69,7 @@ func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, from
 		return nil, apperror.NewInternalServerError(fmt.Errorf("failed to marshal semantic diff: %w", err), "SemanticDiff")
 	}
 
-	if err := s.q.UpdatePromptVersionSemanticDiff(ctx, db.UpdatePromptVersionSemanticDiffParams{
-		ID: toRow.ID,
-		SemanticDiff: pqtype.NullRawMessage{
-			RawMessage: diffJSON,
-			Valid:      true,
-		},
-	}); err != nil {
+	if err := s.versionRepo.UpdateSemanticDiff(ctx, toV.ID, diffJSON); err != nil {
 		return nil, apperror.NewDatabaseError(fmt.Errorf("failed to store semantic diff: %w", err), "SemanticDiff")
 	}
 
@@ -87,16 +78,18 @@ func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, from
 
 // TextDiffResult represents a line-by-line text diff result.
 type TextDiffResult struct {
-	FromVersion int             `json:"from_version"`
-	ToVersion   int             `json:"to_version"`
-	Hunks       []TextDiffHunk  `json:"hunks"`
-	Stats       TextDiffStats   `json:"stats"`
+	FromVersion int            `json:"from_version"`
+	ToVersion   int            `json:"to_version"`
+	Hunks       []TextDiffHunk `json:"hunks"`
+	Stats       TextDiffStats  `json:"stats"`
 }
 
+// TextDiffHunk groups contiguous diff lines.
 type TextDiffHunk struct {
 	Lines []TextDiffLine `json:"lines"`
 }
 
+// TextDiffLine represents a single line in the diff output.
 type TextDiffLine struct {
 	Type    string `json:"type"` // "equal", "added", "removed"
 	Content string `json:"content"`
@@ -104,6 +97,7 @@ type TextDiffLine struct {
 	NewLine int    `json:"new_line,omitempty"`
 }
 
+// TextDiffStats summarises the number of added, removed, and equal lines.
 type TextDiffStats struct {
 	Added   int `json:"added"`
 	Removed int `json:"removed"`
@@ -112,10 +106,9 @@ type TextDiffStats struct {
 
 // GenerateTextDiff produces a line-by-line text diff between two prompt versions.
 func (s *DiffService) GenerateTextDiff(ctx context.Context, promptID uuid.UUID, fromVersion, toVersion int) (*TextDiffResult, error) {
-	fromRow, err := s.q.GetPromptVersion(ctx, db.GetPromptVersionParams{
-		PromptID:      promptID,
-		VersionNumber: int32(fromVersion),
-	})
+	pid := prompt.PromptIDFromUUID(promptID)
+
+	fromV, err := s.versionRepo.FindByPromptAndNumber(ctx, pid, fromVersion)
 	if err != nil {
 		return nil, apperror.NewNotFoundError(
 			fmt.Errorf("version %d not found for prompt %s", fromVersion, promptID),
@@ -123,10 +116,7 @@ func (s *DiffService) GenerateTextDiff(ctx context.Context, promptID uuid.UUID, 
 		)
 	}
 
-	toRow, err := s.q.GetPromptVersion(ctx, db.GetPromptVersionParams{
-		PromptID:      promptID,
-		VersionNumber: int32(toVersion),
-	})
+	toV, err := s.versionRepo.FindByPromptAndNumber(ctx, pid, toVersion)
 	if err != nil {
 		return nil, apperror.NewNotFoundError(
 			fmt.Errorf("version %d not found for prompt %s", toVersion, promptID),
@@ -134,8 +124,8 @@ func (s *DiffService) GenerateTextDiff(ctx context.Context, promptID uuid.UUID, 
 		)
 	}
 
-	fromContent := extractContent(fromRow.Content)
-	toContent := extractContent(toRow.Content)
+	fromContent := contentutil.ExtractText(fromV.Content)
+	toContent := contentutil.ExtractText(toV.Content)
 
 	fromLines := strings.Split(fromContent, "\n")
 	toLines := strings.Split(toContent, "\n")
@@ -226,22 +216,6 @@ func lcsStrings(a, b []string) []string {
 	return result
 }
 
-// extractContent pulls the text content from the JSON content field.
-// It tries to extract a "content" or "text" string field; otherwise returns the raw JSON as string.
-func extractContent(raw json.RawMessage) string {
-	var obj map[string]any
-	if err := json.Unmarshal(raw, &obj); err != nil {
-		return string(raw)
-	}
-	for _, key := range []string{"content", "text", "body"} {
-		if v, ok := obj[key]; ok {
-			if s, ok := v.(string); ok {
-				return s
-			}
-		}
-	}
-	return string(raw)
-}
 
 // buildDiff performs a rule-based comparison of two content strings.
 func buildDiff(fromContent, toContent string) *intelligence.SemanticDiff {
@@ -267,8 +241,8 @@ func buildDiff(fromContent, toContent string) *intelligence.SemanticDiff {
 	}
 
 	// Variable changes
-	fromVars := findVariables(fromContent)
-	toVars := findVariables(toContent)
+	fromVars := contentutil.FindVariables(fromContent)
+	toVars := contentutil.FindVariables(toContent)
 
 	for v := range toVars {
 		if !fromVars[v] {
@@ -319,15 +293,6 @@ func buildDiff(fromContent, toContent string) *intelligence.SemanticDiff {
 	}
 }
 
-// findVariables extracts all {{variable}} names from content.
-func findVariables(content string) map[string]bool {
-	vars := make(map[string]bool)
-	matches := variablePattern.FindAllStringSubmatch(content, -1)
-	for _, m := range matches {
-		vars[m[1]] = true
-	}
-	return vars
-}
 
 // detectTone scores content against tone keyword categories and returns the dominant tone.
 func detectTone(content string) string {
@@ -363,6 +328,7 @@ func buildSummary(changes []intelligence.DiffChange) string {
 	return strings.Join(parts, "; ")
 }
 
+// abs returns the absolute value of n.
 func abs(n int) int {
 	if n < 0 {
 		return -n

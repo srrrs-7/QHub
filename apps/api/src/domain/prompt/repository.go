@@ -2,10 +2,13 @@ package prompt
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 )
 
+// PromptRepository defines persistence operations for prompts.
+// Implementations live in the infra layer (dependency inversion).
 type PromptRepository interface {
 	FindByID(ctx context.Context, id PromptID) (Prompt, error)
 	FindByProjectAndSlug(ctx context.Context, projectID uuid.UUID, slug PromptSlug) (Prompt, error)
@@ -16,6 +19,9 @@ type PromptRepository interface {
 	UpdateProductionVersion(ctx context.Context, id PromptID, version *int) (Prompt, error)
 }
 
+// VersionRepository defines persistence operations for prompt versions.
+// It is also used by service-layer packages (diffservice, lintservice,
+// embeddingservice) to keep services decoupled from the DB layer.
 type VersionRepository interface {
 	FindByPromptAndNumber(ctx context.Context, promptID PromptID, number int) (PromptVersion, error)
 	FindAllByPrompt(ctx context.Context, promptID PromptID) ([]PromptVersion, error)
@@ -24,4 +30,7 @@ type VersionRepository interface {
 	Create(ctx context.Context, cmd VersionCmd, versionNumber int) (PromptVersion, error)
 	UpdateStatus(ctx context.Context, id PromptVersionID, status VersionStatus) (PromptVersion, error)
 	ArchiveProduction(ctx context.Context, promptID PromptID) error
+	UpdateLintResult(ctx context.Context, id PromptVersionID, result json.RawMessage) error
+	UpdateSemanticDiff(ctx context.Context, id PromptVersionID, diff json.RawMessage) error
+	UpdateEmbedding(ctx context.Context, id PromptVersionID, embedding []float32) error
 }

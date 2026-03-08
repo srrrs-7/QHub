@@ -1,13 +1,14 @@
 package lintservice
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"api/src/domain/intelligence"
+	"api/src/services/contentutil"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/sqlc-dev/pqtype"
 )
 
 func TestRunLintRules(t *testing.T) {
@@ -168,7 +169,7 @@ func TestCalculateScore(t *testing.T) {
 	}
 }
 
-func TestExtractContent(t *testing.T) {
+func TestExtractText(t *testing.T) {
 	tests := []struct {
 		testName string
 		input    string
@@ -187,7 +188,7 @@ func TestExtractContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := extractContent([]byte(tt.input))
+			got := contentutil.ExtractText([]byte(tt.input))
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
@@ -195,26 +196,21 @@ func TestExtractContent(t *testing.T) {
 	}
 }
 
-func TestExtractVariables(t *testing.T) {
+func TestExtractVariablesFromJSON(t *testing.T) {
 	tests := []struct {
 		testName string
-		input    string
-		valid    bool
+		input    json.RawMessage
 		expected map[string]bool
 	}{
-		{testName: "array of objects", input: `[{"name":"foo"},{"name":"bar"}]`, valid: true, expected: map[string]bool{"foo": true, "bar": true}},
-		{testName: "array of strings", input: `["x","y"]`, valid: true, expected: map[string]bool{"x": true, "y": true}},
-		{testName: "null/invalid", input: ``, valid: false, expected: map[string]bool{}},
-		{testName: "empty array", input: `[]`, valid: true, expected: map[string]bool{}},
+		{testName: "array of objects", input: json.RawMessage(`[{"name":"foo"},{"name":"bar"}]`), expected: map[string]bool{"foo": true, "bar": true}},
+		{testName: "array of strings", input: json.RawMessage(`["x","y"]`), expected: map[string]bool{"x": true, "y": true}},
+		{testName: "nil input", input: nil, expected: map[string]bool{}},
+		{testName: "empty array", input: json.RawMessage(`[]`), expected: map[string]bool{}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			raw := pqtype.NullRawMessage{Valid: tt.valid}
-			if tt.valid {
-				raw.RawMessage = []byte(tt.input)
-			}
-			got := extractVariables(raw)
+			got := extractVariablesFromJSON(tt.input)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}

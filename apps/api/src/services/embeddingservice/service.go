@@ -1,3 +1,7 @@
+// Package embeddingservice generates and stores vector embeddings for
+// prompt versions, enabling semantic search across the prompt library.
+//
+// When EMBEDDING_URL is not configured, all methods gracefully no-op.
 package embeddingservice
 
 import (
@@ -5,24 +9,24 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"api/src/domain/prompt"
+	"api/src/services/contentutil"
 	"utils/embedding"
-	db "utils/db/db"
 	"utils/logger"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 // EmbeddingService generates and stores embeddings for prompt versions.
 type EmbeddingService struct {
-	client *embedding.Client
-	q      db.Querier
+	client      *embedding.Client
+	versionRepo prompt.VersionRepository
 }
 
 // NewEmbeddingService creates a new EmbeddingService.
 // If client is nil, embedding generation is disabled (noop).
-func NewEmbeddingService(client *embedding.Client, q db.Querier) *EmbeddingService {
-	return &EmbeddingService{client: client, q: q}
+func NewEmbeddingService(client *embedding.Client, versionRepo prompt.VersionRepository) *EmbeddingService {
+	return &EmbeddingService{client: client, versionRepo: versionRepo}
 }
 
 // Available returns true if the embedding service is enabled.
@@ -30,7 +34,7 @@ func (s *EmbeddingService) Available() bool {
 	return s.client != nil
 }
 
-// EmbedVersion generates an embedding for the given prompt version
+// EmbedVersionAsync generates an embedding for the given prompt version
 // and stores it in the database. This runs asynchronously (fire-and-forget).
 func (s *EmbeddingService) EmbedVersionAsync(versionID uuid.UUID, content json.RawMessage) {
 	if s.client == nil {
@@ -61,8 +65,9 @@ func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, text string) (
 	return s.client.EmbedOne(ctx, text)
 }
 
+// embedAndStore generates an embedding from content and persists it.
 func (s *EmbeddingService) embedAndStore(ctx context.Context, versionID uuid.UUID, content json.RawMessage) error {
-	text := extractText(content)
+	text := contentutil.ExtractText(content)
 	if text == "" {
 		return nil
 	}
@@ -72,10 +77,7 @@ func (s *EmbeddingService) embedAndStore(ctx context.Context, versionID uuid.UUI
 		return fmt.Errorf("generate embedding: %w", err)
 	}
 
-	if err := s.q.UpdatePromptVersionEmbedding(ctx, db.UpdatePromptVersionEmbeddingParams{
-		ID:        versionID,
-		Embedding: emb,
-	}); err != nil {
+	if err := s.versionRepo.UpdateEmbedding(ctx, prompt.PromptVersionIDFromUUID(versionID), emb); err != nil {
 		return fmt.Errorf("store embedding: %w", err)
 	}
 
@@ -83,21 +85,3 @@ func (s *EmbeddingService) embedAndStore(ctx context.Context, versionID uuid.UUI
 	return nil
 }
 
-// extractText extracts the text content from the JSONB content field.
-func extractText(raw json.RawMessage) string {
-	var obj map[string]any
-	if err := json.Unmarshal(raw, &obj); err != nil {
-		return string(raw)
-	}
-	for _, key := range []string{"content", "text", "body", "system", "user"} {
-		if v, ok := obj[key]; ok {
-			if s, ok := v.(string); ok {
-				return s
-			}
-		}
-	}
-	return string(raw)
-}
-
-// ensure pq is imported for array serialization
-var _ = pq.Array

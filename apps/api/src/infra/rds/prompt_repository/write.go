@@ -5,6 +5,7 @@ import (
 	"api/src/infra/rds/repoerr"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"utils/db/db"
 
 	"github.com/sqlc-dev/pqtype"
@@ -129,4 +130,40 @@ func (r *VersionRepository) ArchiveProduction(ctx context.Context, promptID prom
 		return repoerr.Handle(err, "VersionRepository", "")
 	}
 	return nil
+}
+
+func (r *VersionRepository) UpdateLintResult(ctx context.Context, id prompt.PromptVersionID, result json.RawMessage) error {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	return r.q.UpdatePromptVersionLintResult(ctx, db.UpdatePromptVersionLintResultParams{
+		ID: id.UUID(),
+		LintResult: pqtype.NullRawMessage{
+			RawMessage: result,
+			Valid:      true,
+		},
+	})
+}
+
+func (r *VersionRepository) UpdateSemanticDiff(ctx context.Context, id prompt.PromptVersionID, diff json.RawMessage) error {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	return r.q.UpdatePromptVersionSemanticDiff(ctx, db.UpdatePromptVersionSemanticDiffParams{
+		ID: id.UUID(),
+		SemanticDiff: pqtype.NullRawMessage{
+			RawMessage: diff,
+			Valid:      true,
+		},
+	})
+}
+
+func (r *VersionRepository) UpdateEmbedding(ctx context.Context, id prompt.PromptVersionID, emb []float32) error {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	return r.q.UpdatePromptVersionEmbedding(ctx, db.UpdatePromptVersionEmbeddingParams{
+		ID:        id.UUID(),
+		Embedding: emb,
+	})
 }
