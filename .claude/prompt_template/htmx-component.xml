@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="htmx-component" description="templ + HTMXコンポーネントの作成">
+  <metadata>
+    <version>1.0</version>
+    <category>frontend</category>
+    <tags>htmx, templ, frontend, component</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはtempl + HTMXのフロントエンドエンジニアです。
+      サーバーサイドレンダリングとHTMXによるインタラクティブなコンポーネントを作成してください。
+      クライアントサイドJavaScriptは一切使用しないこと。
+    </instruction>
+    <constraints>
+      <constraint>JavaScriptを書かない: 全てのインタラクションはHTMX属性で実現</constraint>
+      <constraint>型安全: templテンプレートのコンパイル時型チェックを活用</constraint>
+      <constraint>プログレッシブエンハンスメント: HTMXなしでも基本機能が動作すること</constraint>
+      <constraint>アクセシビリティ: セマンティックHTML、ARIA属性の使用</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="component_name" required="true" description="コンポーネント名" />
+    <param name="description" required="true" description="コンポーネントの目的と機能" />
+    <param name="data_source" required="false" description="データソース（APIエンドポイント等）" />
+    <param name="interactions" required="false" description="ユーザーインタラクション（クリック、フォーム送信等）" />
+  </input>
+
+  <htmx_patterns>
+    <pattern name="load_content">
+      <description>ページ読み込み時にコンテンツを遅延取得</description>
+      <code><![CDATA[
+<div hx-get="/api/v1/tasks" hx-trigger="load" hx-target="#task-list">
+  Loading...
+</div>
+]]></code>
+    </pattern>
+
+    <pattern name="form_submit">
+      <description>フォーム送信でパーシャルHTMLを返却</description>
+      <code><![CDATA[
+<form hx-post="/api/v1/tasks" hx-target="#task-list" hx-swap="afterbegin">
+  <input type="text" name="title" required />
+  <button type="submit">Add</button>
+</form>
+]]></code>
+    </pattern>
+
+    <pattern name="inline_edit">
+      <description>クリックで編集モードに切り替え</description>
+      <code><![CDATA[
+<span hx-get="/tasks/{id}/edit" hx-trigger="click" hx-target="this" hx-swap="outerHTML">
+  {title}
+</span>
+]]></code>
+    </pattern>
+
+    <pattern name="delete_with_confirm">
+      <description>確認付き削除</description>
+      <code><![CDATA[
+<button hx-delete="/api/v1/tasks/{id}" hx-confirm="Delete this task?"
+        hx-target="closest .task-item" hx-swap="outerHTML swap:500ms">
+  Delete
+</button>
+]]></code>
+    </pattern>
+
+    <pattern name="search_debounce">
+      <description>入力に応じたリアルタイム検索</description>
+      <code><![CDATA[
+<input type="search" name="q"
+       hx-get="/api/v1/tasks/search" hx-trigger="input changed delay:300ms"
+       hx-target="#results" hx-indicator="#spinner" />
+]]></code>
+    </pattern>
+
+    <pattern name="infinite_scroll">
+      <description>無限スクロール</description>
+      <code><![CDATA[
+<div hx-get="/api/v1/tasks?page={next}" hx-trigger="revealed"
+     hx-swap="afterend">
+</div>
+]]></code>
+    </pattern>
+  </htmx_patterns>
+
+  <file_structure>
+    <file path="apps/web/src/templates/components/{name}.templ">
+      templコンポーネント定義
+    </file>
+    <file path="apps/web/src/handlers/{resource}.go">
+      HTMLレスポンスを返すハンドラー（フルページ + パーシャル）
+    </file>
+    <file path="apps/web/src/routes/routes.go">
+      ルーティング登録
+    </file>
+  </file_structure>
+
+  <templ_example>
+    <code><![CDATA[
+package components
+
+templ TaskItem(task client.Task) {
+    <div class="task-item" id={"task-" + task.ID}>
+        <span class="task-title">{task.Title}</span>
+        <span class={"status " + task.Status}>{task.Status}</span>
+        <button
+            hx-put={"/tasks/" + task.ID + "/toggle"}
+            hx-target={"#task-" + task.ID}
+            hx-swap="outerHTML"
+        >
+            Toggle
+        </button>
+    </div>
+}
+]]></code>
+  </templ_example>
+
+  <steps>
+    <step order="1" name="design">templコンポーネントの設計（props、状態、インタラクション）</step>
+    <step order="2" name="template">apps/web/src/templates/components/ に.templファイルを作成</step>
+    <step order="3" name="handler">パーシャルHTMLを返すハンドラーを実装</step>
+    <step order="4" name="route">ルーティング登録</step>
+    <step order="5" name="generate">make templ-gen でGoコード生成</step>
+    <step order="6" name="verify">ブラウザで動作確認</step>
+  </steps>
+
+  <output_format>
+    <report>
+      <item>コンポーネント仕様（props、イベント、HTMX属性）</item>
+      <item>作成ファイル一覧</item>
+      <item>対応するAPIエンドポイント</item>
+    </report>
+  </output_format>
+</prompt>

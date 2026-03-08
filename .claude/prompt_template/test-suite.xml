@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="test-suite" description="包括的テストスイートの作成">
+  <metadata>
+    <version>1.0</version>
+    <category>testing</category>
+    <tags>test, tdd, go, table-driven</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoのテストエンジニアです。
+      テーブルドリブンテストパターンで、6カテゴリを網羅する包括的なテストスイートを作成してください。
+      テストは仕様書として読めるような明確な命名を心がけること。
+    </instruction>
+    <constraints>
+      <constraint>必ずテーブルドリブンテストパターンを使用すること</constraint>
+      <constraint>testName/args/expected 構造体を使用すること</constraint>
+      <constraint>全6カテゴリを網羅すること</constraint>
+      <constraint>カバレッジ80%以上を達成すること（クリティカルパスは100%）</constraint>
+      <constraint>テスト間の依存を排除すること（各テストは独立して実行可能）</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="target" required="true" description="テスト対象（関数名、構造体名、ファイルパス）" />
+    <param name="layer" required="true" description="レイヤー（domain/infra/routes）" />
+  </input>
+
+  <categories description="必須の6テストカテゴリ">
+    <category name="正常系" tag="happy_path" priority="1">
+      <description>正しい入力で期待通りの結果が得られること</description>
+      <examples>
+        <example>標準的な入力値</example>
+        <example>全フィールドが指定された入力</example>
+        <example>オプショナルフィールドが省略された入力</example>
+      </examples>
+    </category>
+
+    <category name="異常系" tag="error_cases" priority="2">
+      <description>不正な入力で適切なエラーが返されること</description>
+      <examples>
+        <example>必須フィールドの欠損</example>
+        <example>不正なフォーマット</example>
+        <example>存在しないリソースの参照</example>
+        <example>権限のない操作</example>
+      </examples>
+    </category>
+
+    <category name="境界値" tag="boundary" priority="3">
+      <description>境界条件でのエッジケース</description>
+      <examples>
+        <example>最小長/最大長の文字列</example>
+        <example>最大長+1の文字列</example>
+        <example>ゼロ値（0, 空スライス）</example>
+        <example>負の値</example>
+        <example>UUID最小値/最大値</example>
+      </examples>
+    </category>
+
+    <category name="特殊文字" tag="special_chars" priority="4">
+      <description>特殊文字や多言語入力の処理</description>
+      <examples>
+        <example>絵文字: "Task 📋"</example>
+        <example>日本語: "タスク"</example>
+        <example>記号: "!@#$%^&amp;*()"</example>
+        <example>HTMLタグ: "&lt;script&gt;alert(1)&lt;/script&gt;"</example>
+        <example>SQLインジェクション: "'; DROP TABLE tasks; --"</example>
+        <example>Unicode: 結合文字、サロゲートペア</example>
+      </examples>
+    </category>
+
+    <category name="空文字" tag="empty_string" priority="5">
+      <description>空文字列やホワイトスペースの処理</description>
+      <examples>
+        <example>空文字列: ""</example>
+        <example>スペースのみ: "   "</example>
+        <example>タブ/改行: "\t\n"</example>
+        <example>ゼロ幅スペース</example>
+      </examples>
+    </category>
+
+    <category name="Null/Nil" tag="null_nil" priority="6">
+      <description>nilやゼロ値の処理</description>
+      <examples>
+        <example>nilポインタ</example>
+        <example>ゼロ値構造体</example>
+        <example>空スライス vs nilスライス</example>
+        <example>sql.NullString{Valid: false}</example>
+      </examples>
+    </category>
+  </categories>
+
+  <templates>
+    <template name="domain_value_object">
+      <code><![CDATA[
+func TestNewXxx(t *testing.T) {
+    type args struct {
+        value string
+    }
+    type expected struct {
+        wantErr bool
+        errName string
+    }
+
+    tests := []struct {
+        testName string
+        args     args
+        expected expected
+    }{
+        // 正常系
+        {testName: "valid value", args: args{value: "valid"}, expected: expected{wantErr: false}},
+        // 異常系
+        {testName: "invalid format", args: args{value: "!!!"}, expected: expected{wantErr: true, errName: "ValidationError"}},
+        // 境界値
+        {testName: "max length", args: args{value: strings.Repeat("a", MaxLen)}, expected: expected{wantErr: false}},
+        {testName: "over max length", args: args{value: strings.Repeat("a", MaxLen+1)}, expected: expected{wantErr: true, errName: "ValidationError"}},
+        // 特殊文字
+        {testName: "emoji", args: args{value: "Value 📋"}, expected: expected{wantErr: false}},
+        {testName: "japanese", args: args{value: "バリュー"}, expected: expected{wantErr: false}},
+        // 空文字
+        {testName: "empty string", args: args{value: ""}, expected: expected{wantErr: true, errName: "ValidationError"}},
+        {testName: "whitespace only", args: args{value: "   "}, expected: expected{wantErr: true, errName: "ValidationError"}},
+        // Nil
+        {testName: "zero value", args: args{value: ""}, expected: expected{wantErr: true, errName: "ValidationError"}},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.testName, func(t *testing.T) {
+            got, err := NewXxx(tt.args.value)
+            if tt.expected.wantErr {
+                if err == nil {
+                    t.Fatal("expected error but got nil")
+                }
+                var appErr apperror.AppError
+                if errors.As(err, &appErr) {
+                    if diff := cmp.Diff(tt.expected.errName, appErr.ErrorName()); diff != "" {
+                        t.Errorf("error name mismatch (-want +got):\n%s", diff)
+                    }
+                }
+            } else {
+                if err != nil {
+                    t.Fatalf("unexpected error: %v", err)
+                }
+                _ = got
+            }
+        })
+    }
+}
+]]></code>
+    </template>
+
+    <template name="handler_integration">
+      <code><![CDATA[
+func TestActionHandler(t *testing.T) {
+    t.Run("2xx Success", func(t *testing.T) {
+        tests := []struct {
+            name     string
+            setup    func(t *testing.T, q db.Querier) /* setup data */
+            request  func() *http.Request
+            expected struct {
+                statusCode int
+                /* response fields */
+            }
+        }{...}
+
+        for _, tt := range tests {
+            t.Run(tt.name, func(t *testing.T) {
+                q := testutil.SetupTestTx(t)
+                tt.setup(t, q)
+                repo := task_repository.NewTaskRepository(q)
+                handler := NewTaskHandler(repo).Action()
+
+                w := httptest.NewRecorder()
+                handler.ServeHTTP(w, tt.request())
+
+                resp := w.Result()
+                if diff := cmp.Diff(tt.expected.statusCode, resp.StatusCode); diff != "" {
+                    t.Errorf("status code mismatch (-want +got):\n%s", diff)
+                }
+            })
+        }
+    })
+
+    t.Run("4xx Error", func(t *testing.T) { /* error cases */ })
+}
+]]></code>
+    </template>
+  </templates>
+
+  <output_format>
+    <report>
+      <item>テストケース一覧（カテゴリ別）</item>
+      <item>カバレッジレポート</item>
+      <item>不足しているカテゴリの指摘</item>
+    </report>
+  </output_format>
+</prompt>

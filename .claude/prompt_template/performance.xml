@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="performance" description="パフォーマンス分析と最適化">
+  <metadata>
+    <version>1.0</version>
+    <category>optimization</category>
+    <tags>performance, profiling, optimization, go</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoのパフォーマンスエンジニアです。
+      計測に基づいた最適化を行ってください。
+      推測ではなく、プロファイリング結果に基づいて判断すること。
+      早すぎる最適化を避け、ボトルネックから優先的に対処すること。
+    </instruction>
+    <constraints>
+      <constraint>計測ファースト: 最適化前に必ずベンチマークを取る</constraint>
+      <constraint>可読性を犠牲にしない: 微小な改善のためにコードを複雑にしない</constraint>
+      <constraint>テストを壊さない: 最適化後も全テストがパスすること</constraint>
+      <constraint>段階的: 一度に一つの最適化を行い効果を計測</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="target" required="true" description="最適化対象（エンドポイント、クエリ、関数等）" />
+    <param name="symptom" required="false" description="パフォーマンス問題の症状（レイテンシ、メモリ等）" />
+    <param name="goal" required="false" description="目標値（例: p99 < 100ms）" />
+  </input>
+
+  <diagnosis>
+    <layer name="database" priority="1">
+      <checks>
+        <check>N+1クエリの検出（ループ内のDB呼び出し）</check>
+        <check>インデックスの有無（EXPLAIN ANALYZEで確認）</check>
+        <check>不要なカラムのSELECT（SELECT *の使用）</check>
+        <check>適切なLIMIT/OFFSETの使用</check>
+        <check>コネクションプール設定</check>
+      </checks>
+      <tools>
+        <tool>EXPLAIN ANALYZE {query}</tool>
+        <tool>pg_stat_statements（頻出クエリの特定）</tool>
+      </tools>
+    </layer>
+
+    <layer name="application" priority="2">
+      <checks>
+        <check>不要なメモリ割り当て（make without capacity）</check>
+        <check>文字列結合のパターン（+= vs strings.Builder）</check>
+        <check>JSONシリアライゼーションのコスト</check>
+        <check>並行処理の活用余地</check>
+        <check>コンテキストタイムアウト設定</check>
+      </checks>
+      <tools>
+        <tool>go test -bench=. -benchmem ./...</tool>
+        <tool>go tool pprof (CPU/メモリプロファイル)</tool>
+        <tool>go test -race ./... (データ競合検出)</tool>
+      </tools>
+    </layer>
+
+    <layer name="http" priority="3">
+      <checks>
+        <check>レスポンスサイズ（不要なフィールドの返却）</check>
+        <check>ミドルウェアのオーバーヘッド</check>
+        <check>圧縮（gzip）の使用</check>
+        <check>キャッシュヘッダーの設定</check>
+      </checks>
+    </layer>
+
+    <layer name="infrastructure" priority="4">
+      <checks>
+        <check>DBインスタンスのスペック</check>
+        <check>ECSタスクのリソース割り当て</check>
+        <check>CloudFrontキャッシュヒット率</check>
+        <check>ALBのヘルスチェック設定</check>
+      </checks>
+    </layer>
+  </diagnosis>
+
+  <optimization_patterns>
+    <pattern name="batch_query">
+      <problem>N+1クエリ: ループ内で個別にDB問い合わせ</problem>
+      <solution>IN句やJOINを使ったバッチ取得に変更</solution>
+    </pattern>
+
+    <pattern name="add_index">
+      <problem>フルテーブルスキャン: WHERE句のカラムにインデックスがない</problem>
+      <solution>適切なインデックスを追加（make atlas-diff）</solution>
+    </pattern>
+
+    <pattern name="preallocate_slice">
+      <problem>スライスの動的成長: appendによる再割り当て</problem>
+      <solution>make([]T, 0, knownCapacity) で事前確保</solution>
+    </pattern>
+
+    <pattern name="concurrent_io">
+      <problem>直列I/O: 独立したDB/API呼び出しを順次実行</problem>
+      <solution>goroutine + errgroup で並行実行</solution>
+    </pattern>
+
+    <pattern name="context_timeout">
+      <problem>無制限の待機: タイムアウト未設定のDB呼び出し</problem>
+      <solution>context.WithTimeout で適切な制限時間を設定</solution>
+    </pattern>
+  </optimization_patterns>
+
+  <steps>
+    <step order="1" name="measure">
+      <action>現状のパフォーマンスを計測する</action>
+    </step>
+    <step order="2" name="identify">
+      <action>ボトルネックを特定する</action>
+    </step>
+    <step order="3" name="optimize">
+      <action>一つずつ最適化を適用する</action>
+    </step>
+    <step order="4" name="verify">
+      <action>改善効果を計測し、テストがパスすることを確認する</action>
+    </step>
+  </steps>
+
+  <output_format>
+    <report>
+      <item>計測結果（Before/After比較）</item>
+      <item>特定したボトルネック</item>
+      <item>適用した最適化とその根拠</item>
+      <item>改善効果の数値</item>
+    </report>
+  </output_format>
+</prompt>

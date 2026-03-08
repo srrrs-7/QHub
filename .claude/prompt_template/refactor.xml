@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="refactor" description="安全なリファクタリング手順">
+  <metadata>
+    <version>1.0</version>
+    <category>refactoring</category>
+    <tags>refactor, quality, go</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoのシニアエンジニアです。
+      既存コードの外部振る舞いを変えずに内部構造を改善してください。
+      リファクタリングは小さなステップで行い、各ステップでテストが通ることを確認すること。
+    </instruction>
+    <constraints>
+      <constraint>振る舞いを変えない: 公開APIの入出力は変更しない</constraint>
+      <constraint>テストが常にグリーン: 各変更後にテストを実行して確認</constraint>
+      <constraint>小さなステップ: 一度に複数のリファクタリングを行わない</constraint>
+      <constraint>既存テストを削除しない: テストの修正は型の変更に伴うもののみ</constraint>
+      <constraint>過度な抽象化をしない: 具体的な必要性がない限りインターフェースを増やさない</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="target" required="true" description="リファクタリング対象（ファイル、パッケージ、関数名）" />
+    <param name="goal" required="true" description="リファクタリングの目的（可読性向上、重複排除、責務分離等）" />
+    <param name="scope" required="false" description="変更範囲の制限" default="対象ファイルのみ" />
+  </input>
+
+  <catalog description="よくあるリファクタリングパターン">
+    <pattern name="extract_value_object">
+      <when>プリミティブ型でドメイン概念を表現している</when>
+      <action>type XxxYyy string + NewXxxYyy(v) (XxxYyy, error) を作成</action>
+      <benefit>バリデーションの集約、型安全性の向上</benefit>
+    </pattern>
+
+    <pattern name="extract_interface">
+      <when>具象型に直接依存しており、テストが困難</when>
+      <action>domain層にインターフェースを定義し、依存を逆転</action>
+      <benefit>テスタビリティ向上、レイヤー分離</benefit>
+    </pattern>
+
+    <pattern name="extract_method">
+      <when>関数が長すぎる（30行以上）、または複数の責務を持つ</when>
+      <action>独立した処理をプライベートメソッドに切り出し</action>
+      <benefit>可読性向上、テスタビリティ向上</benefit>
+    </pattern>
+
+    <pattern name="consolidate_error_handling">
+      <when>エラーハンドリングパターンが重複している</when>
+      <action>共通のエラーハンドリング関数（response.HandleError等）に集約</action>
+      <benefit>一貫性、保守性向上</benefit>
+    </pattern>
+
+    <pattern name="replace_conditional_with_polymorphism">
+      <when>同じswitch/ifチェーンが複数箇所に存在する</when>
+      <action>インターフェースとメソッドディスパッチに置き換え</action>
+      <benefit>拡張性向上、OCP準拠</benefit>
+    </pattern>
+
+    <pattern name="struct_di_migration">
+      <when>関数引数で依存性を渡している</when>
+      <action>構造体フィールドに依存性を保持し、コンストラクタで注入</action>
+      <benefit>シグネチャの簡素化、状態管理の改善</benefit>
+    </pattern>
+  </catalog>
+
+  <steps>
+    <step order="1" name="assess">
+      <action>現状のコードを読み、問題点を特定する</action>
+      <output>
+        <item>コードスメルの具体的な指摘（ファイル:行番号）</item>
+        <item>適用するリファクタリングパターン</item>
+        <item>変更による影響範囲（find_referencing_symbolsで確認）</item>
+      </output>
+    </step>
+
+    <step order="2" name="ensure_test_coverage">
+      <action>リファクタリング前にテストカバレッジを確認する</action>
+      <rule>カバレッジが不足している場合は先にテストを追加する</rule>
+    </step>
+
+    <step order="3" name="execute">
+      <action>小さなステップでリファクタリングを実行する</action>
+      <rule>各ステップ後に make test を実行して全テストがパスすることを確認</rule>
+    </step>
+
+    <step order="4" name="verify">
+      <action>最終検証</action>
+      <checklist>
+        <item>全テストがパス（make test）</item>
+        <item>カバレッジが低下していない</item>
+        <item>公開APIの互換性が保たれている</item>
+        <item>make check が全項目パス</item>
+      </checklist>
+    </step>
+  </steps>
+
+  <output_format>
+    <report>
+      <item>変更前後の比較（コード構造の図解）</item>
+      <item>適用したリファクタリングパターン</item>
+      <item>変更ファイル一覧</item>
+      <item>テスト結果とカバレッジ</item>
+    </report>
+  </output_format>
+</prompt>

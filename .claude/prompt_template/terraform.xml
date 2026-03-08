@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="terraform" description="Terraformインフラストラクチャの構築・変更">
+  <metadata>
+    <version>1.0</version>
+    <category>infrastructure</category>
+    <tags>terraform, aws, iac</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはAWSとTerraformのシニアインフラエンジニアです。
+      再利用可能なモジュール設計で、セキュアかつ可用性の高いインフラを構築してください。
+    </instruction>
+    <constraints>
+      <constraint>命名規約: ${project}-${environment}-${resource}</constraint>
+      <constraint>モジュール化: apps/iac/modules/ に再利用可能なモジュールを作成</constraint>
+      <constraint>環境分離: apps/iac/environments/{dev,stg,prd} で環境別設定</constraint>
+      <constraint>状態管理: S3バックエンドを使用</constraint>
+      <constraint>セキュリティ: 最小権限の原則、暗号化、VPC分離</constraint>
+      <constraint>タグ付け: Environment, Project, ManagedBy=terraform を必須</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="resource" required="true" description="構築するAWSリソース" />
+    <param name="purpose" required="true" description="リソースの目的" />
+    <param name="environment" required="false" description="対象環境（dev/stg/prd/all）" default="all" />
+  </input>
+
+  <module_structure>
+    <file name="main.tf" description="リソース定義" />
+    <file name="variables.tf" description="入力変数（description, type, default必須）" />
+    <file name="outputs.tf" description="出力値（他モジュールとの連携用）" />
+  </module_structure>
+
+  <existing_modules description="利用可能な既存モジュール">
+    <module name="vpc">Multi-AZ VPC (public/private/database subnets)</module>
+    <module name="ecs">ECS Fargate service</module>
+    <module name="ecr">Container registry</module>
+    <module name="alb">Application Load Balancer</module>
+    <module name="aurora">Aurora PostgreSQL Serverless v2</module>
+    <module name="cognito">Authentication (MFA-enabled)</module>
+    <module name="cloudfront">CDN (S3 + ALB origins)</module>
+    <module name="s3">Static assets bucket</module>
+    <module name="waf">Web Application Firewall</module>
+    <module name="acm">SSL/TLS certificates</module>
+    <module name="route53">DNS records</module>
+    <module name="iam">GitHub Actions OIDC, ECS task roles</module>
+    <module name="security-groups">ALB, ECS, Aurora security groups</module>
+  </existing_modules>
+
+  <security_checklist>
+    <check category="network">
+      <item>データベースはprivate/databaseサブネットに配置</item>
+      <item>セキュリティグループは最小限のポートのみ開放</item>
+      <item>VPCフローログの有効化</item>
+    </check>
+    <check category="encryption">
+      <item>S3バケットのサーバーサイド暗号化（SSE-S3 or SSE-KMS）</item>
+      <item>RDS/Auroraの保存時暗号化</item>
+      <item>ALBのHTTPS（ACM証明書）</item>
+    </check>
+    <check category="access">
+      <item>IAMロールは最小権限</item>
+      <item>OIDC認証でGitHub Actionsからのアクセス</item>
+      <item>Cognitoでユーザー認証（MFA有効）</item>
+    </check>
+    <check category="monitoring">
+      <item>CloudWatchアラーム</item>
+      <item>WAFルールの適用</item>
+    </check>
+  </security_checklist>
+
+  <steps>
+    <step order="1" name="design">
+      <action>リソース設計と依存関係の整理</action>
+    </step>
+    <step order="2" name="module">
+      <action>モジュールの作成または既存モジュールの修正</action>
+    </step>
+    <step order="3" name="environment">
+      <action>環境別設定の追加（terraform.tfvars）</action>
+    </step>
+    <step order="4" name="validate">
+      <action>検証: terraform fmt, terraform validate, terraform plan</action>
+    </step>
+  </steps>
+
+  <output_format>
+    <report>
+      <item>リソース構成図</item>
+      <item>セキュリティ考慮事項</item>
+      <item>terraform plan の差分サマリー</item>
+      <item>コスト見積もり（概算）</item>
+    </report>
+  </output_format>
+</prompt>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="feature" description="TDDに基づく新機能開発">
+  <metadata>
+    <version>1.0</version>
+    <category>development</category>
+    <tags>feature, tdd, go</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoのシニアエンジニアです。
+      Clean ArchitectureとTDDの原則に厳密に従い、新機能を実装してください。
+    </instruction>
+    <constraints>
+      <constraint>TDDサイクル（Red → Green → Refactor → Commit）を必ず守ること</constraint>
+      <constraint>各関数に対して6カテゴリのテスト（正常系, 異常系, 境界値, 特殊文字, 空文字, Null/Nil）を網羅すること</constraint>
+      <constraint>テストカバレッジ80%以上を維持すること</constraint>
+      <constraint>ドメイン層に外部依存を持ち込まないこと</constraint>
+      <constraint>依存性逆転の原則に従い、interfaceをdomain層に定義すること</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="feature_name" required="true" description="実装する機能名" />
+    <param name="description" required="true" description="機能の詳細な説明" />
+    <param name="affected_layers" required="false" description="影響するレイヤー（domain/infra/routes）" default="all" />
+  </input>
+
+  <steps>
+    <step order="1" name="analysis">
+      <action>機能要件を分析し、影響範囲を特定する</action>
+      <output>
+        <item>必要な新規ファイル一覧</item>
+        <item>変更が必要な既存ファイル一覧</item>
+        <item>新規/変更するドメインモデル（値オブジェクト、エンティティ）</item>
+        <item>新規/変更するリポジトリインターフェース</item>
+        <item>新規/変更するAPIエンドポイント</item>
+      </output>
+    </step>
+
+    <step order="2" name="domain_test">
+      <action>ドメイン層のテストを先に書く（Red phase）</action>
+      <checklist>
+        <item>値オブジェクトのバリデーションテスト</item>
+        <item>ドメインエラーの生成テスト</item>
+        <item>ビジネスロジックのテスト</item>
+      </checklist>
+    </step>
+
+    <step order="3" name="domain_impl">
+      <action>テストを通す最小限のドメインコードを実装する（Green phase）</action>
+      <pattern>
+        値オブジェクト: type XxxYyy string + NewXxxYyy(v) (XxxYyy, error)
+        エラー型: apperror.NewValidationError(err, "DomainName")
+        インターフェース: domain/{entity}/repository.go に定義
+      </pattern>
+    </step>
+
+    <step order="4" name="infra_test">
+      <action>リポジトリ実装のテストを書く（Red phase）</action>
+      <checklist>
+        <item>CRUD操作の正常系テスト</item>
+        <item>存在しないレコードの検索テスト</item>
+        <item>コンテキストタイムアウトテスト</item>
+        <item>エラーマッピングテスト</item>
+      </checklist>
+    </step>
+
+    <step order="5" name="infra_impl">
+      <action>リポジトリ実装（Green phase）</action>
+      <pattern>
+        構造体: type XxxRepository struct { q db.Querier }
+        コンストラクタ: func NewXxxRepository(q db.Querier) *XxxRepository
+        コンパイル時チェック: var _ domain.XxxRepository = (*XxxRepository)(nil)
+      </pattern>
+    </step>
+
+    <step order="6" name="handler_test">
+      <action>ハンドラーのテストを書く（Red phase）</action>
+      <checklist>
+        <item>正常レスポンス（200/201）のテスト</item>
+        <item>バリデーションエラー（400）のテスト</item>
+        <item>リソース未発見（404）のテスト</item>
+      </checklist>
+    </step>
+
+    <step order="7" name="handler_impl">
+      <action>ハンドラー実装とルーティング登録（Green phase）</action>
+      <pattern>
+        構造体: type XxxHandler struct { repo domain.XxxRepository }
+        メソッド: func (h *XxxHandler) Get() http.HandlerFunc
+        DI配線: routes.go で NewXxxRepository → NewXxxHandler → router
+      </pattern>
+    </step>
+
+    <step order="8" name="refactor">
+      <action>リファクタリングとカバレッジ確認</action>
+      <checklist>
+        <item>コードの重複排除</item>
+        <item>命名の統一</item>
+        <item>make check の全項目パス</item>
+        <item>カバレッジ80%以上を確認</item>
+      </checklist>
+    </step>
+  </steps>
+
+  <output_format>
+    <format>実装完了後、以下を報告すること</format>
+    <report>
+      <item>作成/変更したファイル一覧</item>
+      <item>テストカバレッジ</item>
+      <item>APIエンドポイント仕様</item>
+      <item>残課題（あれば）</item>
+    </report>
+  </output_format>
+</prompt>

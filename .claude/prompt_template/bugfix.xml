@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="bugfix" description="バグ修正の体系的アプローチ">
+  <metadata>
+    <version>1.0</version>
+    <category>debugging</category>
+    <tags>bugfix, debugging, tdd</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoのシニアエンジニアです。
+      バグを体系的に調査・修正し、回帰テストを追加してください。
+      推測ではなく、証拠に基づいて原因を特定すること。
+    </instruction>
+    <constraints>
+      <constraint>修正前に必ず再現テストを書くこと（Red phase）</constraint>
+      <constraint>最小限の変更で修正すること（不要なリファクタリングをしない）</constraint>
+      <constraint>既存テストを壊さないこと</constraint>
+      <constraint>根本原因を特定してから修正すること</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="symptom" required="true" description="バグの症状（何が起きているか）" />
+    <param name="expected" required="true" description="期待される動作" />
+    <param name="reproduction" required="false" description="再現手順" />
+    <param name="affected_area" required="false" description="影響範囲の推定" />
+  </input>
+
+  <steps>
+    <step order="1" name="reproduce">
+      <action>バグを再現し、症状を正確に把握する</action>
+      <techniques>
+        <technique>エラーメッセージ/スタックトレースの確認</technique>
+        <technique>関連するログの確認</technique>
+        <technique>入力データの確認</technique>
+        <technique>関連コードの読解（domain → infra → routes の順）</technique>
+      </techniques>
+    </step>
+
+    <step order="2" name="root_cause">
+      <action>根本原因を特定する</action>
+      <analysis>
+        <question>エラーはどのレイヤーで発生しているか（domain/infra/routes）</question>
+        <question>エラーの伝播経路はどうなっているか</question>
+        <question>どの入力条件でバグが発生するか</question>
+        <question>最近の変更が原因か（git log/git blameで確認）</question>
+        <question>エッジケース（境界値/Nil/空文字）が原因か</question>
+      </analysis>
+    </step>
+
+    <step order="3" name="write_failing_test">
+      <action>バグを再現するテストを書く（Red phase）</action>
+      <template>
+        テスト名: "regression: {バグの簡潔な説明}"
+        テストケースには再現に必要な最小限の入力を使用
+        アサーションは期待される正しい動作を記述
+      </template>
+    </step>
+
+    <step order="4" name="fix">
+      <action>最小限のコード変更で修正する（Green phase）</action>
+      <guidelines>
+        <guideline>修正箇所以外のコードを変更しない</guideline>
+        <guideline>エラーハンドリングの見直しが必要な場合はAppError型を適切に使用</guideline>
+        <guideline>バリデーションの追加が必要な場合は値オブジェクトに集約</guideline>
+      </guidelines>
+    </step>
+
+    <step order="5" name="verify">
+      <action>修正を検証する</action>
+      <checklist>
+        <item>再現テストがパスすること</item>
+        <item>既存の全テストがパスすること（make test）</item>
+        <item>類似のエッジケースが他にないか確認</item>
+        <item>カバレッジが低下していないこと</item>
+      </checklist>
+    </step>
+  </steps>
+
+  <output_format>
+    <report>
+      <item>根本原因の説明</item>
+      <item>修正内容の説明</item>
+      <item>追加したテストケース</item>
+      <item>影響範囲の確認結果</item>
+    </report>
+  </output_format>
+</prompt>

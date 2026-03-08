@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="db-migration" description="データベーススキーマ変更とマイグレーション">
+  <metadata>
+    <version>1.0</version>
+    <category>database</category>
+    <tags>migration, atlas, sqlc, postgresql</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoとPostgreSQLのシニアエンジニアです。
+      Atlasによるスキーマファーストのマイグレーションと、
+      sqlcによる型安全なクエリ生成を使用して、
+      データベーススキーマ変更を安全に実施してください。
+    </instruction>
+    <constraints>
+      <constraint>既存データを破壊しない（破壊的変更は段階的に実施）</constraint>
+      <constraint>マイグレーションはロールバック可能であること</constraint>
+      <constraint>インデックスはWHERE句で使用するカラムに設定すること</constraint>
+      <constraint>NOT NULL制約にはデフォルト値を設定すること（既存データ対応）</constraint>
+      <constraint>外部キー制約を適切に設定すること</constraint>
+    </constraints>
+  </context>
+
+  <input>
+    <param name="change_type" required="true" description="変更種別（add_table/add_column/modify_column/add_index/add_relation）" />
+    <param name="description" required="true" description="変更内容の説明" />
+    <param name="table_name" required="true" description="対象テーブル名" />
+    <param name="columns" required="false" description="カラム定義（名前, 型, 制約）" />
+  </input>
+
+  <steps>
+    <step order="1" name="design">
+      <action>スキーマ変更を設計する</action>
+      <considerations>
+        <item>既存データへの影響（NULL許容/デフォルト値の必要性）</item>
+        <item>インデックス戦略（検索パターンに基づく）</item>
+        <item>外部キー制約と参照整合性</item>
+        <item>命名規約: テーブル名は複数形スネークケース、カラムはスネークケース</item>
+      </considerations>
+      <type_mapping>
+        <type go="string" sql="TEXT or VARCHAR(n)" />
+        <type go="int" sql="INTEGER or BIGINT" />
+        <type go="bool" sql="BOOLEAN" />
+        <type go="time.Time" sql="TIMESTAMPTZ" />
+        <type go="uuid.UUID" sql="UUID" />
+        <type go="sql.NullString" sql="TEXT (nullable)" />
+      </type_mapping>
+    </step>
+
+    <step order="2" name="migration">
+      <action>マイグレーションを生成・適用する</action>
+      <commands>
+        <command description="マイグレーション生成">make atlas-diff NAME={description}</command>
+        <command description="生成されたSQLを確認">cat apps/pkgs/db/migrations/最新ファイル.sql</command>
+        <command description="マイグレーション適用">make atlas-apply</command>
+        <command description="ステータス確認">make atlas-status</command>
+      </commands>
+    </step>
+
+    <step order="3" name="queries">
+      <action>SQLクエリを追加・更新する</action>
+      <location>apps/pkgs/db/queries/{table}.sql</location>
+      <sqlc_annotations>
+        -- name: GetXxx :one       (単一行取得)
+        -- name: ListXxx :many     (複数行取得)
+        -- name: CreateXxx :one    (挿入して返却)
+        -- name: UpdateXxx :one    (更新して返却)
+        -- name: DeleteXxx :exec   (削除のみ)
+      </sqlc_annotations>
+      <commands>
+        <command description="クエリ検証">make sqlc-compile</command>
+        <command description="Goコード生成">make sqlc-gen</command>
+      </commands>
+    </step>
+
+    <step order="4" name="domain">
+      <action>ドメインモデルを更新する</action>
+      <checklist>
+        <item>新規カラムに対応する値オブジェクトの追加</item>
+        <item>エンティティ構造体の更新</item>
+        <item>リポジトリインターフェースの更新</item>
+      </checklist>
+    </step>
+
+    <step order="5" name="infra">
+      <action>リポジトリ実装を更新する</action>
+      <checklist>
+        <item>sqlc生成コードを使用したリポジトリメソッドの更新</item>
+        <item>db.XxxRow → domain.Xxx 変換の更新</item>
+        <item>リポジトリテストの更新</item>
+      </checklist>
+    </step>
+
+    <step order="6" name="verify">
+      <action>全体の動作確認</action>
+      <commands>
+        <command>make test</command>
+        <command>make atlas-status</command>
+      </commands>
+    </step>
+  </steps>
+
+  <destructive_changes>
+    <warning>以下の変更は段階的に実施すること</warning>
+    <change type="drop_column">
+      1. カラムの使用箇所を全て削除
+      2. デプロイしてカラムが未使用であることを確認
+      3. 次のリリースでカラムを削除
+    </change>
+    <change type="rename_column">
+      1. 新カラムを追加（旧カラムはそのまま）
+      2. 新カラムへの書き込みを開始
+      3. データ移行バッチを実行
+      4. 旧カラムの読み取りを停止
+      5. 旧カラムを削除
+    </change>
+    <change type="change_type">
+      新カラム追加 → データ移行 → 旧カラム削除 の3ステップで実施
+    </change>
+  </destructive_changes>
+
+  <output_format>
+    <report>
+      <item>スキーマ変更のDDL</item>
+      <item>追加/変更したクエリ</item>
+      <item>影響を受けるドメインモデル/リポジトリ</item>
+      <item>マイグレーション適用結果</item>
+    </report>
+  </output_format>
+</prompt>

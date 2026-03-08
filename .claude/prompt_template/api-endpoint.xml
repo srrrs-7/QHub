@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt name="api-endpoint" description="RESTful APIエンドポイントの追加">
+  <metadata>
+    <version>1.0</version>
+    <category>development</category>
+    <tags>api, rest, endpoint, go-chi</tags>
+  </metadata>
+
+  <context>
+    <instruction>
+      あなたはGoのシニアバックエンドエンジニアです。
+      go-chiルーターを使用したRESTful APIエンドポイントを、
+      Clean ArchitectureとTDDの原則に従って実装してください。
+    </instruction>
+    <architecture>
+      <layer name="domain">
+        値オブジェクト、エンティティ、リポジトリインターフェース
+        外部依存なし。バリデーションロジックはここに集約。
+      </layer>
+      <layer name="infra">
+        リポジトリ実装（sqlc + PostgreSQL）
+        domain層のインターフェースを実装。db.Querierを構造体に保持。
+      </layer>
+      <layer name="routes">
+        HTTPハンドラー、リクエスト/レスポンス型、バリデーション
+        domain層のインターフェースに依存。具象型には依存しない。
+      </layer>
+    </architecture>
+  </context>
+
+  <input>
+    <param name="method" required="true" description="HTTPメソッド（GET/POST/PUT/DELETE/PATCH）" />
+    <param name="path" required="true" description="エンドポイントパス（例: /api/v1/tasks/{id}/comments）" />
+    <param name="description" required="true" description="エンドポイントの目的" />
+    <param name="request_body" required="false" description="リクエストボディのフィールド定義" />
+    <param name="response_body" required="false" description="レスポンスボディのフィールド定義" />
+  </input>
+
+  <file_structure>
+    <new_files>
+      <file purpose="ハンドラー実装">
+        apps/api/src/routes/{resource}/{action}.go
+        パターン: func (h *XxxHandler) Action() http.HandlerFunc
+      </file>
+      <file purpose="ハンドラーテスト">
+        apps/api/src/routes/{resource}/{action}_test.go
+        パターン: func TestActionHandler(t *testing.T) { テーブルドリブン }
+      </file>
+    </new_files>
+    <modify_files>
+      <file purpose="ルーティング登録">apps/api/src/routes/routes.go</file>
+      <file purpose="リクエスト型追加">apps/api/src/routes/{resource}/request.go</file>
+      <file purpose="レスポンス型追加（必要なら）">apps/api/src/routes/{resource}/response_types.go</file>
+      <file purpose="リポジトリインターフェース">apps/api/src/domain/{entity}/repository.go</file>
+      <file purpose="リポジトリ実装">apps/api/src/infra/rds/{entity}_repository/*.go</file>
+      <file purpose="SQLクエリ追加">apps/pkgs/db/queries/{entity}.sql</file>
+    </modify_files>
+  </file_structure>
+
+  <implementation_order>
+    <phase name="1_sql" description="データアクセス層">
+      <step>apps/pkgs/db/queries/ にSQLクエリを追加</step>
+      <step>make sqlc-gen でGoコード生成</step>
+    </phase>
+
+    <phase name="2_domain" description="ドメインモデル（テスト先行）">
+      <step>必要な値オブジェクト/エンティティのテストを書く</step>
+      <step>値オブジェクト/エンティティを実装</step>
+      <step>リポジトリインターフェースにメソッドを追加</step>
+    </phase>
+
+    <phase name="3_infra" description="リポジトリ実装（テスト先行）">
+      <step>リポジトリメソッドのテストを書く</step>
+      <step>リポジトリメソッドを実装</step>
+      <step>コンパイル時インターフェースチェックを確認</step>
+    </phase>
+
+    <phase name="4_handler" description="HTTPハンドラー（テスト先行）">
+      <step>リクエスト/レスポンス型を定義</step>
+      <step>ハンドラーテストを書く</step>
+      <step>ハンドラーを実装</step>
+      <step>routes.goにルーティングを登録</step>
+    </phase>
+  </implementation_order>
+
+  <response_codes>
+    <code status="200" usage="GET成功、PUT/PATCH更新成功" />
+    <code status="201" usage="POST作成成功" />
+    <code status="204" usage="DELETE成功（ボディなし）" />
+    <code status="400" usage="バリデーションエラー（ValidationError）" />
+    <code status="401" usage="認証エラー（Bearer token不正）" />
+    <code status="404" usage="リソース未発見（NotFoundError）" />
+    <code status="409" usage="競合エラー（ConflictError）" />
+    <code status="500" usage="サーバーエラー（DatabaseError/InternalServerError）" />
+  </response_codes>
+
+  <output_format>
+    <report>
+      <item>エンドポイント仕様（メソッド、パス、リクエスト/レスポンス例）</item>
+      <item>作成/変更ファイル一覧</item>
+      <item>テストカバレッジ</item>
+    </report>
+  </output_format>
+</prompt>
