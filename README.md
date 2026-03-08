@@ -1,45 +1,116 @@
-# go-fp-devcontainer
+# QHub
+
+プロンプトとバージョンを管理するシステム。Go モノレポ + PostgreSQL + templ/HTMX。
+
+## アーキテクチャ
+
+```
+apps/
+  api/    → バックエンド API (Go, chi router, :8080)
+  web/    → フロントエンド (templ + HTMX, M3 Design, :3000)
+  cli/    → CLI ツール「qhub」(Cobra)
+  pkgs/   → 共有パッケージ (db, env, logger, testutil)
+  iac/    → Terraform インフラ (AWS: ECS, Aurora, Cognito, CloudFront, WAF)
+  migrate/ → マイグレーション用コンテナ
+```
+
+**クリーンアーキテクチャ**: `routes → domain ← infra`（ドメイン層は外部依存なし）
+
+**技術スタック**:
+- Go 1.26, Go Workspaces
+- PostgreSQL 18, Redis, ElasticMQ
+- Atlas (スキーマファーストマイグレーション) + sqlc (型安全クエリ生成)
+- templ + HTMX (SSR フロントエンド、JS 不要)
+- Docker Compose (ローカル開発)
+- Dev Containers (開発環境)
+
+## セットアップ
+
+### Dev Container (推奨)
+
+VS Code の Dev Containers 拡張を使用:
+
+```bash
+cp .devcontainer/compose.override.yaml.example .devcontainer/compose.override.yaml
+# VS Code: "Reopen in Container"
+```
+
+### ローカル開発
+
+```bash
+# サービス起動
+docker compose up -d          # 全サービス (api, web, db, cache, queue)
+docker compose up -d db       # DB のみ
+
+# サーバー起動
+make run-api                  # API サーバー (:8080)
+make run-web                  # Web サーバー (:3000, 要 make templ-gen)
+make run-all                  # マイグレーション + API + Web
+
+# CLI
+make build-cli                # bin/qhub にビルド
+make run-cli ARGS="prompt list --project <id>"
+```
+
+## 開発コマンド
+
+```bash
+# 品質チェック
+make check                    # fmt + vet + lint + cspell + test (CI と同等)
+make test                     # 全モジュールテスト (要 DB, atlas-apply 自動実行)
+make fmt                      # go fmt
+make vet                      # 静的解析
+make lint                     # golangci-lint
+
+# 単体テスト実行
+cd apps/api && go test -run TestGetHandler ./src/routes/tasks/
+
+# カバレッジ
+cd apps/api && go test -coverprofile=c.out ./... && go tool cover -func=c.out
+
+# データベース
+make atlas-diff NAME=<name>   # スキーマ差分からマイグレーション生成
+make atlas-apply              # マイグレーション適用
+make atlas-status             # マイグレーション状態確認
+make sqlc-gen                 # SQL クエリから Go コード生成
+
+# フロントエンド
+make templ-gen                # .templ → Go コード生成
+make templ-watch              # ファイル監視モード
+
+# Terraform
+make tf-fmt                   # .tf ファイルフォーマット
+```
 
 ## CI/CD
 
-### CD Pipeline
+### CI
 
-CD パイプラインは GitHub Actions で実行され、以下のフローでデプロイします:
+GitHub Actions で Dev Container 内で実行 (push/PR to main):
+
+```
+make vet → make atlas-apply → make test
+```
+
+### CD
+
+| ワークフロー | トリガー | 説明 |
+|-------------|---------|------|
+| `cd-api.yml` | 手動 (workflow_dispatch) | CI 確認 → DB マイグレーション → API デプロイ (ECS) |
+| `cd-web.yml` | 手動 (workflow_dispatch) | Web フロントエンドデプロイ |
+| `cd-migrate.yml` | cd-api から呼出 | データベースマイグレーション実行 |
+
+**認証**: AWS OIDC (長期クレデンシャル不要) + RDS IAM Authentication
+
+**環境**: `dev` / `stg` / `prd` (GitHub Environments で管理)
 
 ```
 Database Migration → Build & Push to ECR → Deploy to ECS
 ```
 
-#### トリガー
-
-| イベント | デプロイ先 |
-|---------|-----------|
-| Push to `main` | dev |
-| Manual (workflow_dispatch) | dev / stg / prd から選択 |
-
-#### 手動デプロイ
-
-1. GitHub リポジトリの **Actions** タブを開く
-2. 左メニューから **CD** を選択
-3. **Run workflow** をクリック
-4. 環境を選択して **Run workflow** を実行
-
 ### GitHub Environments 設定
 
-CD パイプラインを動作させるために、GitHub Environments の設定が必要です。
-
-#### 1. Environments の作成
-
-1. リポジトリの **Settings** → **Environments** に移動
-2. **New environment** をクリック
-3. 以下の3つの環境を作成:
-   - `dev`
-   - `stg`
-   - `prd`
-
-#### 2. Environment Variables の設定
-
-各環境で **Add environment variable** から以下を設定:
+リポジトリの **Settings** → **Environments** で `dev`, `stg`, `prd` を作成し、以下の変数を設定:
 
 | Variable | 説明 | 例 |
 |----------|------|-----|
@@ -54,53 +125,29 @@ CD パイプラインを動作させるために、GitHub Environments の設定
 | `ECS_SERVICE_API` | ECS サービス名 | `myapp-api-service` |
 | `ECS_CLUSTER` | ECS クラスター名 | `myapp-cluster` |
 
-#### 3. 本番環境 (prd) の保護設定 (推奨)
+**本番環境 (prd) の保護** (推奨):
+- Required reviewers (承認者設定)
+- Wait timer (待機時間)
+- Deployment branches: `main` のみ
 
-`prd` 環境には以下の保護ルールを設定することを推奨:
-
-1. **Settings** → **Environments** → **prd** を開く
-2. **Deployment protection rules** セクションで設定:
-   - **Required reviewers**: 承認者を追加（デプロイ前に承認が必要）
-   - **Wait timer**: デプロイまでの待機時間（例: 5分）
-3. **Deployment branches and tags** で `main` ブランチのみに制限
-
-### 必要なファイル
-
-| ファイル | 説明 |
-|---------|------|
-| `.aws/task-definition-api.json` | ECS タスク定義テンプレート |
-
-### AWS 側の設定
+### AWS 設定
 
 #### OIDC Provider
-
-GitHub Actions から AWS にアクセスするために、IAM OIDC Provider を作成:
 
 ```
 Provider URL: https://token.actions.githubusercontent.com
 Audience: sts.amazonaws.com
 ```
 
-#### IAM Role
+#### IAM Role 権限
 
-OIDC 用の IAM Role に必要な権限:
+- ECR: `GetAuthorizationToken`, `BatchCheckLayerAvailability`, `GetDownloadUrlForLayer`, `BatchGetImage`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`
+- ECS: `DescribeTaskDefinition`, `RegisterTaskDefinition`, `UpdateService`, `DescribeServices`
+- RDS: `rds-db:connect` (IAM Database Authentication)
+- IAM: `PassRole` (ECS タスクロール用)
 
-- `ecr:GetAuthorizationToken`
-- `ecr:BatchCheckLayerAvailability`
-- `ecr:GetDownloadUrlForLayer`
-- `ecr:BatchGetImage`
-- `ecr:PutImage`
-- `ecr:InitiateLayerUpload`
-- `ecr:UploadLayerPart`
-- `ecr:CompleteLayerUpload`
-- `ecs:DescribeTaskDefinition`
-- `ecs:RegisterTaskDefinition`
-- `ecs:UpdateService`
-- `ecs:DescribeServices`
-- `rds-db:connect` (IAM Database Authentication 用)
-- `iam:PassRole` (ECS タスクロール用)
-
-Trust Policy 例:
+<details>
+<summary>Trust Policy 例</summary>
 
 ```json
 {
@@ -124,6 +171,11 @@ Trust Policy 例:
   ]
 }
 ```
-# QHub
-# QHub
-# QHub
+
+</details>
+
+### 必要なファイル
+
+| ファイル | 説明 |
+|---------|------|
+| `.aws/task-definition-api.json` | ECS タスク定義テンプレート |
