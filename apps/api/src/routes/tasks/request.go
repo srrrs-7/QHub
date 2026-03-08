@@ -4,7 +4,6 @@ import (
 	"api/src/domain/apperror"
 	"encoding/json"
 	"net/http"
-	"utils/types"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -27,13 +26,11 @@ func newGetRequest(r *http.Request) getRequest {
 	}
 }
 
-func (r getRequest) validate() types.Result[getRequest, apperror.AppError] {
+func (r getRequest) validate() (getRequest, error) {
 	if err := validate.Struct(r); err != nil {
-		return types.Err[getRequest, apperror.AppError](
-			apperror.NewValidationError(err, "GetRequest"),
-		)
+		return getRequest{}, apperror.NewValidationError(err, "GetRequest")
 	}
-	return types.Ok[getRequest, apperror.AppError](r)
+	return r, nil
 }
 
 type listRequest struct {
@@ -52,16 +49,14 @@ func newListRequest(r *http.Request) listRequest {
 	}
 }
 
-func (r listRequest) validate() types.Result[listRequest, apperror.AppError] {
+func (r listRequest) validate() (listRequest, error) {
 	r.Title = sanitize.Sanitize(r.Title)
 	r.Description = sanitize.Sanitize(r.Description)
 
 	if err := validate.Struct(r); err != nil {
-		return types.Err[listRequest, apperror.AppError](
-			apperror.NewValidationError(err, "listRequest"),
-		)
+		return listRequest{}, apperror.NewValidationError(err, "listRequest")
 	}
-	return types.Ok[listRequest, apperror.AppError](r)
+	return r, nil
 }
 
 type postRequest struct {
@@ -69,26 +64,22 @@ type postRequest struct {
 	Description string `json:"description" validate:"max=500"`
 }
 
-func newPostRequest(r *http.Request) types.Result[postRequest, apperror.AppError] {
+func newPostRequest(r *http.Request) (postRequest, error) {
 	var req postRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return types.Err[postRequest, apperror.AppError](
-			apperror.NewBadRequestError(err, "postRequest"),
-		)
+		return postRequest{}, apperror.NewBadRequestError(err, "postRequest")
 	}
-	return types.Ok[postRequest, apperror.AppError](req)
+	return req, nil
 }
 
-func (r postRequest) validate() types.Result[postRequest, apperror.AppError] {
+func (r postRequest) validate() (postRequest, error) {
 	r.Title = sanitize.Sanitize(r.Title)
 	r.Description = sanitize.Sanitize(r.Description)
 
 	if err := validate.Struct(r); err != nil {
-		return types.Err[postRequest, apperror.AppError](
-			apperror.NewValidationError(err, "postRequest"),
-		)
+		return postRequest{}, apperror.NewValidationError(err, "postRequest")
 	}
-	return types.Ok[postRequest, apperror.AppError](r)
+	return r, nil
 }
 
 type putRequest struct {
@@ -98,26 +89,21 @@ type putRequest struct {
 	Status      string `json:"status" validate:"omitempty,oneof=pending completed"`
 }
 
-func newPutRequest(r *http.Request) types.Result[putRequest, apperror.AppError] {
+func newPutRequest(r *http.Request) (putRequest, error) {
 	var req putRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return types.Err[putRequest, apperror.AppError](
-			apperror.NewBadRequestError(err, "putRequest"),
-		)
+		return putRequest{}, apperror.NewBadRequestError(err, "putRequest")
 	}
-	// Get ID from URL path parameter
 	req.ID = chi.URLParam(r, "id")
-	return types.Ok[putRequest, apperror.AppError](req)
+	return req, nil
 }
 
-func (r putRequest) validate() types.Result[putRequest, apperror.AppError] {
+func (r putRequest) validate() (putRequest, error) {
 	r.Title = sanitize.Sanitize(r.Title)
 	r.Description = sanitize.Sanitize(r.Description)
 
 	if err := validate.Struct(r); err != nil {
-		return types.Err[putRequest, apperror.AppError](
-			apperror.NewValidationError(err, "putRequest"),
-		)
+		return putRequest{}, apperror.NewValidationError(err, "putRequest")
 	}
-	return types.Ok[putRequest, apperror.AppError](r)
+	return r, nil
 }

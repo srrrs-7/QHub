@@ -3,6 +3,7 @@ package response
 import (
 	"api/src/domain/apperror"
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -30,7 +31,18 @@ func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleAppError - AppErrorを網羅的に処理し、適切なHTTPレスポンスを返す
+// HandleError handles any error by checking if it's an AppError.
+// If it's not an AppError, it falls back to a 500 Internal Server Error.
+func HandleError(w http.ResponseWriter, err error) {
+	var appErr apperror.AppError
+	if errors.As(err, &appErr) {
+		HandleAppError(w, appErr)
+		return
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+// HandleAppError handles AppError with exhaustive HTTP response mapping.
 func HandleAppError(w http.ResponseWriter, err apperror.AppError) {
 	errName := err.ErrorName()
 

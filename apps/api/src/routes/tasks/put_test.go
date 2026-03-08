@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"api/src/infra/rds/task_repository"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -106,7 +107,8 @@ func TestPutHandler(t *testing.T) {
 
 				w := httptest.NewRecorder()
 
-				handler := PutHandler(q)
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).Put()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -176,7 +178,8 @@ func TestPutHandler(t *testing.T) {
 
 				w := httptest.NewRecorder()
 
-				handler := PutHandler(q)
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).Put()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()

@@ -19,21 +19,20 @@ func init() {
 
 func main() {
 	// Get port from environment variable, default to 8080
-	port := env.GetString("PORT").UnwrapOr("8080")
+	port := env.GetStringOrDefault("PORT", "8080")
 
 	// Initialize Database
-	dbAuth := env.GetString("DB_URI").UnwrapOr("")
+	dbAuth := env.GetStringOrDefault("DB_URI", "")
 	if dbAuth == "" {
 		logger.Error("DB_URI environment variable is not set")
 		os.Exit(1)
 	}
 
-	databaseResult := db.Connect(dbAuth)
-	if databaseResult.IsErr() {
-		logger.Error("Failed to connect to database")
+	dbConn, err := db.Connect(dbAuth)
+	if err != nil {
+		logger.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	dbConn := databaseResult.UnwrapOr(nil) // We checked IsErr, so this is safe
 	defer func() {
 		if err := dbConn.Close(); err != nil {
 			logger.Error("Failed to close database connection", "error", err)

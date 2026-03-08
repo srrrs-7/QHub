@@ -5,46 +5,54 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"utils/types"
 )
 
 // GetString returns the value of the environment variable named by the key.
-func GetString(key string) types.Result[string, error] {
+func GetString(key string) (string, error) {
 	value := os.Getenv(key)
 	if value == "" {
-		return types.Err[string](errors.New("environment variable not found: " + key))
+		return "", errors.New("environment variable not found: " + key)
 	}
-	return types.Ok[string, error](value)
+	return value, nil
+}
+
+// GetStringOrDefault returns the value of the environment variable or a default value.
+func GetStringOrDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
 
 // GetInt returns the value of the environment variable named by the key as an integer.
-func GetInt(key string) types.Result[int, error] {
+func GetInt(key string) (int, error) {
 	value := os.Getenv(key)
 	if value == "" {
-		return types.Err[int](errors.New("environment variable not found: " + key))
+		return 0, errors.New("environment variable not found: " + key)
 	}
 
 	var result int
 	if _, err := fmt.Sscanf(value, "%d", &result); err != nil {
-		return types.Err[int](err)
+		return 0, err
 	}
-	return types.Ok[int, error](result)
+	return result, nil
 }
 
 // GetBool returns the value of the environment variable named by the key as a boolean.
 // It accepts "true", "1", "yes" as true values (case-insensitive).
-func GetBool(key string) types.Result[bool, error] {
+func GetBool(key string) (bool, error) {
 	value := os.Getenv(key)
 	if value == "" {
-		return types.Err[bool](errors.New("environment variable not found: " + key))
+		return false, errors.New("environment variable not found: " + key)
 	}
 
 	switch strings.ToLower(value) {
 	case "true", "1", "yes":
-		return types.Ok[bool, error](true)
+		return true, nil
 	case "false", "0", "no":
-		return types.Ok[bool, error](false)
+		return false, nil
 	default:
-		return types.Err[bool](errors.New("invalid boolean value: " + value))
+		return false, errors.New("invalid boolean value: " + value)
 	}
 }

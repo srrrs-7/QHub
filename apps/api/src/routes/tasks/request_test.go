@@ -51,9 +51,9 @@ func TestGetRequestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			req := getRequest{ID: tt.args.id}
-			result := req.validate()
+			_, err := req.validate()
 
-			gotHasError := !result.IsOk()
+			gotHasError := err != nil
 			if diff := cmp.Diff(tt.expected.hasError, gotHasError); diff != "" {
 				t.Errorf("validation result mismatch (-want +got):\n%s", diff)
 			}
@@ -113,9 +113,9 @@ func TestPostRequestValidate(t *testing.T) {
 				Title:       tt.args.title,
 				Description: tt.args.description,
 			}
-			result := req.validate()
+			_, err := req.validate()
 
-			gotHasError := !result.IsOk()
+			gotHasError := err != nil
 			if diff := cmp.Diff(tt.expected.hasError, gotHasError); diff != "" {
 				t.Errorf("validation result mismatch (-want +got):\n%s", diff)
 			}

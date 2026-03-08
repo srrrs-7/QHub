@@ -17,6 +17,8 @@ services:
       dockerfile: apps/api/.images/Dockerfile
     ports:
       - 8080:8080
+    environment:
+      DB_URI: postgresql://postgres:postgres@db:5432/test?sslmode=disable
     depends_on:
       - db
       - cache
@@ -38,6 +40,10 @@ services:
     ports:
       - 5432:5432
     restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: test
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d test"]
       interval: 5s
@@ -65,3 +71,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+volumes:
+  pg-data:
+  cache-data:

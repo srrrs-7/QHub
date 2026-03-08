@@ -3,6 +3,7 @@ package response
 import (
 	"api/src/domain/apperror"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -608,7 +609,7 @@ func TestHandleAppError(t *testing.T) {
 			testName: "ValidationError with underlying error",
 			args: args{
 				err: apperror.NewValidationError(
-					json.Unmarshal([]byte("invalid"), nil),
+					fmt.Errorf("json unmarshal error"),
 					"TaskDomain",
 				),
 			},

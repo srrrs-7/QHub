@@ -2,6 +2,10 @@
 compose.override.yaml
 setup.personal.sh
 
+# Go test binaries and coverage
+*.test
+coverage.out
+
 # WASM build artifacts
 *.wasm
 

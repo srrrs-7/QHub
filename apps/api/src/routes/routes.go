@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"api/src/infra/rds/task_repository"
 	mw "api/src/routes/middleware"
 	"api/src/routes/tasks"
 	"context"
@@ -19,6 +20,10 @@ func NewRouter(conn *sql.DB) http.Handler {
 	r := chi.NewRouter()
 	q := db.New(conn)
 
+	// DI: Repository → Handler
+	taskRepo := task_repository.NewTaskRepository(q)
+	taskHandler := tasks.NewTaskHandler(taskRepo)
+
 	// ミドルウェア
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -35,10 +40,10 @@ func NewRouter(conn *sql.DB) http.Handler {
 
 			// Tasks
 			r.Route("/tasks", func(r chi.Router) {
-				r.Get("/", tasks.ListHandler(q))
-				r.Post("/", tasks.PostHandler(q))
-				r.Get("/{id}", tasks.GetHandler(q))
-				r.Put("/{id}", tasks.PutHandler(q))
+				r.Get("/", taskHandler.List())
+				r.Post("/", taskHandler.Post())
+				r.Get("/{id}", taskHandler.Get())
+				r.Put("/{id}", taskHandler.Put())
 			})
 		})
 	})

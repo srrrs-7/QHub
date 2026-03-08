@@ -1,7 +1,9 @@
 package task_test
 
 import (
+	"api/src/domain/apperror"
 	"api/src/domain/task"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,8 +16,9 @@ func TestNewTaskID(t *testing.T) {
 		id string
 	}
 	type expected struct {
-		shouldPanic bool
-		value       string
+		wantErr bool
+		errName string
+		value   string
 	}
 
 	tests := []struct {
@@ -23,98 +26,99 @@ func TestNewTaskID(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "valid UUID lowercase",
 			args:     args{id: "123e4567-e89b-12d3-a456-426614174000"},
-			expected: expected{shouldPanic: false, value: "123e4567-e89b-12d3-a456-426614174000"},
+			expected: expected{wantErr: false, value: "123e4567-e89b-12d3-a456-426614174000"},
 		},
 		{
 			testName: "valid UUID uppercase",
 			args:     args{id: "123E4567-E89B-12D3-A456-426614174000"},
-			expected: expected{shouldPanic: false, value: "123e4567-e89b-12d3-a456-426614174000"},
+			expected: expected{wantErr: false, value: "123e4567-e89b-12d3-a456-426614174000"},
 		},
 		{
 			testName: "valid UUID mixed case",
 			args:     args{id: "a1b2c3d4-E5f6-7890-AbCd-Ef1234567890"},
-			expected: expected{shouldPanic: false, value: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
+			expected: expected{wantErr: false, value: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
 		},
 
-		// ❌ 異常系 - CRITICAL: これらはPANICする！
+		// 異常系
 		{
 			testName: "invalid UUID - too short",
 			args:     args{id: "123"},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 		{
 			testName: "invalid UUID - malformed",
 			args:     args{id: "not-a-uuid"},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 		{
 			testName: "UUID without dashes is valid",
 			args:     args{id: "123e4567e89b12d3a456426614174000"},
-			expected: expected{shouldPanic: false, value: "123e4567-e89b-12d3-a456-426614174000"},
+			expected: expected{wantErr: false, value: "123e4567-e89b-12d3-a456-426614174000"},
 		},
 		{
 			testName: "invalid UUID - invalid characters",
 			args:     args{id: "gggggggg-gggg-gggg-gggg-gggggggggggg"},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 
-		// 📭 空文字 - CRITICAL: PANIC
+		// 空文字
 		{
 			testName: "empty string",
 			args:     args{id: ""},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 		{
 			testName: "whitespace only",
 			args:     args{id: "   "},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 
-		// 🔤 特殊文字
+		// 特殊文字
 		{
 			testName: "SQL injection attempt",
 			args:     args{id: "'; DROP TABLE tasks; --"},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 		{
 			testName: "emoji in UUID",
 			args:     args{id: "123e4567-e89b-12d3-a456-42661417400🔥"},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 		{
 			testName: "Japanese characters",
 			args:     args{id: "タスク-ID-です-よね-はいそうです"},
-			expected: expected{shouldPanic: true},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
 		},
 
-		// 📏 境界値
+		// 境界値
 		{
 			testName: "UUID with all zeros",
 			args:     args{id: "00000000-0000-0000-0000-000000000000"},
-			expected: expected{shouldPanic: false, value: "00000000-0000-0000-0000-000000000000"},
+			expected: expected{wantErr: false, value: "00000000-0000-0000-0000-000000000000"},
 		},
 		{
 			testName: "UUID with all f's",
 			args:     args{id: "ffffffff-ffff-ffff-ffff-ffffffffffff"},
-			expected: expected{shouldPanic: false, value: "ffffffff-ffff-ffff-ffff-ffffffffffff"},
+			expected: expected{wantErr: false, value: "ffffffff-ffff-ffff-ffff-ffffffffffff"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			if tt.expected.shouldPanic {
-				assert.Panics(t, func() {
-					_ = task.NewTaskID(tt.args.id)
-				}, "NewTaskID should panic for invalid UUID")
+			result, err := task.NewTaskID(tt.args.id)
+
+			if tt.expected.wantErr {
+				assert.Error(t, err)
+				var appErr apperror.AppError
+				assert.True(t, errors.As(err, &appErr))
+				assert.Equal(t, tt.expected.errName, appErr.ErrorName())
 			} else {
-				assert.NotPanics(t, func() {
-					result := task.NewTaskID(tt.args.id)
-					assert.Equal(t, tt.expected.value, result.String())
-				}, "NewTaskID should not panic for valid UUID")
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.value, result.String())
 			}
 		})
 	}
@@ -134,7 +138,7 @@ func TestTaskID_String(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "convert TaskID to string",
 			args:     args{id: "123e4567-e89b-12d3-a456-426614174000"},
@@ -146,7 +150,7 @@ func TestTaskID_String(t *testing.T) {
 			expected: expected{value: "123e4567-e89b-12d3-a456-426614174000"},
 		},
 
-		// 📏 境界値
+		// 境界値
 		{
 			testName: "all zeros UUID",
 			args:     args{id: "00000000-0000-0000-0000-000000000000"},
@@ -161,8 +165,260 @@ func TestTaskID_String(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			taskID := task.NewTaskID(tt.args.id)
+			taskID, err := task.NewTaskID(tt.args.id)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected.value, taskID.String())
+		})
+	}
+}
+
+// TestNewTaskTitle tests the NewTaskTitle constructor with validation
+func TestNewTaskTitle(t *testing.T) {
+	type args struct {
+		title string
+	}
+	type expected struct {
+		wantErr bool
+		errName string
+		value   string
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// 正常系
+		{
+			testName: "valid title",
+			args:     args{title: "Buy groceries"},
+			expected: expected{wantErr: false, value: "Buy groceries"},
+		},
+		{
+			testName: "exactly 3 chars (min boundary)",
+			args:     args{title: "abc"},
+			expected: expected{wantErr: false, value: "abc"},
+		},
+		{
+			testName: "title with numbers",
+			args:     args{title: "Task 123"},
+			expected: expected{wantErr: false, value: "Task 123"},
+		},
+
+		// 異常系
+		{
+			testName: "too short - 2 chars",
+			args:     args{title: "ab"},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+		{
+			testName: "too short - 1 char",
+			args:     args{title: "a"},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+
+		// 境界値
+		{
+			testName: "exactly 100 chars (max boundary)",
+			args:     args{title: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			expected: expected{wantErr: false, value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		},
+		{
+			testName: "101 chars (over max)",
+			args:     args{title: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+
+		// 特殊文字
+		{
+			testName: "title with emoji",
+			args:     args{title: "Task 📋 emoji"},
+			expected: expected{wantErr: false, value: "Task 📋 emoji"},
+		},
+		{
+			testName: "title with Japanese",
+			args:     args{title: "タスクのタイトル"},
+			expected: expected{wantErr: false, value: "タスクのタイトル"},
+		},
+
+		// 空文字
+		{
+			testName: "empty string",
+			args:     args{title: ""},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+		{
+			testName: "whitespace only",
+			args:     args{title: "   "},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			result, err := task.NewTaskTitle(tt.args.title)
+
+			if tt.expected.wantErr {
+				assert.Error(t, err)
+				var appErr apperror.AppError
+				assert.True(t, errors.As(err, &appErr))
+				assert.Equal(t, tt.expected.errName, appErr.ErrorName())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.value, result.String())
+			}
+		})
+	}
+}
+
+// TestNewTaskDescription tests the NewTaskDescription constructor with validation
+func TestNewTaskDescription(t *testing.T) {
+	type args struct {
+		description string
+	}
+	type expected struct {
+		wantErr bool
+		errName string
+		value   string
+	}
+
+	longDesc := make([]byte, 501)
+	for i := range longDesc {
+		longDesc[i] = 'a'
+	}
+
+	maxDesc := make([]byte, 500)
+	for i := range maxDesc {
+		maxDesc[i] = 'a'
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// 正常系
+		{
+			testName: "valid description",
+			args:     args{description: "This is a task description"},
+			expected: expected{wantErr: false, value: "This is a task description"},
+		},
+		{
+			testName: "empty description is valid",
+			args:     args{description: ""},
+			expected: expected{wantErr: false, value: ""},
+		},
+
+		// 境界値
+		{
+			testName: "exactly 500 chars (max boundary)",
+			args:     args{description: string(maxDesc)},
+			expected: expected{wantErr: false, value: string(maxDesc)},
+		},
+		{
+			testName: "501 chars (over max)",
+			args:     args{description: string(longDesc)},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+
+		// 特殊文字
+		{
+			testName: "description with emoji",
+			args:     args{description: "Description 📝"},
+			expected: expected{wantErr: false, value: "Description 📝"},
+		},
+		{
+			testName: "description with Japanese",
+			args:     args{description: "タスクの説明"},
+			expected: expected{wantErr: false, value: "タスクの説明"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			result, err := task.NewTaskDescription(tt.args.description)
+
+			if tt.expected.wantErr {
+				assert.Error(t, err)
+				var appErr apperror.AppError
+				assert.True(t, errors.As(err, &appErr))
+				assert.Equal(t, tt.expected.errName, appErr.ErrorName())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.value, result.String())
+			}
+		})
+	}
+}
+
+// TestNewTaskStatus tests the NewTaskStatus constructor with validation
+func TestNewTaskStatus(t *testing.T) {
+	type args struct {
+		status string
+	}
+	type expected struct {
+		wantErr bool
+		errName string
+		value   string
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// 正常系
+		{
+			testName: "pending status",
+			args:     args{status: "pending"},
+			expected: expected{wantErr: false, value: "pending"},
+		},
+		{
+			testName: "completed status",
+			args:     args{status: "completed"},
+			expected: expected{wantErr: false, value: "completed"},
+		},
+
+		// 異常系
+		{
+			testName: "invalid status",
+			args:     args{status: "in-progress"},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+		{
+			testName: "random string",
+			args:     args{status: "foobar"},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+
+		// 空文字
+		{
+			testName: "empty status",
+			args:     args{status: ""},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+
+		// 特殊文字
+		{
+			testName: "SQL injection attempt",
+			args:     args{status: "'; DROP TABLE tasks; --"},
+			expected: expected{wantErr: true, errName: apperror.ValidationErrorName},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			result, err := task.NewTaskStatus(tt.args.status)
+
+			if tt.expected.wantErr {
+				assert.Error(t, err)
+				var appErr apperror.AppError
+				assert.True(t, errors.As(err, &appErr))
+				assert.Equal(t, tt.expected.errName, appErr.ErrorName())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.value, result.String())
+			}
 		})
 	}
 }
@@ -181,7 +437,7 @@ func TestTaskTitle_String(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "normal task title",
 			args:     args{title: "Buy groceries"},
@@ -193,7 +449,7 @@ func TestTaskTitle_String(t *testing.T) {
 			expected: expected{value: "Task 123"},
 		},
 
-		// 🔤 特殊文字
+		// 特殊文字
 		{
 			testName: "title with emoji",
 			args:     args{title: "Task 📋 with emoji ✅"},
@@ -210,7 +466,7 @@ func TestTaskTitle_String(t *testing.T) {
 			expected: expected{value: "Task: Do this & that!"},
 		},
 
-		// 📭 空文字
+		// 空文字
 		{
 			testName: "empty title",
 			args:     args{title: ""},
@@ -222,7 +478,7 @@ func TestTaskTitle_String(t *testing.T) {
 			expected: expected{value: "   "},
 		},
 
-		// 📏 境界値
+		// 境界値
 		{
 			testName: "very long title",
 			args:     args{title: "This is a very long task title that contains many characters to test boundary conditions and ensure proper handling of long strings"},
@@ -257,7 +513,7 @@ func TestTaskDescription_String(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "normal description",
 			args:     args{description: "This is a task description"},
@@ -269,7 +525,7 @@ func TestTaskDescription_String(t *testing.T) {
 			expected: expected{value: "Line 1\nLine 2\nLine 3"},
 		},
 
-		// 🔤 特殊文字
+		// 特殊文字
 		{
 			testName: "description with emoji",
 			args:     args{description: "Description with 📝 emoji"},
@@ -281,14 +537,14 @@ func TestTaskDescription_String(t *testing.T) {
 			expected: expected{value: "タスクの説明です"},
 		},
 
-		// 📭 空文字
+		// 空文字
 		{
 			testName: "empty description",
 			args:     args{description: ""},
 			expected: expected{value: ""},
 		},
 
-		// 📏 境界値
+		// 境界値
 		{
 			testName: "very long description",
 			args:     args{description: "This is a very long description that contains many characters and multiple sentences to test boundary conditions and ensure proper handling of long text content in task descriptions."},
@@ -318,7 +574,7 @@ func TestTaskStatus_String(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "pending status",
 			args:     args{status: task.TaskStatusPending},
@@ -330,14 +586,14 @@ func TestTaskStatus_String(t *testing.T) {
 			expected: expected{value: "completed"},
 		},
 
-		// ❌ 異常系 - custom status (not recommended but possible)
+		// 異常系 - custom status (not recommended but possible)
 		{
 			testName: "custom status",
 			args:     args{status: task.TaskStatus("in-progress")},
 			expected: expected{value: "in-progress"},
 		},
 
-		// 📭 空文字
+		// 空文字
 		{
 			testName: "empty status",
 			args:     args{status: task.TaskStatus("")},
@@ -371,7 +627,7 @@ func TestNewTask(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "create task with all fields",
 			args: args{
@@ -401,7 +657,7 @@ func TestNewTask(t *testing.T) {
 			},
 		},
 
-		// 🔤 特殊文字
+		// 特殊文字
 		{
 			testName: "task with emoji",
 			args: args{
@@ -431,7 +687,7 @@ func TestNewTask(t *testing.T) {
 			},
 		},
 
-		// 📭 空文字
+		// 空文字
 		{
 			testName: "task with empty title and description",
 			args: args{
@@ -450,7 +706,9 @@ func TestNewTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			taskID := task.NewTaskID(tt.args.id)
+			taskID, err := task.NewTaskID(tt.args.id)
+			assert.NoError(t, err)
+
 			result := task.NewTask(
 				taskID,
 				task.TaskTitle(tt.args.title),
@@ -482,14 +740,14 @@ func TestTask_IsCompleted(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "completed task returns true",
 			args:     args{status: task.TaskStatusCompleted},
 			expected: expected{isCompleted: true},
 		},
 
-		// ❌ 異常系
+		// 異常系
 		{
 			testName: "pending task returns false",
 			args:     args{status: task.TaskStatusPending},
@@ -501,7 +759,7 @@ func TestTask_IsCompleted(t *testing.T) {
 			expected: expected{isCompleted: false},
 		},
 
-		// 📭 空文字
+		// 空文字
 		{
 			testName: "empty status returns false",
 			args:     args{status: task.TaskStatus("")},
@@ -511,8 +769,11 @@ func TestTask_IsCompleted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			taskID, err := task.NewTaskID(validUUID)
+			assert.NoError(t, err)
+
 			testTask := task.NewTask(
-				task.NewTaskID(validUUID),
+				taskID,
 				task.TaskTitle("Test"),
 				task.TaskDescription("Test"),
 				tt.args.status,
@@ -539,14 +800,14 @@ func TestTask_IsPending(t *testing.T) {
 		args     args
 		expected expected
 	}{
-		// ✅ 正常系
+		// 正常系
 		{
 			testName: "pending task returns true",
 			args:     args{status: task.TaskStatusPending},
 			expected: expected{isPending: true},
 		},
 
-		// ❌ 異常系
+		// 異常系
 		{
 			testName: "completed task returns false",
 			args:     args{status: task.TaskStatusCompleted},
@@ -558,7 +819,7 @@ func TestTask_IsPending(t *testing.T) {
 			expected: expected{isPending: false},
 		},
 
-		// 📭 空文字
+		// 空文字
 		{
 			testName: "empty status returns false",
 			args:     args{status: task.TaskStatus("")},
@@ -568,8 +829,11 @@ func TestTask_IsPending(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			taskID, err := task.NewTaskID(validUUID)
+			assert.NoError(t, err)
+
 			testTask := task.NewTask(
-				task.NewTaskID(validUUID),
+				taskID,
 				task.TaskTitle("Test"),
 				task.TaskDescription("Test"),
 				tt.args.status,

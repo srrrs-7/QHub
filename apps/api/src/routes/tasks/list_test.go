@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"api/src/infra/rds/task_repository"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -66,7 +67,8 @@ func TestListHandler(t *testing.T) {
 				testutil.SetAuthHeader(req)
 				w := httptest.NewRecorder()
 
-				handler := ListHandler(q)
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).List()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -105,7 +107,8 @@ func TestListHandler(t *testing.T) {
 		testutil.SetAuthHeader(req)
 		w := httptest.NewRecorder()
 
-		handler := ListHandler(q)
+		repo := task_repository.NewTaskRepository(q)
+		handler := NewTaskHandler(repo).List()
 		handler.ServeHTTP(w, req)
 
 		var result struct {

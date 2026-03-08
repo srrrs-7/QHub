@@ -1,46 +1,31 @@
 package tasks
 
 import (
-	"api/src/domain/apperror"
 	"api/src/domain/task"
-	"api/src/infra/rds/task_repository"
 	"api/src/routes/response"
 	"net/http"
-	"utils/db/db"
-	"utils/types"
 )
 
-type getResponse struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-}
-
-func GetHandler(q db.Querier) http.HandlerFunc {
+func (h *TaskHandler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		res := types.Pipe2(
-			newGetRequest(r).validate(),
-			func(req getRequest) types.Result[task.Task, apperror.AppError] {
-				return task_repository.FindTaskByID(q, r.Context(), task.NewTaskID(req.ID))
-			},
-			func(t task.Task) getResponse {
-				return getResponse{
-					ID:          t.ID.String(),
-					Title:       t.Title.String(),
-					Description: t.Description.String(),
-					Status:      t.Status.String(),
-				}
-			},
-		)
+		req := newGetRequest(r)
+		if _, err := req.validate(); err != nil {
+			response.HandleError(w, err)
+			return
+		}
 
-		res.Match(
-			func(resp getResponse) {
-				response.OK(w, resp)
-			},
-			func(e apperror.AppError) {
-				response.HandleAppError(w, e)
-			},
-		)
+		id, err := task.NewTaskID(req.ID)
+		if err != nil {
+			response.HandleError(w, err)
+			return
+		}
+
+		t, err := h.repo.FindByID(r.Context(), id)
+		if err != nil {
+			response.HandleError(w, err)
+			return
+		}
+
+		response.OK(w, toTaskResponse(t))
 	}
 }

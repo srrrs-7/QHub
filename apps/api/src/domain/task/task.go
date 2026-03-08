@@ -1,15 +1,29 @@
 package task
 
-import "github.com/google/uuid"
+import (
+	"api/src/domain/apperror"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+)
 
 // TaskID represents a unique identifier for a task.
-// It wraps a UUID to ensure type safety.
 type TaskID uuid.UUID
 
 // NewTaskID creates a new TaskID from a string representation of a UUID.
-// It panics if the provided string is not a valid UUID.
-func NewTaskID(id string) TaskID {
-	return TaskID(uuid.MustParse(id))
+func NewTaskID(id string) (TaskID, error) {
+	parsed, err := uuid.Parse(id)
+	if err != nil {
+		return TaskID{}, apperror.NewValidationError(fmt.Errorf("invalid task ID: %w", err), "TaskID")
+	}
+	return TaskID(parsed), nil
+}
+
+// TaskIDFromUUID creates a TaskID directly from a uuid.UUID.
+// Use this when you already have a validated UUID (e.g., from the database).
+func TaskIDFromUUID(id uuid.UUID) TaskID {
+	return TaskID(id)
 }
 
 // String returns the string representation of the TaskID.
@@ -18,8 +32,23 @@ func (t TaskID) String() string {
 }
 
 // TaskTitle represents the title of a task.
-// It should be a descriptive name for the task.
 type TaskTitle string
+
+// NewTaskTitle creates a new TaskTitle with validation.
+// Title must be between 3 and 100 characters and not whitespace-only.
+func NewTaskTitle(title string) (TaskTitle, error) {
+	trimmed := strings.TrimSpace(title)
+	if trimmed == "" {
+		return "", apperror.NewValidationError(fmt.Errorf("title must not be empty"), "TaskTitle")
+	}
+	if len(title) < 3 {
+		return "", apperror.NewValidationError(fmt.Errorf("title must be at least 3 characters"), "TaskTitle")
+	}
+	if len(title) > 100 {
+		return "", apperror.NewValidationError(fmt.Errorf("title must be at most 100 characters"), "TaskTitle")
+	}
+	return TaskTitle(title), nil
+}
 
 // String returns the string representation of the TaskTitle.
 func (t TaskTitle) String() string {
@@ -27,8 +56,16 @@ func (t TaskTitle) String() string {
 }
 
 // TaskDescription represents the detailed description of a task.
-// It provides additional context and information about the task.
 type TaskDescription string
+
+// NewTaskDescription creates a new TaskDescription with validation.
+// Description must be at most 500 characters. Empty is allowed.
+func NewTaskDescription(description string) (TaskDescription, error) {
+	if len(description) > 500 {
+		return "", apperror.NewValidationError(fmt.Errorf("description must be at most 500 characters"), "TaskDescription")
+	}
+	return TaskDescription(description), nil
+}
 
 // String returns the string representation of the TaskDescription.
 func (t TaskDescription) String() string {
@@ -43,13 +80,22 @@ const (
 	TaskStatusCompleted TaskStatus = "completed"
 )
 
+// NewTaskStatus creates a new TaskStatus with validation.
+func NewTaskStatus(status string) (TaskStatus, error) {
+	switch TaskStatus(status) {
+	case TaskStatusPending, TaskStatusCompleted:
+		return TaskStatus(status), nil
+	default:
+		return "", apperror.NewValidationError(fmt.Errorf("invalid status: %s (must be 'pending' or 'completed')", status), "TaskStatus")
+	}
+}
+
 // String returns the string representation of the TaskStatus.
 func (t TaskStatus) String() string {
 	return string(t)
 }
 
 // Task represents a task entity in the domain model.
-// It contains all the properties that define a task.
 type Task struct {
 	ID          TaskID
 	Title       TaskTitle

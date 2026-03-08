@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"api/src/infra/rds/task_repository"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -67,7 +68,8 @@ func TestPostHandler(t *testing.T) {
 
 				w := httptest.NewRecorder()
 
-				handler := PostHandler(q)
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).Post()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
