@@ -2,6 +2,7 @@ package env
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -604,9 +605,9 @@ func TestGetBool(t *testing.T) {
 
 // Helper function to generate long strings for boundary testing
 func generateLongString(length int) string {
-	result := ""
-	for i := 0; i < length; i++ {
-		result += "a"
+	var result strings.Builder
+	for range length {
+		result.WriteString("a")
 	}
-	return result
+	return result.String()
 }

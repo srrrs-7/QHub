@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"api/src/domain/apperror"
@@ -24,8 +25,8 @@ func NewPromptID(id string) (PromptID, error) {
 }
 
 func PromptIDFromUUID(id uuid.UUID) PromptID { return PromptID(id) }
-func (p PromptID) String() string             { return uuid.UUID(p).String() }
-func (p PromptID) UUID() uuid.UUID            { return uuid.UUID(p) }
+func (p PromptID) String() string            { return uuid.UUID(p).String() }
+func (p PromptID) UUID() uuid.UUID           { return uuid.UUID(p) }
 
 // --- PromptName ---
 
@@ -141,10 +142,8 @@ func ValidateStatusTransition(from, to VersionStatus) error {
 		return apperror.NewValidationError(fmt.Errorf("unknown status: %s", from), "VersionStatus")
 	}
 
-	for _, t := range targets {
-		if t == to {
-			return nil
-		}
+	if slices.Contains(targets, to) {
+		return nil
 	}
 
 	return apperror.NewValidationError(
@@ -216,16 +215,16 @@ func NewPromptVersionID(id string) (PromptVersionID, error) {
 }
 
 func PromptVersionIDFromUUID(id uuid.UUID) PromptVersionID { return PromptVersionID(id) }
-func (p PromptVersionID) String() string                    { return uuid.UUID(p).String() }
-func (p PromptVersionID) UUID() uuid.UUID                   { return uuid.UUID(p) }
+func (p PromptVersionID) String() string                   { return uuid.UUID(p).String() }
+func (p PromptVersionID) UUID() uuid.UUID                  { return uuid.UUID(p) }
 
 // --- PromptCmd ---
 
 type PromptCmd struct {
-	ProjectID  uuid.UUID
-	Name       PromptName
-	Slug       PromptSlug
-	PromptType PromptType
+	ProjectID   uuid.UUID
+	Name        PromptName
+	Slug        PromptSlug
+	PromptType  PromptType
 	Description PromptDescription
 }
 
