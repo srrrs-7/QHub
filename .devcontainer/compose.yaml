@@ -6,6 +6,8 @@ services:
     volumes:
       - ..:/workspace/main:cached
     command: sleep infinity
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -46,6 +48,20 @@ services:
       timeout: 5s
       retries: 5
 
+  # Hugging Face Text Embeddings Inference (CPU)
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    command: --model-id BAAI/bge-m3
+    volumes:
+      - embedding-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+
 volumes:
   pg-data:
   cache-data:
+  embedding-data:

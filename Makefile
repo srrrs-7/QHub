@@ -266,6 +266,40 @@ hooks-uninstall:
 # Alias for hooks-install
 hooks: hooks-install
 
+##########
+# Ollama #
+##########
+OLLAMA_HOST ?= host.docker.internal
+OLLAMA_PORT ?= 11434
+OLLAMA_URL = http://$(OLLAMA_HOST):$(OLLAMA_PORT)
+OLLAMA_EMBED_MODEL ?= nomic-embed-text
+
+.PHONY: ollama-health ollama-models ollama-pull-embed ollama-embed
+
+# Check Ollama connectivity on host
+ollama-health:
+	@curl -sf $(OLLAMA_URL)/api/tags > /dev/null && echo "Ollama is running at $(OLLAMA_URL)" || \
+		(echo "Error: Ollama is not reachable at $(OLLAMA_URL)"; exit 1)
+
+# List available models on host Ollama
+ollama-models:
+	@curl -sf $(OLLAMA_URL)/api/tags | jq -r '.models[] | "\(.name)\t\(.size)"'
+
+# Pull embedding model to host Ollama
+# Usage: make ollama-pull-embed [OLLAMA_EMBED_MODEL=mxbai-embed-large]
+ollama-pull-embed:
+	@echo "Pulling $(OLLAMA_EMBED_MODEL)..."
+	curl -sf $(OLLAMA_URL)/api/pull -d '{"name":"$(OLLAMA_EMBED_MODEL)"}'
+
+# Generate embeddings via host Ollama
+# Usage: make ollama-embed TEXT="Hello world"
+ollama-embed:
+	@if [ -z "$(TEXT)" ]; then \
+		echo "Usage: make ollama-embed TEXT=\"your text here\""; \
+		exit 1; \
+	fi
+	@curl -sf $(OLLAMA_URL)/api/embed -d '{"model":"$(OLLAMA_EMBED_MODEL)","input":"$(TEXT)"}' | jq '.embeddings[0][:5]' && echo "... (truncated)"
+
 #############
 # Terraform #
 #############

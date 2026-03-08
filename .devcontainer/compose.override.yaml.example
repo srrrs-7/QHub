@@ -5,6 +5,8 @@ services:
       DB_MIGRATE_URI: postgresql://postgres:postgres@db:5432?sslmode=disable
       CACHE_URI: redis://cache:6379
       QUEUE_URI: redis://queue:9324
+      EMBEDDING_URI: http://embedding:80
+      OLLAMA_URI: http://host.docker.internal:11434
       ENABLE_FIREWALL: "true"  # Set to "true" to enable network firewall (restricts outbound to allowlisted domains)
   db:
     environment:
@@ -21,3 +23,7 @@ services:
   queue:
     ports:
       - 9324:9324
+
+  embedding:
+    ports:
+      - 8081:80

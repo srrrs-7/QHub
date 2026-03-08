@@ -4,14 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-QHub — a prompt/answer version management system. Go 1.26 monorepo with workspaces, PostgreSQL 18, Redis, ElasticMQ, Docker Compose.
+QHub — a prompt/answer version management system with consulting, execution logging, and prompt intelligence features. Go 1.26 monorepo with workspaces, PostgreSQL 18, Redis, ElasticMQ, Docker Compose.
 
 ## Development Commands
 
 ```bash
-# Services
-docker compose up -d          # Start all (api, web, db, cache, queue)
-docker compose up -d db       # PostgreSQL only (required for tests)
+# Services (devcontainer starts db, cache, queue, embedding automatically)
 make run-api                  # API on :8080
 make run-web                  # Web on :3000 (run make templ-gen first)
 make run-all                  # Migrate + API + Web
@@ -40,6 +38,11 @@ make sqlc-gen                 # Regenerate Go from SQL queries
 make templ-gen                # Generate Go from .templ templates
 make templ-watch              # Watch mode for development
 
+# Ollama (host machine)
+make ollama-health            # Check connectivity
+make ollama-models            # List models
+make ollama-embed TEXT="hello" # Generate embedding
+
 # Terraform
 make tf-fmt                   # Format .tf files
 ```
@@ -49,42 +52,74 @@ make tf-fmt                   # Format .tf files
 ### Layered Clean Architecture (apps/api)
 
 ```
-routes/  → HTTP handlers (depend on domain interfaces only)
-domain/  → Value objects, entities, repository interfaces (no external deps)
-infra/   → Repository implementations (sqlc + PostgreSQL)
+routes/    → HTTP handlers (depend on domain interfaces only)
+domain/    → Value objects, entities, repository interfaces (no external deps)
+services/  → Cross-cutting business logic (diff, lint) using db.Querier directly
+infra/     → Repository implementations (sqlc + PostgreSQL)
 ```
 
-Dependency direction: `routes → domain ← infra` (domain is independent).
+Dependency direction: `routes → domain ← infra`, `routes → services → domain`
 
 DI wiring in `cmd/main.go`:
 ```
 db.Querier → New*Repository(q) → New*Handler(repo) → routes.Handlers → NewRouter(h)
+db.Querier → New*Service(q)   → Handler (for diff/lint)
 ```
 
 ### Domain Entities
 
-| Entity | Domain Package | Repository Interface | Infra Package |
-|--------|---------------|---------------------|---------------|
+| Entity | Domain Package | Repository Interfaces | Infra Package |
+|--------|---------------|----------------------|---------------|
 | Task | `domain/task/` | `TaskRepository` | `task_repository/` |
 | Organization | `domain/organization/` | `OrganizationRepository` | `organization_repository/` |
 | Project | `domain/project/` | `ProjectRepository` | `project_repository/` |
 | Prompt | `domain/prompt/` | `PromptRepository`, `VersionRepository` | `prompt_repository/` |
+| ExecutionLog | `domain/executionlog/` | `LogRepository`, `EvaluationRepository` | `executionlog_repository/` |
+| Consulting | `domain/consulting/` | `SessionRepository`, `MessageRepository`, `IndustryConfigRepository` | `consulting_repository/` |
+| Tag | `domain/tag/` | `TagRepository` | `tag_repository/` |
+| Intelligence | `domain/intelligence/` | (structs only — `SemanticDiff`, `LintResult`) | — |
+
+### Services Layer
+
+Services handle complex business logic that doesn't fit in repositories:
+
+- **`services/diffservice/`**: Semantic diff between prompt versions (length, variables, tone, specificity analysis + LCS-based text diff)
+- **`services/lintservice/`**: Prompt linting (excessive-length, output-format, variable-check, vague-instructions; score 0-100)
+
+Both receive `db.Querier` directly and are wired in `cmd/main.go`.
 
 ### API Routes (`/api/v1`, Bearer auth)
 
 ```
-/health                                   GET (no auth)
-/tasks                                    GET POST
-/tasks/{id}                               GET PUT
-/organizations                            POST
-/organizations/{org_slug}                 GET PUT
-/organizations/{org_id}/projects          GET POST
+/health                                          GET (no auth)
+/tasks                                           GET POST
+/tasks/{id}                                      GET PUT
+/organizations                                   POST
+/organizations/{org_slug}                        GET PUT
+/organizations/{org_id}/projects                 GET POST
 /organizations/{org_id}/projects/{project_slug}  GET PUT DELETE
-/projects/{project_id}/prompts            GET POST
+/projects/{project_id}/prompts                   GET POST
 /projects/{project_id}/prompts/{prompt_slug}     GET PUT
-/prompts/{prompt_id}/versions             GET POST
-/prompts/{prompt_id}/versions/{version}   GET
+/prompts/{prompt_id}/versions                    GET POST
+/prompts/{prompt_id}/versions/{version}          GET
 /prompts/{prompt_id}/versions/{version}/status   PUT
+/prompts/{prompt_id}/versions/{v1}/{v2}/diff     GET
+/prompts/{prompt_id}/versions/{version}/lint     GET
+/prompts/{prompt_id}/tags                        GET POST DELETE
+/logs                                            GET POST
+/logs/{id}                                       GET
+/logs/batch                                      POST
+/logs/{log_id}/evaluations                       GET POST
+/evaluations                                     GET
+/evaluations/{id}                                GET
+/consulting/sessions                             GET POST
+/consulting/sessions/{session_id}                GET
+/consulting/sessions/{session_id}/messages       GET POST
+/tags                                            GET POST DELETE
+/industries                                      GET POST
+/industries/{slug}                               GET PUT
+/industries/{slug}/compliance                    POST
+/industries/{slug}/benchmarks                    GET
 ```
 
 ### Error Handling
@@ -135,7 +170,7 @@ Type-safe wrappers with validation in constructors returning `(T, error)`:
 
 ### Module Structure
 
-Go workspace `apps/go.work` manages four modules:
+Go workspace `apps/go.work` manages five modules:
 
 | Directory | Module Name | Description |
 |-----------|-------------|-------------|
@@ -143,6 +178,7 @@ Go workspace `apps/go.work` manages four modules:
 | `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/` |
 | `apps/web` | `web` | templ + HTMX frontend (M3 design, port 3000) |
 | `apps/cli` | `cli` | `qhub` CLI (cobra, JSON/table output) |
+| `apps/sdk` | `sdk` | SDK module |
 
 `apps/iac/` — Terraform AWS infrastructure (VPC, ECS, Aurora, Cognito, CloudFront, WAF)
 
@@ -155,6 +191,17 @@ Go workspace `apps/go.work` manages four modules:
 ### Handler File Layout (per resource)
 
 `handler.go` (struct + constructor), `get.go`, `post.go`, `put.go`, `list.go`, `request.go`, `response_types.go`, `*_test.go`
+
+### Infrastructure
+
+Devcontainer includes: PostgreSQL 18, Redis, ElasticMQ, Text Embeddings Inference (TEI with `BAAI/bge-m3`).
+Host Ollama accessible via `host.docker.internal:11434` (`OLLAMA_URI` env var).
+
+### CI/CD
+
+GitHub Actions in Dev Container (push/PR to main): `make vet → make atlas-apply → make test`
+
+CD: Manual dispatch workflows (`cd-api.yml`, `cd-web.yml`, `cd-migrate.yml`) deploy to AWS ECS via OIDC auth. Environments: `dev` / `stg` / `prd`.
 
 ## Coding Conventions
 
