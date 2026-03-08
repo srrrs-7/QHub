@@ -17,6 +17,17 @@ apps/
 
 **クリーンアーキテクチャ**: `routes → domain ← infra`, `routes → services → domain`
 
+### サービス層 (`apps/api/src/services/`)
+
+ハンドラーとリポジトリの間で、複雑なビジネスロジックを担当するサービス群:
+
+| サービス | 説明 |
+|---------|------|
+| **diffservice** | プロンプトバージョン間の差分分析。**セマンティック差分** (文字数変化、変数の追加/削除、トーンシフト検出、具体性変化) と **テキスト差分** (LCS アルゴリズムによる行単位の added/removed/equal 比較) の2種類を提供。結果は DB に永続化。 |
+| **lintservice** | プロンプトの品質分析。4つのルール (`excessive-length`: 4000文字超過、`missing-output-format`: 出力形式未指定、`variable-check`: 未宣言変数の検出、`no-vague-instruction`: 曖昧な表現の検出) を適用し、severity (error/warning/info) に基づく 0〜100 のスコアを算出。結果は DB に永続化。 |
+| **embeddingservice** | プロンプトバージョンのベクトルエンベディング生成・保存。TEI (Text Embeddings Inference, BAAI/bge-m3) を使用。`EMBEDDING_URL` 未設定時は全メソッドが no-op で動作。非同期 (fire-and-forget) と同期の両モードに対応。セマンティック検索のクエリエンベディング生成にも使用。 |
+| **contentutil** | 共有ユーティリティ。JSON RawMessage からテキスト抽出、`{{variable}}` パターンの変数検出。 |
+
 **技術スタック**:
 - Go 1.26, Go Workspaces (5モジュール: api, pkgs, web, cli, sdk)
 - PostgreSQL 18, Redis, ElasticMQ
