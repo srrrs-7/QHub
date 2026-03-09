@@ -10,7 +10,7 @@ import (
 	"web/src/handlers"
 )
 
-func NewRouter(apiClient *client.APIClient) http.Handler {
+func NewRouter(apiClient client.Client) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)

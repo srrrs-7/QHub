@@ -12,10 +12,10 @@ import (
 )
 
 type PartialHandler struct {
-	api *client.APIClient
+	api client.Client
 }
 
-func NewPartialHandler(api *client.APIClient) *PartialHandler {
+func NewPartialHandler(api client.Client) *PartialHandler {
 	return &PartialHandler{api: api}
 }
 

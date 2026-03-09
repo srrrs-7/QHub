@@ -16,10 +16,10 @@ type renderable interface {
 }
 
 type PageHandler struct {
-	api *client.APIClient
+	api client.Client
 }
 
-func NewPageHandler(api *client.APIClient) *PageHandler {
+func NewPageHandler(api client.Client) *PageHandler {
 	return &PageHandler{api: api}
 }
 
