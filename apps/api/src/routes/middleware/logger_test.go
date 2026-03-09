@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"utils/logger"
 
@@ -137,6 +138,40 @@ func TestLogger_WithDifferentHTTPMethods(t *testing.T) {
 	}
 }
 
+func TestLogLevelForStatus(t *testing.T) {
+	tests := []struct {
+		testName      string
+		status        int
+		expectFn      logFunc
+		expectFnLabel string
+	}{
+		// 正常系 (Happy Path) — 2xx/3xx → Info
+		{testName: "200 → Info", status: 200, expectFn: logger.Info, expectFnLabel: "Info"},
+		{testName: "201 → Info", status: 201, expectFn: logger.Info, expectFnLabel: "Info"},
+		{testName: "301 → Info", status: 301, expectFn: logger.Info, expectFnLabel: "Info"},
+		{testName: "399 → Info", status: 399, expectFn: logger.Info, expectFnLabel: "Info"},
+		// 境界値 (Boundary Values)
+		{testName: "400 → Warn", status: 400, expectFn: logger.Warn, expectFnLabel: "Warn"},
+		{testName: "401 → Warn", status: 401, expectFn: logger.Warn, expectFnLabel: "Warn"},
+		{testName: "404 → Warn", status: 404, expectFn: logger.Warn, expectFnLabel: "Warn"},
+		{testName: "499 → Warn", status: 499, expectFn: logger.Warn, expectFnLabel: "Warn"},
+		{testName: "500 → Error", status: 500, expectFn: logger.Error, expectFnLabel: "Error"},
+		{testName: "503 → Error", status: 503, expectFn: logger.Error, expectFnLabel: "Error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			got := logLevelForStatus(tt.status)
+			// Compare function identity via reflect.ValueOf.Pointer().
+			gotPtr := reflect.ValueOf(got).Pointer()
+			wantPtr := reflect.ValueOf(tt.expectFn).Pointer()
+			if gotPtr != wantPtr {
+				t.Errorf("logLevelForStatus(%d) returned wrong function, want %s", tt.status, tt.expectFnLabel)
+			}
+		})
+	}
+}
+
 func TestOutcomeFromStatus(t *testing.T) {
 	type args struct{ status int }
 	type expected struct{ outcome string }
@@ -202,35 +237,88 @@ func TestStripAPIPrefix(t *testing.T) {
 }
 
 func TestLogger_RequestLogPropagation(t *testing.T) {
-	// Verify that a downstream middleware can mutate the RequestLog pointer
-	// and the Logger reads the updated WHO fields after next.ServeHTTP returns.
-	var capturedUserID, capturedOrgID, capturedAuth string
+	tests := []struct {
+		testName    string
+		downstream  http.HandlerFunc // simulates auth+RBAC middleware
+		wantStatus  int
+		wantUserID  string
+		wantOrgID   string
+		wantAuth    string
+	}{
+		// 正常系 — success path: all WHO fields set
+		{
+			testName: "WHO fields populated on 200 success",
+			downstream: func(w http.ResponseWriter, r *http.Request) {
+				rl := logger.RequestLogFrom(r.Context())
+				rl.UserID = "user-abc"
+				rl.OrgID = "org-xyz"
+				rl.AuthMethod = "bearer"
+				w.WriteHeader(http.StatusOK)
+			},
+			wantStatus: http.StatusOK,
+			wantUserID: "user-abc",
+			wantOrgID:  "org-xyz",
+			wantAuth:   "bearer",
+		},
+		// 異常系 — 4xx: partial WHO fields (e.g. org_id known, user_id unknown)
+		{
+			testName: "WHO fields partially populated on 401 client error",
+			downstream: func(w http.ResponseWriter, r *http.Request) {
+				// Simulates RequireRole: org_id parsed from URL, user_id missing.
+				rl := logger.RequestLogFrom(r.Context())
+				rl.OrgID = "org-xyz"
+				rl.AuthMethod = "bearer"
+				// user_id left empty (X-User-ID header absent)
+				w.WriteHeader(http.StatusUnauthorized)
+			},
+			wantStatus: http.StatusUnauthorized,
+			wantUserID: "",
+			wantOrgID:  "org-xyz",
+			wantAuth:   "bearer",
+		},
+		// 空文字 / Null — no auth at all
+		{
+			testName: "empty WHO fields when no auth middleware runs",
+			downstream: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			},
+			wantStatus: http.StatusOK,
+			wantUserID: "",
+			wantOrgID:  "",
+			wantAuth:   "",
+		},
+	}
 
-	downstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simulate what RBAC/ApiKeyAuth middlewares do.
-		rl := logger.RequestLogFrom(r.Context())
-		rl.UserID = "user-abc"
-		rl.OrgID = "org-xyz"
-		rl.AuthMethod = "bearer"
-		w.WriteHeader(http.StatusOK)
-	})
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			// Capture the RequestLog that Logger creates, by reading it from
+			// inside the downstream (same pointer is accessible from the request context).
+			var capturedRL *logger.RequestLog
+			wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedRL = logger.RequestLogFrom(r.Context())
+				tt.downstream(w, r)
+			})
 
-	// Intercept the Logger's read of RequestLog by wrapping inside it.
-	wrapping := Logger(downstream)
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/organizations", nil)
+			w := httptest.NewRecorder()
+			Logger(wrapped).ServeHTTP(w, req)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/organizations", nil)
-	w := httptest.NewRecorder()
-	wrapping.ServeHTTP(w, req)
-
-	// The downstream wrote fields; now read them via a helper to confirm they persist.
-	// (We can't directly intercept the slog call, so we verify the fields were set
-	// on the RequestLog by re-reading them after the request completes.)
-	_ = capturedUserID
-	_ = capturedOrgID
-	_ = capturedAuth
-
-	if diff := cmp.Diff(http.StatusOK, w.Result().StatusCode); diff != "" {
-		t.Errorf("status code mismatch (-want +got):\n%s", diff)
+			if diff := cmp.Diff(tt.wantStatus, w.Result().StatusCode); diff != "" {
+				t.Errorf("status code mismatch (-want +got):\n%s", diff)
+			}
+			if capturedRL == nil {
+				t.Fatal("RequestLog was not initialised by Logger middleware")
+			}
+			if diff := cmp.Diff(tt.wantUserID, capturedRL.UserID); diff != "" {
+				t.Errorf("UserID mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantOrgID, capturedRL.OrgID); diff != "" {
+				t.Errorf("OrgID mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantAuth, capturedRL.AuthMethod); diff != "" {
+				t.Errorf("AuthMethod mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

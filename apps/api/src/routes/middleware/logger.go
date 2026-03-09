@@ -77,7 +77,10 @@ func Logger(next http.Handler) http.Handler {
 		routePattern := rctx.RoutePattern()
 		rawQuery := r.URL.RawQuery
 
-		logger.Info("http.request",
+		// Emit at the appropriate log level so 4xx/5xx responses surface in
+		// alerting pipelines that filter by level rather than by outcome field.
+		logFn := logLevelForStatus(status)
+		logFn("http.request",
 			// WHO — identity (populated by BearerAuth / ApiKeyAuth / RequireRole)
 			slog.Group("who",
 				slog.String("user_id", rl.UserID),
@@ -114,6 +117,25 @@ func Logger(next http.Handler) http.Handler {
 			),
 		)
 	})
+}
+
+// logFunc is the signature shared by logger.Info / Warn / Error.
+type logFunc func(msg string, args ...any)
+
+// logLevelForStatus returns the log function that matches the response severity:
+//
+//	2xx/3xx → Info   (normal traffic)
+//	4xx     → Warn   (client mistake, may indicate abuse or misconfiguration)
+//	5xx     → Error  (server fault, always requires attention)
+func logLevelForStatus(status int) logFunc {
+	switch {
+	case status >= 500:
+		return logger.Error
+	case status >= 400:
+		return logger.Warn
+	default:
+		return logger.Info
+	}
 }
 
 // outcomeFromStatus maps an HTTP status code to a human-readable outcome label
