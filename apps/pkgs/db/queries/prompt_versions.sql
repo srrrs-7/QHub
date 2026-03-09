@@ -28,9 +28,9 @@ LIMIT 1;
 
 -- name: UpdatePromptVersionStatus :one
 UPDATE prompt_versions
-SET status = $2,
-    published_at = CASE WHEN $2 = 'production' THEN NOW() ELSE published_at END
-WHERE id = $1
+SET status = @status::varchar,
+    published_at = CASE WHEN @status::varchar = 'production' THEN NOW() ELSE published_at END
+WHERE id = @id
 RETURNING *;
 
 -- name: UpdatePromptVersionSemanticDiff :exec

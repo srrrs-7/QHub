@@ -17,6 +17,118 @@ import (
 
 func TestPutHandler(t *testing.T) {
 
+	t.Run("400 Bad Request - invalid JSON", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			taskID         string
+			body           string
+			expectedStatus int
+		}{
+			{
+				name:           "malformed JSON",
+				taskID:         "550e8400-e29b-41d4-a716-446655440000",
+				body:           `{invalid json`,
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "empty body",
+				taskID:         "550e8400-e29b-41d4-a716-446655440000",
+				body:           "",
+				expectedStatus: http.StatusBadRequest,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				q := testutil.SetupTestTx(t)
+
+				req := httptest.NewRequest(http.MethodPut, "/tasks/"+tt.taskID, bytes.NewReader([]byte(tt.body)))
+				req.Header.Set("Content-Type", "application/json")
+
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("id", tt.taskID)
+				req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+				testutil.SetAuthHeader(req)
+
+				w := httptest.NewRecorder()
+
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).Put()
+				handler.ServeHTTP(w, req)
+
+				resp := w.Result()
+				if diff := cmp.Diff(tt.expectedStatus, resp.StatusCode); diff != "" {
+					t.Errorf("status code mismatch (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
+
+	t.Run("400 Bad Request - validation errors", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			taskID         string
+			reqBody        map[string]string
+			expectedStatus int
+		}{
+			{
+				name:           "empty title",
+				taskID:         "550e8400-e29b-41d4-a716-446655440000",
+				reqBody:        map[string]string{"title": "", "status": "pending"},
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "title too short",
+				taskID:         "550e8400-e29b-41d4-a716-446655440000",
+				reqBody:        map[string]string{"title": "ab", "status": "pending"},
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "invalid status",
+				taskID:         "550e8400-e29b-41d4-a716-446655440000",
+				reqBody:        map[string]string{"title": "Valid Title", "status": "invalid-status"},
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "invalid uuid in path",
+				taskID:         "not-a-uuid",
+				reqBody:        map[string]string{"title": "Valid Title", "status": "pending"},
+				expectedStatus: http.StatusBadRequest,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				q := testutil.SetupTestTx(t)
+
+				jsonBody, err := json.Marshal(tt.reqBody)
+				if err != nil {
+					t.Fatalf("failed to marshal request body: %v", err)
+				}
+				req := httptest.NewRequest(http.MethodPut, "/tasks/"+tt.taskID, bytes.NewReader(jsonBody))
+				req.Header.Set("Content-Type", "application/json")
+
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("id", tt.taskID)
+				req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+				testutil.SetAuthHeader(req)
+
+				w := httptest.NewRecorder()
+
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).Put()
+				handler.ServeHTTP(w, req)
+
+				resp := w.Result()
+				if diff := cmp.Diff(tt.expectedStatus, resp.StatusCode); diff != "" {
+					t.Errorf("status code mismatch (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
+
 	t.Run("200 OK", func(t *testing.T) {
 		type expected struct {
 			statusCode  int

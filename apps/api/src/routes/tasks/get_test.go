@@ -93,6 +93,59 @@ func TestGetHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("400 Bad Request - invalid UUID", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			taskID         string
+			expectedStatus int
+		}{
+			{
+				name:           "malformed uuid",
+				taskID:         "not-a-uuid",
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "empty uuid",
+				taskID:         "",
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "special characters",
+				taskID:         "<script>alert('xss')</script>",
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "Japanese characters",
+				taskID:         "タスク識別子",
+				expectedStatus: http.StatusBadRequest,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				q := testutil.SetupTestTx(t)
+
+				req := httptest.NewRequest(http.MethodGet, "/tasks/"+tt.taskID, nil)
+
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("id", tt.taskID)
+				req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+				testutil.SetAuthHeader(req)
+				w := httptest.NewRecorder()
+
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).Get()
+				handler.ServeHTTP(w, req)
+
+				resp := w.Result()
+				if diff := cmp.Diff(tt.expectedStatus, resp.StatusCode); diff != "" {
+					t.Errorf("status code mismatch (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
+
 	t.Run("404 Not Found", func(t *testing.T) {
 		tests := []struct {
 			name           string

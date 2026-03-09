@@ -359,19 +359,19 @@ func (q *Queries) UpdatePromptVersionSemanticDiff(ctx context.Context, arg Updat
 
 const updatePromptVersionStatus = `-- name: UpdatePromptVersionStatus :one
 UPDATE prompt_versions
-SET status = $2,
-    published_at = CASE WHEN $2 = 'production' THEN NOW() ELSE published_at END
-WHERE id = $1
+SET status = $1::varchar,
+    published_at = CASE WHEN $1::varchar = 'production' THEN NOW() ELSE published_at END
+WHERE id = $2
 RETURNING id, prompt_id, version_number, status, content, variables, change_description, semantic_diff, lint_result, author_id, published_at, created_at, embedding
 `
 
 type UpdatePromptVersionStatusParams struct {
-	ID     uuid.UUID `json:"id"`
 	Status string    `json:"status"`
+	ID     uuid.UUID `json:"id"`
 }
 
 func (q *Queries) UpdatePromptVersionStatus(ctx context.Context, arg UpdatePromptVersionStatusParams) (PromptVersion, error) {
-	row := q.db.QueryRowContext(ctx, updatePromptVersionStatus, arg.ID, arg.Status)
+	row := q.db.QueryRowContext(ctx, updatePromptVersionStatus, arg.Status, arg.ID)
 	var i PromptVersion
 	err := row.Scan(
 		&i.ID,

@@ -46,6 +46,7 @@ func NewRouter(h Handlers) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(mw.Logger)
+	r.Use(mw.NewCORSFromEnv())
 
 	// health check
 	r.Get("/health", h.Health)
@@ -54,6 +55,9 @@ func NewRouter(h Handlers) http.Handler {
 		r.Route("/v1", func(r chi.Router) {
 			// Bearer認証を適用
 			r.Use(mw.BearerAuth(validateToken))
+
+			// レート制限
+			r.Use(mw.RateLimit(mw.DefaultRateLimiterConfig()))
 
 			// Organizations
 			r.Route("/organizations", func(r chi.Router) {
@@ -71,6 +75,15 @@ func NewRouter(h Handlers) http.Handler {
 			})
 
 			// Projects (nested under org)
+			// TODO: Wire RBAC middleware when BearerAuth provides user identity (JWT/Cognito).
+			// Example usage with RequireRole:
+			//   r.Route("/organizations/{org_id}/projects", func(r chi.Router) {
+			//       r.With(mw.RequireRole(q, mw.RoleViewer)).Get("/", h.Project.List())
+			//       r.With(mw.RequireRole(q, mw.RoleMember)).Post("/", h.Project.Post())
+			//       r.With(mw.RequireRole(q, mw.RoleViewer)).Get("/{project_slug}", h.Project.Get())
+			//       r.With(mw.RequireRole(q, mw.RoleMember)).Put("/{project_slug}", h.Project.Put())
+			//       r.With(mw.RequireRole(q, mw.RoleAdmin)).Delete("/{project_slug}", h.Project.Delete())
+			//   })
 			r.Route("/organizations/{org_id}/projects", func(r chi.Router) {
 				r.Get("/", h.Project.List())
 				r.Post("/", h.Project.Post())

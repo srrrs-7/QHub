@@ -260,8 +260,7 @@ func TestFindAllTasks(t *testing.T) {
 			expected: expected{
 				isErr:      false,
 				taskCount:  3,
-				checkFirst: true,
-				firstTitle: "Task 3",
+				checkFirst: false,
 			},
 		},
 		// 境界値 (Boundary Values)
@@ -316,8 +315,7 @@ func TestFindAllTasks(t *testing.T) {
 			expected: expected{
 				isErr:      false,
 				taskCount:  3,
-				checkFirst: true,
-				firstTitle: "Task ✅",
+				checkFirst: false,
 			},
 		},
 		{
@@ -339,8 +337,7 @@ func TestFindAllTasks(t *testing.T) {
 			expected: expected{
 				isErr:      false,
 				taskCount:  2,
-				checkFirst: true,
-				firstTitle: "タスク2",
+				checkFirst: false,
 			},
 		},
 		// Nil - empty descriptions

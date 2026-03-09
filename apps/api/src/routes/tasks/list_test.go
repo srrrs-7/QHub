@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"utils/db/db"
 	"utils/testutil"
@@ -85,6 +86,54 @@ func TestListHandler(t *testing.T) {
 
 				if diff := cmp.Diff(tt.expected.taskCount, len(result.Tasks)); diff != "" {
 					t.Errorf("task count mismatch (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
+
+	t.Run("400 Bad Request - invalid query params", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			queryString    string
+			expectedStatus int
+		}{
+			{
+				name:           "invalid uuid in id param",
+				queryString:    "?id=not-a-uuid",
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "title too short",
+				queryString:    "?title=ab",
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "title exceeds max length",
+				queryString:    "?title=" + strings.Repeat("a", 101),
+				expectedStatus: http.StatusBadRequest,
+			},
+			{
+				name:           "description exceeds max length",
+				queryString:    "?description=" + strings.Repeat("a", 501),
+				expectedStatus: http.StatusBadRequest,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				q := testutil.SetupTestTx(t)
+
+				req := httptest.NewRequest(http.MethodGet, "/tasks"+tt.queryString, nil)
+				testutil.SetAuthHeader(req)
+				w := httptest.NewRecorder()
+
+				repo := task_repository.NewTaskRepository(q)
+				handler := NewTaskHandler(repo).List()
+				handler.ServeHTTP(w, req)
+
+				resp := w.Result()
+				if diff := cmp.Diff(tt.expectedStatus, resp.StatusCode); diff != "" {
+					t.Errorf("status code mismatch (-want +got):\n%s", diff)
 				}
 			})
 		}

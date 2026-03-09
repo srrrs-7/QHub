@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	keyPrefix   = "qlb_"
+	keyPrefix   = "pl_live_"
 	keyRawBytes = 32
 )
 
@@ -63,7 +63,7 @@ func generateApiKey() (rawKey string, hash string, prefix string, err error) {
 
 	hexStr := hex.EncodeToString(b)
 	rawKey = keyPrefix + hexStr
-	prefix = hexStr[:8]
+	prefix = keyPrefix + hexStr[:8]
 
 	h := sha256.Sum256([]byte(rawKey))
 	hash = hex.EncodeToString(h[:])
