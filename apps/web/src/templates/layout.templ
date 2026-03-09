@@ -641,6 +641,12 @@ templ Layout(page PageData) {
 				.mb-24 { margin-bottom: 24px; }
 				.text-muted { color: var(--md-sys-color-on-surface-variant); }
 
+				/* --- Spin animation --- */
+				@keyframes spin {
+					from { transform: rotate(0deg); }
+					to { transform: rotate(360deg); }
+				}
+
 				/* --- HTMX --- */
 				.htmx-indicator { display: none; }
 				.htmx-request .htmx-indicator { display: inline; }
@@ -692,6 +698,13 @@ templ Layout(page PageData) {
 					>
 						<span class="material-symbols-outlined">chat</span>
 						Consult
+					</a>
+					<a
+						class={ "nav-rail__item", templ.KV("nav-rail__item--active", page.ActiveNav == "search") }
+						href="/search"
+					>
+						<span class="material-symbols-outlined">search</span>
+						Search
 					</a>
 					<a
 						class={ "nav-rail__item", templ.KV("nav-rail__item--active", page.ActiveNav == "analytics") }

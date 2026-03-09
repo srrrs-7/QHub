@@ -1,0 +1,85 @@
+package templates
+
+import (
+	"fmt"
+	"web/src/client"
+)
+
+templ SearchPage(page PageData) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Semantic Search</h1>
+		</div>
+		<div class="card mb-24" style="padding: 24px;">
+			<form
+				hx-post="/partials/search"
+				hx-target="#search-results"
+				hx-swap="innerHTML"
+				hx-indicator=".search-loading"
+			>
+				<div class="form-field">
+					<label for="query">Search Query</label>
+					<input type="text" id="query" name="query" required placeholder="Search prompts by meaning..."/>
+				</div>
+				<div class="flex gap-8">
+					<button type="submit" class="btn btn--filled">
+						<span class="material-symbols-outlined">search</span>
+						Search
+					</button>
+				</div>
+			</form>
+			<div class="search-loading htmx-indicator" style="margin-top: 16px;">
+				<span class="material-symbols-outlined" style="animation: spin 1s linear infinite;">progress_activity</span>
+				Searching...
+			</div>
+		</div>
+		<div id="search-results"></div>
+	}
+}
+
+templ SearchResults(results *client.SearchResponse) {
+	if results == nil || results.Total == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">search_off</span>
+			<div class="empty-state__title">No results found</div>
+			<div class="empty-state__desc">Try a different search query or broaden your search terms.</div>
+		</div>
+	} else {
+		<div class="mb-16" style="font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-on-surface-variant);">
+			{ fmt.Sprintf("%d results for \"%s\"", results.Total, results.Query) }
+		</div>
+		<div class="card-grid">
+			for _, r := range results.Results {
+				<div class="card" style="padding: 16px;">
+					<div class="flex items-center gap-8 mb-8">
+						<span class="prompt-card__name" style="flex: 1;">{ r.PromptName }</span>
+						<span class="type-badge">{ fmt.Sprintf("v%d", r.VersionNumber) }</span>
+						@searchStatusBadge(r.Status)
+					</div>
+					if r.ChangeDescription != "" {
+						<div style="font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-on-surface-variant); margin-bottom: 8px;">
+							{ r.ChangeDescription }
+						</div>
+					}
+					<div class="flex items-center gap-8">
+						<span class="chip">
+							<span class="material-symbols-outlined" style="font-size: 16px;">similarity</span>
+							{ fmt.Sprintf("%.1f%%", r.Similarity * 100) }
+						</span>
+						<span class="text-muted" style="font: var(--md-sys-typescale-body-small);">{ r.CreatedAt }</span>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+templ searchStatusBadge(status string) {
+	if status == "production" {
+		<span class="status-badge status-badge--success">{ status }</span>
+	} else if status == "draft" {
+		<span class="status-badge status-badge--draft">{ status }</span>
+	} else {
+		<span class="status-badge">{ status }</span>
+	}
+}

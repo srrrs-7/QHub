@@ -41,16 +41,30 @@ templ TagList(tags []client.Tag) {
 	} else {
 		<div class="chip-list">
 			for _, tag := range tags {
-				<span
-					class="chip chip--deletable"
-					hx-delete={ "/partials/tags?name=" + tag.Name }
-					hx-target="#tag-list"
-					hx-swap="innerHTML"
-					hx-confirm={ "Delete tag '" + tag.Name + "'?" }
-				>
-					{ tag.Name }
-					<span class="material-symbols-outlined" style="font-size: 16px;">close</span>
-				</span>
+				if tag.Color != "" {
+					<span
+						class="chip chip--deletable"
+						style={ "background-color:" + tag.Color }
+						hx-delete={ "/partials/tags?name=" + tag.Name }
+						hx-target="#tag-list"
+						hx-swap="innerHTML"
+						hx-confirm={ "Delete tag '" + tag.Name + "'?" }
+					>
+						{ tag.Name }
+						<span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+					</span>
+				} else {
+					<span
+						class="chip chip--deletable"
+						hx-delete={ "/partials/tags?name=" + tag.Name }
+						hx-target="#tag-list"
+						hx-swap="innerHTML"
+						hx-confirm={ "Delete tag '" + tag.Name + "'?" }
+					>
+						{ tag.Name }
+						<span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+					</span>
+				}
 			}
 		</div>
 	}

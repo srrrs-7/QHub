@@ -225,6 +225,13 @@ func (c *APIClient) ListBenchmarks(ctx context.Context, slug string) ([]Benchmar
 	return benchmarks, c.do(ctx, http.MethodGet, "/api/v1/industries/"+slug+"/benchmarks", nil, &benchmarks)
 }
 
+// --- Search ---
+
+func (c *APIClient) SemanticSearch(ctx context.Context, body map[string]any) (*SearchResponse, error) {
+	var result SearchResponse
+	return &result, c.do(ctx, http.MethodPost, "/api/v1/search/semantic", body, &result)
+}
+
 // --- Evaluations ---
 
 func (c *APIClient) ListEvaluations(ctx context.Context) ([]Evaluation, error) {

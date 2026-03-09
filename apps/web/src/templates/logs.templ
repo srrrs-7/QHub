@@ -42,8 +42,8 @@ templ LogList(logs []client.ExecutionLog) {
 							@LogStatusBadge(l.Status)
 						</td>
 						<td>{ l.Model }</td>
-						<td>{ fmt.Sprintf("%dms", l.DurationMs) }</td>
-						<td>{ fmt.Sprintf("%d", l.TokensUsed) }</td>
+						<td>{ fmt.Sprintf("%dms", l.LatencyMs) }</td>
+						<td>{ fmt.Sprintf("%d", l.TotalTokens) }</td>
 						<td class="text-muted">{ l.CreatedAt }</td>
 						<td>
 							<span class="material-symbols-outlined" style="font-size: 18px; color: var(--md-sys-color-on-surface-variant);">chevron_right</span>
@@ -83,10 +83,10 @@ templ LogDetailPage(page PageData, log *client.ExecutionLog, evals []client.Eval
 			<span>{ log.ID }</span>
 			<span class="meta-grid__label">Model</span>
 			<span>{ log.Model }</span>
-			<span class="meta-grid__label">Duration</span>
-			<span>{ fmt.Sprintf("%d ms", log.DurationMs) }</span>
-			<span class="meta-grid__label">Tokens Used</span>
-			<span>{ fmt.Sprintf("%d", log.TokensUsed) }</span>
+			<span class="meta-grid__label">Latency</span>
+			<span>{ fmt.Sprintf("%d ms", log.LatencyMs) }</span>
+			<span class="meta-grid__label">Total Tokens</span>
+			<span>{ fmt.Sprintf("%d", log.TotalTokens) }</span>
 			<span class="meta-grid__label">Created</span>
 			<span>{ log.CreatedAt }</span>
 		</div>
@@ -116,7 +116,7 @@ templ LogDetailPage(page PageData, log *client.ExecutionLog, evals []client.Eval
 					for _, e := range evals {
 						<tr>
 							<td><span class="type-badge">{ e.EvaluatorType }</span></td>
-							<td>{ fmt.Sprintf("%.1f", e.Score) }</td>
+							<td>{ e.DisplayScore() }</td>
 							<td>{ e.Feedback }</td>
 							<td class="text-muted">{ e.CreatedAt }</td>
 						</tr>

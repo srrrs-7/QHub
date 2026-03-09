@@ -347,6 +347,31 @@ func (h *PartialHandler) CheckCompliance() http.HandlerFunc {
 	}
 }
 
+// --- Search ---
+
+func (h *PartialHandler) Search() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]any{
+			"query":  r.FormValue("query"),
+			"org_id": r.FormValue("org_id"),
+			"limit":  10,
+		}
+
+		results, err := h.api.SemanticSearch(r.Context(), body)
+		if err != nil {
+			renderSnackbar(w, r, "Search failed: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.SearchResults(results))
+	}
+}
+
 func renderSnackbar(w http.ResponseWriter, _ *http.Request, msg string, isError bool) {
 	cls := "snackbar--success"
 	if isError {

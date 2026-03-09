@@ -105,10 +105,19 @@ func AnalyticsDataFromLogs(logs []client.ExecutionLog, evals []client.Evaluation
 
 	if len(evals) > 0 {
 		var total float64
+		var count int
 		for _, e := range evals {
-			total += e.Score
+			if e.OverallScore != nil {
+				var score float64
+				if _, err := fmt.Sscanf(*e.OverallScore, "%f", &score); err == nil {
+					total += score
+					count++
+				}
+			}
 		}
-		data.AvgScore = total / float64(len(evals))
+		if count > 0 {
+			data.AvgScore = total / float64(count)
+		}
 	}
 
 	return data

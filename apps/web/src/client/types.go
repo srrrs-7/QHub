@@ -81,36 +81,45 @@ func (v PromptVersion) VariablesList() []string {
 // --- ExecutionLog ---
 
 type ExecutionLog struct {
-	ID              string          `json:"id"`
-	PromptID        string          `json:"prompt_id"`
-	PromptVersionID string          `json:"prompt_version_id"`
-	Input           json.RawMessage `json:"input"`
-	Output          json.RawMessage `json:"output"`
-	Status          string          `json:"status"`
-	DurationMs      int             `json:"duration_ms"`
-	TokensUsed      int             `json:"tokens_used"`
-	Model           string          `json:"model"`
-	CreatedAt       string          `json:"created_at"`
+	ID            string          `json:"id"`
+	OrgID         string          `json:"org_id"`
+	PromptID      string          `json:"prompt_id"`
+	VersionNumber int             `json:"version_number"`
+	RequestBody   json.RawMessage `json:"request_body"`
+	ResponseBody  json.RawMessage `json:"response_body"`
+	Model         string          `json:"model"`
+	Provider      string          `json:"provider"`
+	InputTokens   int             `json:"input_tokens"`
+	OutputTokens  int             `json:"output_tokens"`
+	TotalTokens   int             `json:"total_tokens"`
+	LatencyMs     int             `json:"latency_ms"`
+	EstimatedCost string          `json:"estimated_cost"`
+	Status        string          `json:"status"`
+	ErrorMessage  string          `json:"error_message"`
+	Environment   string          `json:"environment"`
+	Metadata      json.RawMessage `json:"metadata"`
+	ExecutedAt    string          `json:"executed_at"`
+	CreatedAt     string          `json:"created_at"`
 }
 
 func (l ExecutionLog) InputString() string {
-	if l.Input == nil {
+	if l.RequestBody == nil {
 		return ""
 	}
 	var s string
-	if err := json.Unmarshal(l.Input, &s); err != nil {
-		return string(l.Input)
+	if err := json.Unmarshal(l.RequestBody, &s); err != nil {
+		return string(l.RequestBody)
 	}
 	return s
 }
 
 func (l ExecutionLog) OutputString() string {
-	if l.Output == nil {
+	if l.ResponseBody == nil {
 		return ""
 	}
 	var s string
-	if err := json.Unmarshal(l.Output, &s); err != nil {
-		return string(l.Output)
+	if err := json.Unmarshal(l.ResponseBody, &s); err != nil {
+		return string(l.ResponseBody)
 	}
 	return s
 }
@@ -118,62 +127,119 @@ func (l ExecutionLog) OutputString() string {
 // --- Evaluation ---
 
 type Evaluation struct {
-	ID             string  `json:"id"`
-	ExecutionLogID string  `json:"execution_log_id"`
-	EvaluatorType  string  `json:"evaluator_type"`
-	Score          float64 `json:"score"`
-	Feedback       string  `json:"feedback"`
-	CreatedAt      string  `json:"created_at"`
+	ID             string          `json:"id"`
+	ExecutionLogID string          `json:"execution_log_id"`
+	OverallScore   *string         `json:"overall_score"`
+	AccuracyScore  *string         `json:"accuracy_score"`
+	RelevanceScore *string         `json:"relevance_score"`
+	FluencyScore   *string         `json:"fluency_score"`
+	SafetyScore    *string         `json:"safety_score"`
+	Feedback       string          `json:"feedback"`
+	EvaluatorType  string          `json:"evaluator_type"`
+	EvaluatorID    string          `json:"evaluator_id"`
+	Metadata       json.RawMessage `json:"metadata"`
+	CreatedAt      string          `json:"created_at"`
+}
+
+func (e Evaluation) DisplayScore() string {
+	if e.OverallScore != nil {
+		return *e.OverallScore
+	}
+	return "-"
 }
 
 // --- ConsultingSession ---
 
 type ConsultingSession struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID               string  `json:"id"`
+	OrgID            string  `json:"org_id"`
+	Title            string  `json:"title"`
+	IndustryConfigID *string `json:"industry_config_id"`
+	Status           string  `json:"status"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
 }
 
 // --- ConsultingMessage ---
 
 type ConsultingMessage struct {
-	ID        string `json:"id"`
-	SessionID string `json:"session_id"`
-	Role      string `json:"role"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"created_at"`
+	ID           string          `json:"id"`
+	SessionID    string          `json:"session_id"`
+	Role         string          `json:"role"`
+	Content      string          `json:"content"`
+	Citations    json.RawMessage `json:"citations"`
+	ActionsTaken json.RawMessage `json:"actions_taken"`
+	CreatedAt    string          `json:"created_at"`
 }
 
 // --- Tag ---
 
 type Tag struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID        string `json:"id"`
+	OrgID     string `json:"org_id"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	CreatedAt string `json:"created_at"`
 }
 
 // --- Industry ---
 
 type Industry struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description"`
+	ID              string          `json:"id"`
+	Name            string          `json:"name"`
+	Slug            string          `json:"slug"`
+	Description     string          `json:"description"`
+	KnowledgeBase   json.RawMessage `json:"knowledge_base"`
+	ComplianceRules json.RawMessage `json:"compliance_rules"`
+	CreatedAt       string          `json:"created_at"`
+	UpdatedAt       string          `json:"updated_at"`
 }
 
 // --- ComplianceResult ---
 
 type ComplianceResult struct {
-	Status  string   `json:"status"`
-	Issues  []string `json:"issues"`
-	Score   float64  `json:"score"`
+	Compliant  bool              `json:"compliant"`
+	Violations []ComplianceIssue `json:"violations"`
+}
+
+type ComplianceIssue struct {
+	Rule    string `json:"rule"`
+	Message string `json:"message"`
+}
+
+// --- Search ---
+
+type SearchResponse struct {
+	Query   string         `json:"query"`
+	Results []SearchResult `json:"results"`
+	Total   int            `json:"total"`
+}
+
+type SearchResult struct {
+	ID                string          `json:"id"`
+	PromptID          string          `json:"prompt_id"`
+	PromptName        string          `json:"prompt_name"`
+	PromptSlug        string          `json:"prompt_slug"`
+	VersionNumber     int             `json:"version_number"`
+	Status            string          `json:"status"`
+	Content           json.RawMessage `json:"content"`
+	ChangeDescription string          `json:"change_description"`
+	Similarity        float64         `json:"similarity"`
+	CreatedAt         string          `json:"created_at"`
 }
 
 // --- Benchmark ---
 
 type Benchmark struct {
-	Name  string  `json:"name"`
-	Value float64 `json:"value"`
-	Unit  string  `json:"unit"`
+	ID                string `json:"id"`
+	IndustryConfigID  string `json:"industry_config_id"`
+	Period            string `json:"period"`
+	AvgQualityScore   string `json:"avg_quality_score"`
+	AvgLatencyMs      string `json:"avg_latency_ms"`
+	AvgCostPerRequest string `json:"avg_cost_per_request"`
+	TotalExecutions   int64  `json:"total_executions"`
+	P50Quality        string `json:"p50_quality"`
+	P90Quality        string `json:"p90_quality"`
+	OptInCount        int64  `json:"opt_in_count"`
+	CreatedAt         string `json:"created_at"`
 }

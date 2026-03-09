@@ -1,0 +1,32 @@
+package templates
+
+templ SettingsPage(page PageData) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Settings</h1>
+		</div>
+		<div class="card-grid">
+			<div class="card" style="padding: 24px;">
+				<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Organization</h2>
+				<div class="meta-grid">
+					<span class="meta-grid__label">Slug</span>
+					<span>{ page.OrgSlug }</span>
+				</div>
+			</div>
+			<div class="card" style="padding: 24px;">
+				<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">API Keys</h2>
+				<div class="empty-state">
+					<span class="material-symbols-outlined">key</span>
+					<div class="empty-state__desc">API key management coming soon.</div>
+				</div>
+			</div>
+			<div class="card" style="padding: 24px;">
+				<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Members</h2>
+				<div class="empty-state">
+					<span class="material-symbols-outlined">group</span>
+					<div class="empty-state__desc">Member management coming soon.</div>
+				</div>
+			</div>
+		</div>
+	}
+}

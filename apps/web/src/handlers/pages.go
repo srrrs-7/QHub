@@ -230,6 +230,28 @@ func (h *PageHandler) Chat() http.HandlerFunc {
 	}
 }
 
+// --- Search ---
+
+func (h *PageHandler) Search() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		page := templates.PageData{ActiveNav: "search"}
+		render(w, r, templates.SearchPage(page))
+	}
+}
+
+// --- Settings ---
+
+func (h *PageHandler) Settings() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgSlug := chi.URLParam(r, "org_slug")
+		page := templates.PageData{
+			ActiveNav: "settings",
+			OrgSlug:   orgSlug,
+		}
+		render(w, r, templates.SettingsPage(page))
+	}
+}
+
 // --- Analytics ---
 
 func (h *PageHandler) Analytics() http.HandlerFunc {

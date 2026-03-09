@@ -121,17 +121,25 @@ templ IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []
 			<table class="data-table">
 				<thead>
 					<tr>
-						<th>Benchmark</th>
-						<th>Value</th>
-						<th>Unit</th>
+						<th>Period</th>
+						<th>Avg Quality</th>
+						<th>Avg Latency (ms)</th>
+						<th>Avg Cost/Req</th>
+						<th>Executions</th>
+						<th>P50 Quality</th>
+						<th>P90 Quality</th>
 					</tr>
 				</thead>
 				<tbody>
 					for _, b := range benchmarks {
 						<tr>
-							<td>{ b.Name }</td>
-							<td>{ fmt.Sprintf("%.2f", b.Value) }</td>
-							<td class="text-muted">{ b.Unit }</td>
+							<td>{ b.Period }</td>
+							<td>{ b.AvgQualityScore }</td>
+							<td>{ b.AvgLatencyMs }</td>
+							<td>{ b.AvgCostPerRequest }</td>
+							<td>{ fmt.Sprintf("%d", b.TotalExecutions) }</td>
+							<td>{ b.P50Quality }</td>
+							<td>{ b.P90Quality }</td>
 						</tr>
 					}
 				</tbody>
@@ -144,20 +152,18 @@ templ ComplianceResultPartial(result *client.ComplianceResult) {
 	<div class="card" style="padding: 16px;">
 		<div class="flex items-center gap-8 mb-8">
 			<span class="meta-grid__label">Status:</span>
-			if result.Status == "pass" {
-				<span class="status-badge status-badge--success">Pass</span>
+			if result.Compliant {
+				<span class="status-badge status-badge--success">Compliant</span>
 			} else {
-				<span class="status-badge status-badge--error">Fail</span>
+				<span class="status-badge status-badge--error">Non-Compliant</span>
 			}
-			<span class="meta-grid__label" style="margin-left: 16px;">Score:</span>
-			<span>{ fmt.Sprintf("%.1f", result.Score) }</span>
 		</div>
-		if len(result.Issues) > 0 {
+		if len(result.Violations) > 0 {
 			<div class="mt-16">
-				<span class="meta-grid__label mb-8" style="display: block;">Issues</span>
+				<span class="meta-grid__label mb-8" style="display: block;">Violations</span>
 				<ul style="padding-left: 20px; font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-error);">
-					for _, issue := range result.Issues {
-						<li>{ issue }</li>
+					for _, v := range result.Violations {
+						<li><strong>{ v.Rule }:</strong> { v.Message }</li>
 					}
 				</ul>
 			</div>

@@ -45,6 +45,12 @@ func NewRouter(apiClient *client.APIClient) http.Handler {
 	r.Get("/consulting", pages.Consulting())
 	r.Get("/consulting/{session_id}", pages.Chat())
 
+	// Pages - Search
+	r.Get("/search", pages.Search())
+
+	// Pages - Settings
+	r.Get("/orgs/{org_slug}/settings", pages.Settings())
+
 	// Pages - Analytics
 	r.Get("/analytics", pages.Analytics())
 
@@ -81,6 +87,9 @@ func NewRouter(apiClient *client.APIClient) http.Handler {
 		// Industries
 		r.Post("/industries", partials.CreateIndustry())
 		r.Post("/industries/{slug}/compliance", partials.CheckCompliance())
+
+		// Search
+		r.Post("/search", partials.Search())
 	})
 
 	return r
