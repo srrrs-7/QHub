@@ -2,10 +2,9 @@ package projects
 
 import (
 	"api/src/domain/project"
+	"api/src/routes/requtil"
 	"api/src/routes/response"
 	"net/http"
-
-	"github.com/google/uuid"
 )
 
 func (h *ProjectHandler) Post() http.HandlerFunc {
@@ -16,7 +15,7 @@ func (h *ProjectHandler) Post() http.HandlerFunc {
 			return
 		}
 
-		orgID, err := uuid.Parse(req.OrganizationID)
+		orgID, err := requtil.ParseUUID(r, "org_id")
 		if err != nil {
 			response.HandleError(w, err)
 			return

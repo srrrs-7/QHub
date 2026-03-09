@@ -2,6 +2,7 @@ package projects
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"api/src/infra/rds/organization_repository"
 	"api/src/infra/rds/project_repository"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -62,7 +64,7 @@ func TestPostHandler(t *testing.T) {
 				q := setupTestHandler(t)
 				orgID := createTestOrg(t, q)
 
-				tt.reqBody["organization_id"] = orgID
+				// organization_id comes from the URL param, not the body.
 				jsonBody, err := json.Marshal(tt.reqBody)
 				if err != nil {
 					t.Fatalf("failed to marshal request body: %v", err)
@@ -70,6 +72,11 @@ func TestPostHandler(t *testing.T) {
 				req := httptest.NewRequest(http.MethodPost, "/projects", bytes.NewReader(jsonBody))
 				req.Header.Set("Content-Type", "application/json")
 				testutil.SetAuthHeader(req)
+
+				// Inject org_id as chi URL param.
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("org_id", orgID)
+				req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 				w := httptest.NewRecorder()
 
@@ -107,42 +114,52 @@ func TestPostHandler(t *testing.T) {
 	})
 
 	t.Run("400 Bad Request", func(t *testing.T) {
+		type args struct {
+			reqBody map[string]string
+			orgID   string // chi URL param; "" means omit (simulate missing param)
+		}
+
 		tests := []struct {
 			testName string
-			reqBody  map[string]string
+			args     args
 		}{
-			// 異常系
-			{testName: "missing name", reqBody: map[string]string{"slug": "my-project"}},
-			{testName: "missing slug", reqBody: map[string]string{"name": "My Project"}},
-			{testName: "missing organization_id", reqBody: map[string]string{"name": "My Project", "slug": "my-project"}},
-			{testName: "invalid organization_id", reqBody: map[string]string{"organization_id": "not-uuid", "name": "My Project", "slug": "my-project"}},
+			// 異常系 — invalid / missing body fields
+			{testName: "missing name", args: args{orgID: "valid", reqBody: map[string]string{"slug": "my-project"}}},
+			{testName: "missing slug", args: args{orgID: "valid", reqBody: map[string]string{"name": "My Project"}}},
 			// 空文字
-			{testName: "empty name", reqBody: map[string]string{"name": "", "slug": "my-project"}},
-			{testName: "empty slug", reqBody: map[string]string{"name": "My Project", "slug": ""}},
+			{testName: "empty name", args: args{orgID: "valid", reqBody: map[string]string{"name": "", "slug": "my-project"}}},
+			{testName: "empty slug", args: args{orgID: "valid", reqBody: map[string]string{"name": "My Project", "slug": ""}}},
 			// 境界値
-			{testName: "name too short", reqBody: map[string]string{"name": "A", "slug": "my-project"}},
-			{testName: "slug too short", reqBody: map[string]string{"name": "My Project", "slug": "a"}},
+			{testName: "name too short", args: args{orgID: "valid", reqBody: map[string]string{"name": "A", "slug": "my-project"}}},
+			{testName: "slug too short", args: args{orgID: "valid", reqBody: map[string]string{"name": "My Project", "slug": "a"}}},
+			// 異常系 — invalid / missing org_id URL param
+			{testName: "missing org_id URL param", args: args{orgID: "", reqBody: map[string]string{"name": "My Project", "slug": "my-project"}}},
+			{testName: "invalid org_id URL param", args: args{orgID: "not-a-uuid", reqBody: map[string]string{"name": "My Project", "slug": "my-project"}}},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.testName, func(t *testing.T) {
 				q := setupTestHandler(t)
-				orgID := createTestOrg(t, q)
+				realOrgID := createTestOrg(t, q)
 
-				if _, ok := tt.reqBody["organization_id"]; !ok {
-					// Only set org_id if not explicitly testing missing/invalid org_id
-					if tt.testName != "missing organization_id" && tt.testName != "invalid organization_id" {
-						tt.reqBody["organization_id"] = orgID
-					}
-				}
-
-				jsonBody, err := json.Marshal(tt.reqBody)
+				jsonBody, err := json.Marshal(tt.args.reqBody)
 				if err != nil {
 					t.Fatalf("failed to marshal request body: %v", err)
 				}
 				req := httptest.NewRequest(http.MethodPost, "/projects", bytes.NewReader(jsonBody))
 				req.Header.Set("Content-Type", "application/json")
 				testutil.SetAuthHeader(req)
+
+				// Inject org_id URL param. Use real orgID when args.orgID == "valid".
+				orgIDParam := tt.args.orgID
+				if orgIDParam == "valid" {
+					orgIDParam = realOrgID
+				}
+				if orgIDParam != "" {
+					rctx := chi.NewRouteContext()
+					rctx.URLParams.Add("org_id", orgIDParam)
+					req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+				}
 
 				w := httptest.NewRecorder()
 
@@ -160,10 +177,15 @@ func TestPostHandler(t *testing.T) {
 
 	t.Run("400 Invalid JSON", func(t *testing.T) {
 		q := setupTestHandler(t)
+		orgID := createTestOrg(t, q)
 
 		req := httptest.NewRequest(http.MethodPost, "/projects", bytes.NewReader([]byte("invalid json")))
 		req.Header.Set("Content-Type", "application/json")
 		testutil.SetAuthHeader(req)
+
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("org_id", orgID)
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 		w := httptest.NewRecorder()
 

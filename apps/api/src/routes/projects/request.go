@@ -7,11 +7,13 @@ import (
 
 // --- POST ---
 
+// postRequest contains the body fields for project creation.
+// organization_id is intentionally omitted — it is read from the URL
+// parameter {org_id} by the handler, so callers don't need to duplicate it.
 type postRequest struct {
-	OrganizationID string `json:"organization_id" validate:"required,uuid"`
-	Name           string `json:"name" validate:"required,min=2,max=100"`
-	Slug           string `json:"slug" validate:"required,min=2,max=50"`
-	Description    string `json:"description" validate:"omitempty,max=500"`
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Slug        string `json:"slug" validate:"required,min=2,max=50"`
+	Description string `json:"description" validate:"omitempty,max=500"`
 }
 
 func decodePostRequest(r *http.Request) (postRequest, error) {
