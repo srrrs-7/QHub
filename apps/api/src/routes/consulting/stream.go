@@ -4,6 +4,7 @@ import (
 	domain "api/src/domain/consulting"
 	"api/src/routes/requtil"
 	"api/src/routes/response"
+	"api/src/services/ragservice"
 	"encoding/json"
 	"net/http"
 
@@ -81,16 +82,17 @@ func (h *ConsultingHandler) Stream() http.HandlerFunc {
 }
 
 // streamRAGResponse runs the RAG pipeline and streams chunks as SSE events.
-// It also persists the generated assistant message in the database.
+// It also persists the generated assistant message in the database with
+// extracted citations indicating which prompt versions were referenced.
 func (h *ConsultingHandler) streamRAGResponse(r *http.Request, sse *SSEWriter, sessionID uuid.UUID, query string, orgID uuid.UUID) {
-	ch, err := h.ragSvc.GenerateResponse(r.Context(), sessionID, query, orgID)
+	result, err := h.ragSvc.GenerateResponse(r.Context(), sessionID, query, orgID)
 	if err != nil {
 		sse.WriteError(err)
 		return
 	}
 
 	var fullContent string
-	for chunk := range ch {
+	for chunk := range result.Chunks {
 		select {
 		case <-r.Context().Done():
 			return
@@ -103,12 +105,16 @@ func (h *ConsultingHandler) streamRAGResponse(r *http.Request, sse *SSEWriter, s
 		}
 	}
 
-	// Persist the generated assistant message
+	// Persist the generated assistant message with citations
 	if fullContent != "" {
+		// Extract citations by matching context items against the generated text
+		citations := result.ExtractCitationsFromResponse(fullContent)
+
 		msg := domain.Message{
 			SessionID: sessionID,
 			Role:      "assistant",
 			Content:   fullContent,
+			Citations: ragservice.MarshalCitations(citations),
 		}
 		created, err := h.messageRepo.Create(r.Context(), msg)
 		if err != nil {

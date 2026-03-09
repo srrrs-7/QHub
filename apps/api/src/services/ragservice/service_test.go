@@ -157,7 +157,7 @@ func TestRAGService_GenerateResponse_Unavailable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			ch, err := tt.svc.GenerateResponse(context.Background(), tt.args.sessionID, tt.args.userMsg, tt.args.orgID)
+			result, err := tt.svc.GenerateResponse(context.Background(), tt.args.sessionID, tt.args.userMsg, tt.args.orgID)
 			if !tt.expected.wantErr {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -168,8 +168,8 @@ func TestRAGService_GenerateResponse_Unavailable(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error but got nil")
 			}
-			if ch != nil {
-				t.Error("expected nil channel on error")
+			if result != nil {
+				t.Error("expected nil result on error")
 			}
 			if !strings.Contains(err.Error(), tt.expected.errContain) {
 				t.Errorf("error %q should contain %q", err.Error(), tt.expected.errContain)
@@ -923,7 +923,7 @@ func TestGenerateResponse_UnavailableEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			ch, err := tt.svc.GenerateResponse(context.Background(), tt.args.sessionID, tt.args.userMsg, tt.args.orgID)
+			result, err := tt.svc.GenerateResponse(context.Background(), tt.args.sessionID, tt.args.userMsg, tt.args.orgID)
 			if !tt.expected.wantErr {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -934,8 +934,8 @@ func TestGenerateResponse_UnavailableEdgeCases(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error but got nil")
 			}
-			if ch != nil {
-				t.Error("expected nil channel on error")
+			if result != nil {
+				t.Error("expected nil result on error")
 			}
 			if !strings.Contains(err.Error(), tt.expected.errContain) {
 				t.Errorf("error %q should contain %q", err.Error(), tt.expected.errContain)

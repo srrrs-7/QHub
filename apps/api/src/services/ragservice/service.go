@@ -65,11 +65,33 @@ func (s *RAGService) Available() bool {
 
 // contextItem represents a single search result used as context for generation.
 type contextItem struct {
+	PromptID      uuid.UUID
 	PromptName    string
 	PromptSlug    string
 	VersionNumber int32
 	Content       string
 	Similarity    float64
+}
+
+// RAGResult holds the streaming response channel and the context items
+// used for generation. After the stream is fully consumed, callers should
+// call ExtractCitationsFromResponse to determine which context items were referenced.
+type RAGResult struct {
+	// Chunks is the channel of streamed response text chunks.
+	Chunks <-chan string
+	// contextItems are the search results provided as context to the LLM.
+	contextItems []contextItem
+	// promptIDs maps prompt slugs to their UUIDs for citation output.
+	promptIDs map[string]uuid.UUID
+}
+
+// ExtractCitationsFromResponse extracts citations by matching the generated
+// response text against the context items that were used for generation.
+func (r *RAGResult) ExtractCitationsFromResponse(responseText string) []Citation {
+	if r == nil {
+		return nil
+	}
+	return ExtractCitations(responseText, r.contextItems, r.promptIDs)
 }
 
 // GenerateResponse runs the full RAG pipeline:
@@ -79,8 +101,10 @@ type contextItem struct {
 //  4. Construct system prompt with retrieved context
 //  5. Stream LLM response via Ollama
 //
-// Returns a channel of string chunks. The channel is closed when generation completes.
-func (s *RAGService) GenerateResponse(ctx context.Context, sessionID uuid.UUID, userMessage string, orgID uuid.UUID) (<-chan string, error) {
+// Returns a RAGResult containing the streaming channel and context items
+// for citation extraction. The caller should use ExtractCitations after
+// consuming the full response to determine which prompts were referenced.
+func (s *RAGService) GenerateResponse(ctx context.Context, sessionID uuid.UUID, userMessage string, orgID uuid.UUID) (*RAGResult, error) {
 	if !s.Available() {
 		return nil, fmt.Errorf("ragservice: service not available")
 	}
@@ -101,19 +125,22 @@ func (s *RAGService) GenerateResponse(ctx context.Context, sessionID uuid.UUID, 
 		return nil, fmt.Errorf("ragservice: search prompt versions: %w", err)
 	}
 
-	// Step 3: Filter by min score and extract context
+	// Step 3: Filter by min score and extract context + prompt IDs
 	items := make([]contextItem, 0, len(results))
+	promptIDs := make(map[string]uuid.UUID, len(results))
 	for _, row := range results {
 		if row.Similarity < DefaultMinScore {
 			continue
 		}
 		items = append(items, contextItem{
+			PromptID:      row.PromptID,
 			PromptName:    row.PromptName,
 			PromptSlug:    row.PromptSlug,
 			VersionNumber: row.VersionNumber,
 			Content:       extractContentText(row.Content),
 			Similarity:    row.Similarity,
 		})
+		promptIDs[row.PromptSlug] = row.PromptID
 	}
 
 	logger.Info("RAG context retrieved",
@@ -155,7 +182,11 @@ func (s *RAGService) GenerateResponse(ctx context.Context, sessionID uuid.UUID, 
 		}
 	}()
 
-	return out, nil
+	return &RAGResult{
+		Chunks:       out,
+		contextItems: items,
+		promptIDs:    promptIDs,
+	}, nil
 }
 
 // BuildSystemPrompt constructs a system prompt incorporating retrieved context items
