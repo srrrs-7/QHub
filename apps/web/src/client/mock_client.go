@@ -586,13 +586,13 @@ func NewMockClientWithError(err error) *MockClient {
 			return nil, err
 		},
 		ListBenchmarksFn:   func(_ context.Context, _ string) ([]Benchmark, error) { return nil, err },
-		CreateEvaluationFn:  func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
-		GetEvaluationFn:     func(_ context.Context, _ string) (*Evaluation, error) { return nil, err },
-		UpdateEvaluationFn:  func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
-		ListPromptTagsFn:    func(_ context.Context, _ string) ([]Tag, error) { return nil, err },
-		AddPromptTagFn:      func(_ context.Context, _, _ string) error { return err },
-		RemovePromptTagFn:   func(_ context.Context, _, _ string) error { return err },
-		CreateLogFn:         func(_ context.Context, _ map[string]any) (*ExecutionLog, error) { return nil, err },
+		CreateEvaluationFn: func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
+		GetEvaluationFn:    func(_ context.Context, _ string) (*Evaluation, error) { return nil, err },
+		UpdateEvaluationFn: func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
+		ListPromptTagsFn:   func(_ context.Context, _ string) ([]Tag, error) { return nil, err },
+		AddPromptTagFn:     func(_ context.Context, _, _ string) error { return err },
+		RemovePromptTagFn:  func(_ context.Context, _, _ string) error { return err },
+		CreateLogFn:        func(_ context.Context, _ map[string]any) (*ExecutionLog, error) { return nil, err },
 		UpdateOrganizationFn: func(_ context.Context, _ string, _ map[string]string) (*Organization, error) {
 			return nil, err
 		},
