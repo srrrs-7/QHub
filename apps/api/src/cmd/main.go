@@ -9,6 +9,7 @@ import (
 	"api/src/infra/rds/tag_repository"
 	"api/src/infra/rds/task_repository"
 	"api/src/routes"
+	"api/src/routes/admin"
 	"api/src/routes/analytics"
 	"api/src/routes/apikeys"
 	"api/src/routes/consulting"
@@ -23,6 +24,7 @@ import (
 	"api/src/routes/tags"
 	"api/src/routes/tasks"
 	"api/src/routes/users"
+	"api/src/services/batchservice"
 	"api/src/services/diffservice"
 	"api/src/services/embeddingservice"
 	"api/src/services/lintservice"
@@ -164,6 +166,8 @@ func initHandlers(q dbq.Querier, conn *sql.DB, cacheClient *cache.Client) routes
 		logger.Info("RAG service disabled (requires EMBEDDING_URL and OLLAMA_URI)")
 	}
 
+	batchSvc := batchservice.NewBatchService(q)
+
 	return routes.Handlers{
 		Health:       healthHandler(conn, cacheClient),
 		Task:         tasks.NewTaskHandler(taskRepo),
@@ -180,6 +184,7 @@ func initHandlers(q dbq.Querier, conn *sql.DB, cacheClient *cache.Client) routes
 		Member:       members.NewMemberHandler(q),
 		Search:       search.NewSearchHandler(embSvc, q),
 		User:         users.NewUserHandler(q),
+		Admin:        admin.NewAdminHandler(batchSvc),
 	}
 }
 

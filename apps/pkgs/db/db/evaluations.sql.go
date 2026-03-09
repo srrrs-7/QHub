@@ -191,3 +191,56 @@ func (q *Queries) ListEvaluationsByLog(ctx context.Context, executionLogID uuid.
 	}
 	return items, nil
 }
+
+const updateEvaluation = `-- name: UpdateEvaluation :one
+UPDATE evaluations SET
+    overall_score = COALESCE($2, overall_score),
+    accuracy_score = COALESCE($3, accuracy_score),
+    relevance_score = COALESCE($4, relevance_score),
+    fluency_score = COALESCE($5, fluency_score),
+    safety_score = COALESCE($6, safety_score),
+    feedback = COALESCE($7, feedback),
+    metadata = COALESCE($8, metadata)
+WHERE id = $1
+RETURNING id, execution_log_id, overall_score, accuracy_score, relevance_score, fluency_score, safety_score, feedback, evaluator_type, evaluator_id, metadata, created_at
+`
+
+type UpdateEvaluationParams struct {
+	ID             uuid.UUID             `json:"id"`
+	OverallScore   sql.NullString        `json:"overall_score"`
+	AccuracyScore  sql.NullString        `json:"accuracy_score"`
+	RelevanceScore sql.NullString        `json:"relevance_score"`
+	FluencyScore   sql.NullString        `json:"fluency_score"`
+	SafetyScore    sql.NullString        `json:"safety_score"`
+	Feedback       sql.NullString        `json:"feedback"`
+	Metadata       pqtype.NullRawMessage `json:"metadata"`
+}
+
+func (q *Queries) UpdateEvaluation(ctx context.Context, arg UpdateEvaluationParams) (Evaluation, error) {
+	row := q.db.QueryRowContext(ctx, updateEvaluation,
+		arg.ID,
+		arg.OverallScore,
+		arg.AccuracyScore,
+		arg.RelevanceScore,
+		arg.FluencyScore,
+		arg.SafetyScore,
+		arg.Feedback,
+		arg.Metadata,
+	)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.ExecutionLogID,
+		&i.OverallScore,
+		&i.AccuracyScore,
+		&i.RelevanceScore,
+		&i.FluencyScore,
+		&i.SafetyScore,
+		&i.Feedback,
+		&i.EvaluatorType,
+		&i.EvaluatorID,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
+}

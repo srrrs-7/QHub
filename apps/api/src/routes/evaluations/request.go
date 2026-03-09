@@ -25,3 +25,19 @@ func decodePostEvaluationRequest(r *http.Request) (postEvaluationRequest, error)
 		req.EvaluatorID = requtil.Sanitize.Sanitize(req.EvaluatorID)
 	})
 }
+
+type putEvaluationRequest struct {
+	OverallScore   *string         `json:"overall_score"`
+	AccuracyScore  *string         `json:"accuracy_score"`
+	RelevanceScore *string         `json:"relevance_score"`
+	FluencyScore   *string         `json:"fluency_score"`
+	SafetyScore    *string         `json:"safety_score"`
+	Feedback       string          `json:"feedback" validate:"omitempty,max=2000"`
+	Metadata       json.RawMessage `json:"metadata"`
+}
+
+func decodePutEvaluationRequest(r *http.Request) (putEvaluationRequest, error) {
+	return requtil.Decode(r, func(req *putEvaluationRequest) {
+		req.Feedback = requtil.Sanitize.Sanitize(req.Feedback)
+	})
+}

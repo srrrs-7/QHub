@@ -48,6 +48,7 @@ type Querier interface {
 	GetIndustryConfig(ctx context.Context, id uuid.UUID) (IndustryConfig, error)
 	GetIndustryConfigBySlug(ctx context.Context, slug string) (IndustryConfig, error)
 	GetLatestPromptVersion(ctx context.Context, promptID uuid.UUID) (PromptVersion, error)
+	GetOrgMonthlyMetrics(ctx context.Context, arg GetOrgMonthlyMetricsParams) (GetOrgMonthlyMetricsRow, error)
 	GetOrganization(ctx context.Context, id uuid.UUID) (Organization, error)
 	GetOrganizationBySlug(ctx context.Context, slug string) (Organization, error)
 	GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (OrganizationMember, error)
@@ -67,6 +68,7 @@ type Querier interface {
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetVersionMetrics(ctx context.Context, arg GetVersionMetricsParams) ([]GetVersionMetricsRow, error)
+	ListAllOrganizations(ctx context.Context) ([]Organization, error)
 	ListApiKeysByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ApiKey, error)
 	ListConsultingMessages(ctx context.Context, sessionID uuid.UUID) ([]ConsultingMessage, error)
 	ListConsultingSessionsByOrg(ctx context.Context, arg ListConsultingSessionsByOrgParams) ([]ConsultingSession, error)
@@ -95,6 +97,7 @@ type Querier interface {
 	SearchPromptVersionsByEmbedding(ctx context.Context, arg SearchPromptVersionsByEmbeddingParams) ([]SearchPromptVersionsByEmbeddingRow, error)
 	UpdateApiKeyLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateConsultingSessionStatus(ctx context.Context, arg UpdateConsultingSessionStatusParams) (ConsultingSession, error)
+	UpdateEvaluation(ctx context.Context, arg UpdateEvaluationParams) (Evaluation, error)
 	UpdateIndustryConfig(ctx context.Context, arg UpdateIndustryConfigParams) (IndustryConfig, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error)

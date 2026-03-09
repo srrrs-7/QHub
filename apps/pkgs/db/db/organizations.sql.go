@@ -83,6 +83,40 @@ func (q *Queries) GetOrganizationBySlug(ctx context.Context, slug string) (Organ
 	return i, err
 }
 
+const listAllOrganizations = `-- name: ListAllOrganizations :many
+SELECT id, name, slug, plan, created_at, updated_at FROM organizations ORDER BY created_at
+`
+
+func (q *Queries) ListAllOrganizations(ctx context.Context) ([]Organization, error) {
+	rows, err := q.db.QueryContext(ctx, listAllOrganizations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Organization
+	for rows.Next() {
+		var i Organization
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Plan,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrganizationsByUser = `-- name: ListOrganizationsByUser :many
 SELECT o.id, o.name, o.slug, o.plan, o.created_at, o.updated_at FROM organizations o
 JOIN organization_members om ON o.id = om.organization_id

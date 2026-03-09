@@ -18,6 +18,14 @@ func decodePostSessionRequest(r *http.Request) (postSessionRequest, error) {
 	})
 }
 
+type putSessionRequest struct {
+	Status string `json:"status" validate:"required,oneof=active closed"`
+}
+
+func decodePutSessionRequest(r *http.Request) (putSessionRequest, error) {
+	return requtil.Decode[putSessionRequest](r, nil)
+}
+
 type postMessageRequest struct {
 	Role         string          `json:"role" validate:"required,oneof=user assistant system"`
 	Content      string          `json:"content" validate:"required,min=1"`

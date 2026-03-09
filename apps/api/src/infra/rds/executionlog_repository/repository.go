@@ -236,6 +236,26 @@ func (r *EvaluationRepository) Create(ctx context.Context, eval executionlog.Eva
 	return toEvaluation(e), nil
 }
 
+func (r *EvaluationRepository) Update(ctx context.Context, eval executionlog.Evaluation) (executionlog.Evaluation, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	e, err := r.q.UpdateEvaluation(ctx, db.UpdateEvaluationParams{
+		ID:             eval.ID,
+		OverallScore:   toNullString(eval.OverallScore),
+		AccuracyScore:  toNullString(eval.AccuracyScore),
+		RelevanceScore: toNullString(eval.RelevanceScore),
+		FluencyScore:   toNullString(eval.FluencyScore),
+		SafetyScore:    toNullString(eval.SafetyScore),
+		Feedback:       sql.NullString{String: eval.Feedback, Valid: eval.Feedback != ""},
+		Metadata:       pqtype.NullRawMessage{RawMessage: eval.Metadata, Valid: eval.Metadata != nil},
+	})
+	if err != nil {
+		return executionlog.Evaluation{}, repoerr.Handle(err, "EvaluationRepository", "Evaluation")
+	}
+	return toEvaluation(e), nil
+}
+
 func toNullString(s *string) sql.NullString {
 	if s == nil {
 		return sql.NullString{}

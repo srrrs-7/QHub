@@ -12,6 +12,18 @@ SELECT * FROM evaluations WHERE execution_log_id = $1;
 -- name: ListEvaluationsByLog :many
 SELECT * FROM evaluations WHERE execution_log_id = $1 ORDER BY created_at DESC;
 
+-- name: UpdateEvaluation :one
+UPDATE evaluations SET
+    overall_score = COALESCE($2, overall_score),
+    accuracy_score = COALESCE($3, accuracy_score),
+    relevance_score = COALESCE($4, relevance_score),
+    fluency_score = COALESCE($5, fluency_score),
+    safety_score = COALESCE($6, safety_score),
+    feedback = COALESCE($7, feedback),
+    metadata = COALESCE($8, metadata)
+WHERE id = $1
+RETURNING *;
+
 -- name: GetAvgScoresByPromptVersion :one
 SELECT
     AVG(e.overall_score)::NUMERIC(3,2) AS avg_overall,

@@ -20,4 +20,5 @@ type EvaluationRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (Evaluation, error)
 	FindByLogID(ctx context.Context, logID uuid.UUID) ([]Evaluation, error)
 	Create(ctx context.Context, eval Evaluation) (Evaluation, error)
+	Update(ctx context.Context, eval Evaluation) (Evaluation, error)
 }

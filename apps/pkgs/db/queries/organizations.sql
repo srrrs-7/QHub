@@ -26,3 +26,6 @@ RETURNING *;
 
 -- name: DeleteOrganization :exec
 DELETE FROM organizations WHERE id = $1;
+
+-- name: ListAllOrganizations :many
+SELECT * FROM organizations ORDER BY created_at;

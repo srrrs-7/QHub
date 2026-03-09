@@ -195,6 +195,47 @@ func (q *Queries) GetExecutionLog(ctx context.Context, id uuid.UUID) (ExecutionL
 	return i, err
 }
 
+const getOrgMonthlyMetrics = `-- name: GetOrgMonthlyMetrics :one
+SELECT
+    COUNT(*)::BIGINT AS execution_count,
+    COALESCE(AVG(el.latency_ms), 0)::INTEGER AS avg_latency_ms,
+    COALESCE(SUM(el.total_tokens), 0)::BIGINT AS total_tokens,
+    COALESCE(AVG(e.overall_score::NUMERIC), 0)::NUMERIC(5,2) AS avg_score,
+    COUNT(DISTINCT el.prompt_id)::BIGINT AS active_prompts
+FROM execution_logs el
+LEFT JOIN evaluations e ON e.execution_log_id = el.id
+WHERE el.organization_id = $1
+    AND el.executed_at >= $2
+    AND el.executed_at < $3
+`
+
+type GetOrgMonthlyMetricsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ExecutedAt     time.Time `json:"executed_at"`
+	ExecutedAt_2   time.Time `json:"executed_at_2"`
+}
+
+type GetOrgMonthlyMetricsRow struct {
+	ExecutionCount int64  `json:"execution_count"`
+	AvgLatencyMs   int32  `json:"avg_latency_ms"`
+	TotalTokens    int64  `json:"total_tokens"`
+	AvgScore       string `json:"avg_score"`
+	ActivePrompts  int64  `json:"active_prompts"`
+}
+
+func (q *Queries) GetOrgMonthlyMetrics(ctx context.Context, arg GetOrgMonthlyMetricsParams) (GetOrgMonthlyMetricsRow, error) {
+	row := q.db.QueryRowContext(ctx, getOrgMonthlyMetrics, arg.OrganizationID, arg.ExecutedAt, arg.ExecutedAt_2)
+	var i GetOrgMonthlyMetricsRow
+	err := row.Scan(
+		&i.ExecutionCount,
+		&i.AvgLatencyMs,
+		&i.TotalTokens,
+		&i.AvgScore,
+		&i.ActivePrompts,
+	)
+	return i, err
+}
+
 const getProjectAnalytics = `-- name: GetProjectAnalytics :many
 SELECT
     p.id AS prompt_id,

@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"api/src/routes/admin"
 	"api/src/routes/analytics"
 	"api/src/routes/apikeys"
 	"api/src/routes/consulting"
@@ -39,6 +40,7 @@ type Handlers struct {
 	Member       *members.MemberHandler
 	Search       *search.SearchHandler
 	User         *users.UserHandler
+	Admin        *admin.AdminHandler
 }
 
 func NewRouter(h Handlers, q dbq.Querier) http.Handler {
@@ -120,8 +122,8 @@ func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 			// Execution Logs
 			r.Route("/logs", func(r chi.Router) {
 				r.Get("/", h.Log.List())
-				r.Post("/", h.Log.Post())
-				r.Post("/batch", h.Log.PostBatch())
+				r.With(mw.BearerOrApiKeyAuth(validateToken, q)).Post("/", h.Log.Post())
+				r.With(mw.BearerOrApiKeyAuth(validateToken, q)).Post("/batch", h.Log.PostBatch())
 				r.Get("/{id}", h.Log.Get())
 			})
 
@@ -129,14 +131,20 @@ func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 			r.Route("/evaluations", func(r chi.Router) {
 				r.Post("/", h.Evaluation.Post())
 				r.Get("/{id}", h.Evaluation.Get())
+				r.Put("/{id}", h.Evaluation.Put())
 			})
 			r.Get("/logs/{log_id}/evaluations", h.Evaluation.List())
+			r.With(mw.BearerOrApiKeyAuth(validateToken, q)).Post("/logs/{log_id}/evaluations", h.Evaluation.Post())
+
+			// Prompt Logs (nested under prompt)
+			r.Get("/prompts/{prompt_id}/logs", h.Log.ListByPrompt())
 
 			// Consulting Sessions
 			r.Route("/consulting/sessions", func(r chi.Router) {
 				r.Post("/", h.Consulting.PostSession())
 				r.Get("/", h.Consulting.ListSessions())
 				r.Get("/{id}", h.Consulting.GetSession())
+				r.Put("/{id}", h.Consulting.PutSession())
 			})
 
 			// Consulting Messages
@@ -194,6 +202,11 @@ func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 			// Semantic Search
 			r.Post("/search/semantic", h.Search.SemanticSearch())
 			r.Get("/search/embedding-status", h.Search.EmbeddingStatus())
+
+			// Admin
+			r.Route("/admin", func(r chi.Router) {
+				r.Post("/batch/aggregate", h.Admin.PostAggregate())
+			})
 		})
 	})
 

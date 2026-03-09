@@ -88,3 +88,16 @@ FROM execution_logs el
 LEFT JOIN evaluations e ON e.execution_log_id = el.id
 WHERE el.prompt_id = $1 AND el.version_number = $2
 ORDER BY el.executed_at;
+
+-- name: GetOrgMonthlyMetrics :one
+SELECT
+    COUNT(*)::BIGINT AS execution_count,
+    COALESCE(AVG(el.latency_ms), 0)::INTEGER AS avg_latency_ms,
+    COALESCE(SUM(el.total_tokens), 0)::BIGINT AS total_tokens,
+    COALESCE(AVG(e.overall_score::NUMERIC), 0)::NUMERIC(5,2) AS avg_score,
+    COUNT(DISTINCT el.prompt_id)::BIGINT AS active_prompts
+FROM execution_logs el
+LEFT JOIN evaluations e ON e.execution_log_id = el.id
+WHERE el.organization_id = $1
+    AND el.executed_at >= $2
+    AND el.executed_at < $3;
