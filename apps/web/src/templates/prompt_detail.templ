@@ -2,16 +2,10 @@ package templates
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"web/src/client"
 )
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
 
 func lintScoreClass(score int) string {
 	if score >= 80 {
@@ -80,7 +74,7 @@ templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Pr
 					<span>
 						<span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">history</span>
 						History
-						<span style="font: 400 0.6875rem/1.2 var(--font-mono); background: var(--neutral-muted); border: 1px solid var(--border-muted); padding: 0 5px; border-radius: 100px; margin-left: 4px;">{ fmt.Sprintf("%d", len(versions)) }</span>
+						<span style="font: 400 0.6875rem/1.2 var(--font-mono); background: var(--neutral-muted); border: 1px solid var(--border-muted); padding: 0 5px; border-radius: 100px; margin-left: 4px;">{ strconv.Itoa(len(versions)) }</span>
 					</span>
 					<button
 						class="btn btn--tonal btn--small"
@@ -170,20 +164,20 @@ templ VersionItem(page PageData, prompt *client.Prompt, v client.PromptVersion, 
 		<div class="commit-item__content">
 			<a
 				class="commit-item__message"
-				href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + prompt.Slug + "/v/" + fmt.Sprintf("%d", v.VersionNumber)) }
-				hx-get={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) }
+				href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + prompt.Slug + "/v/" + strconv.Itoa(v.VersionNumber)) }
+				hx-get={ "/partials/prompts/" + prompt.ID + "/versions/" + strconv.Itoa(v.VersionNumber) }
 				hx-target="#version-detail"
 				hx-swap="innerHTML"
-				hx-push-url={ "/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + prompt.Slug + "/v/" + fmt.Sprintf("%d", v.VersionNumber) }
+				hx-push-url={ "/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + prompt.Slug + "/v/" + strconv.Itoa(v.VersionNumber) }
 			>
 				if v.ChangeDescription != "" {
 					{ v.ChangeDescription }
 				} else {
-					{ fmt.Sprintf("Version %d", v.VersionNumber) }
+					{ "Version " + strconv.Itoa(v.VersionNumber) }
 				}
 			</a>
 			<div class="commit-item__meta">
-				<code class="commit-item__hash">v{ fmt.Sprintf("%d", v.VersionNumber) }</code>
+				<code class="commit-item__hash">v{ strconv.Itoa(v.VersionNumber) }</code>
 				@StatusBadge(v.Status)
 				if v.AuthorID != "" {
 					<span class="commit-item__author">{ v.AuthorID }</span>
@@ -193,48 +187,34 @@ templ VersionItem(page PageData, prompt *client.Prompt, v client.PromptVersion, 
 	</li>
 }
 
+templ statusTransitionBtn(promptID string, versionNum int, nextStatus, label, icon, btnClass string) {
+	<button
+		class={ "btn btn--small", btnClass }
+		hx-put={ "/partials/prompts/" + promptID + "/versions/" + strconv.Itoa(versionNum) + "/status" }
+		hx-vals={ `{"status":"` + nextStatus + `"}` }
+		hx-target="#version-detail"
+		hx-swap="innerHTML"
+	>
+		<span class="material-symbols-outlined">{ icon }</span>
+		{ label }
+	</button>
+}
+
 templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion) {
 	<div class="flex items-center justify-between mb-16">
 		<div class="flex items-center gap-8">
-			<span style="font: 600 1.125rem/1.3 var(--font-sans);">Version { fmt.Sprintf("%d", v.VersionNumber) }</span>
+			<span style="font: 600 1.125rem/1.3 var(--font-sans);">Version { strconv.Itoa(v.VersionNumber) }</span>
 			@StatusBadge(v.Status)
 		</div>
 		<div class="flex gap-8">
 			if v.IsDraft() {
-				<button
-					class="btn btn--outlined btn--small"
-					hx-put={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/status" }
-					hx-vals='{"status":"review"}'
-					hx-target="#version-detail"
-					hx-swap="innerHTML"
-				>
-					<span class="material-symbols-outlined">rate_review</span>
-					Submit for Review
-				</button>
+				@statusTransitionBtn(prompt.ID, v.VersionNumber, "review", "Submit for Review", "rate_review", "btn--outlined")
 			}
 			if v.IsReview() {
-				<button
-					class="btn btn--filled btn--small"
-					hx-put={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/status" }
-					hx-vals='{"status":"production"}'
-					hx-target="#version-detail"
-					hx-swap="innerHTML"
-				>
-					<span class="material-symbols-outlined">rocket_launch</span>
-					Promote to Production
-				</button>
+				@statusTransitionBtn(prompt.ID, v.VersionNumber, "production", "Promote to Production", "rocket_launch", "btn--filled")
 			}
 			if v.IsProduction() {
-				<button
-					class="btn btn--outlined btn--small"
-					hx-put={ "/partials/prompts/" + prompt.ID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/status" }
-					hx-vals='{"status":"archived"}'
-					hx-target="#version-detail"
-					hx-swap="innerHTML"
-				>
-					<span class="material-symbols-outlined">archive</span>
-					Archive
-				</button>
+				@statusTransitionBtn(prompt.ID, v.VersionNumber, "archived", "Archive", "archive", "btn--outlined")
 			}
 		</div>
 	</div>
@@ -267,7 +247,7 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 			<div class="code-viewer__filename">
 				<span class="material-symbols-outlined">description</span>
 				<span>{ prompt.Name }</span>
-				<span style="font: 400 0.75rem/1.33 var(--font-sans); color: var(--fg-subtle);">— v{ fmt.Sprintf("%d", v.VersionNumber) }</span>
+				<span style="font: 400 0.75rem/1.33 var(--font-sans); color: var(--fg-subtle);">— v{ strconv.Itoa(v.VersionNumber) }</span>
 			</div>
 			<div class="code-viewer__actions">
 				<span class="code-viewer__meta">{ fmt.Sprintf("%d lines", len(contentLines(v.ContentString()))) }</span>
@@ -278,7 +258,7 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 				<tbody>
 					for i, line := range contentLines(v.ContentString()) {
 						<tr class="code-viewer__row" id={ fmt.Sprintf("L%d", i+1) }>
-							<td class="code-viewer__ln">{ fmt.Sprintf("%d", i+1) }</td>
+							<td class="code-viewer__ln">{ strconv.Itoa(i+1) }</td>
 							<td class="code-viewer__code">{ line }</td>
 						</tr>
 					}
@@ -289,7 +269,7 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 	<div class="flex gap-8 mb-16" style="flex-wrap: wrap; padding: 10px 14px; background: var(--canvas-subtle); border: 1px solid var(--border); border-radius: 6px; align-items: center;">
 		<button
 			class="btn btn--outlined btn--small"
-			hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/lint" }
+			hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + strconv.Itoa(v.VersionNumber) + "/lint" }
 			hx-target="#lint-result"
 			hx-swap="innerHTML"
 		>
@@ -299,7 +279,7 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 		if v.VersionNumber > 1 {
 			<button
 				class="btn btn--outlined btn--small"
-				hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/text-diff" }
+				hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + strconv.Itoa(v.VersionNumber) + "/text-diff" }
 				hx-target="#diff-result"
 				hx-swap="innerHTML"
 			>
@@ -308,7 +288,7 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 			</button>
 			<button
 				class="btn btn--outlined btn--small"
-				hx-get={ "/partials/prompts/" + v.PromptID + "/semantic-diff/" + fmt.Sprintf("%d", v.VersionNumber-1) + "/" + fmt.Sprintf("%d", v.VersionNumber) }
+				hx-get={ "/partials/prompts/" + v.PromptID + "/semantic-diff/" + strconv.Itoa(v.VersionNumber-1) + "/" + strconv.Itoa(v.VersionNumber) }
 				hx-target="#semantic-diff-result"
 				hx-swap="innerHTML"
 			>
@@ -326,13 +306,13 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 			<span style="font: var(--md-sys-typescale-label-medium); color: var(--fg-muted); white-space: nowrap;">Compare v</span>
 			<input
 				type="number" name="v1" min="1"
-				value={ fmt.Sprintf("%d", maxInt(1, v.VersionNumber-1)) }
+				value={ strconv.Itoa(max(1, v.VersionNumber-1)) }
 				style="width: 56px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font: var(--md-sys-typescale-body-medium);"
 			/>
 			<span style="color: var(--fg-muted);">vs v</span>
 			<input
 				type="number" name="v2" min="1"
-				value={ fmt.Sprintf("%d", v.VersionNumber) }
+				value={ strconv.Itoa(v.VersionNumber) }
 				style="width: 56px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font: var(--md-sys-typescale-body-medium);"
 			/>
 			<button type="submit" class="btn btn--tonal btn--small">
@@ -415,7 +395,7 @@ templ LintResultCard(lint *client.LintResult) {
 			<span class="material-symbols-outlined" style="color: var(--accent); font-size: 18px;">fact_check</span>
 			<h2 style="font: var(--md-sys-typescale-title-medium); flex: 1;">Lint Result</h2>
 			<span class={ "status-badge", lintScoreClass(lint.Score) }>
-				Score: { fmt.Sprintf("%d", lint.Score) }/100
+				Score: { strconv.Itoa(lint.Score) }/100
 			</span>
 		</div>
 		if len(lint.Issues) == 0 {
@@ -468,9 +448,9 @@ templ TextDiffCard(diff *client.TextDiffResult) {
 				{ fmt.Sprintf("Diff  v%d → v%d", diff.FromVersion, diff.ToVersion) }
 			</h2>
 			<span style="font: 500 0.8125rem/1 var(--font-mono);">
-				<span style="color: var(--success);">+{ fmt.Sprintf("%d", diff.Stats.Added) }</span>
+				<span style="color: var(--success);">+{ strconv.Itoa(diff.Stats.Added) }</span>
 				<span style="color: var(--fg-muted); margin: 0 4px;">/</span>
-				<span style="color: var(--danger);">-{ fmt.Sprintf("%d", diff.Stats.Removed) }</span>
+				<span style="color: var(--danger);">-{ strconv.Itoa(diff.Stats.Removed) }</span>
 			</span>
 		</div>
 		<div class="code-viewer">

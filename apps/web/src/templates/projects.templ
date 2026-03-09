@@ -66,14 +66,13 @@ templ ProjectList(page PageData, org *client.Organization, projects []client.Pro
 	} else {
 		<div class="repo-list">
 			for _, p := range projects {
-				<div class="repo-item" style="cursor: default;">
+				<div class="repo-item repo-item--non-interactive">
 					<div class="repo-item__icon">
 						<span class="material-symbols-outlined">folder</span>
 					</div>
 					<a
-						class="repo-item__body"
+						class="repo-item__body repo-item__body--link"
 						href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + p.Slug + "/prompts") }
-						style="text-decoration: none; color: inherit; flex: 1;"
 					>
 						<div class="repo-item__name">{ p.Name }</div>
 						if p.Description != "" {
@@ -85,14 +84,13 @@ templ ProjectList(page PageData, org *client.Organization, projects []client.Pro
 							class="btn btn--text btn--small"
 							onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('edit-project-%s').showModal()", p.ID)} }
 						>
-							<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+							<span class="material-symbols-outlined">edit</span>
 						</button>
 						<button
-							class="btn btn--text btn--small"
-							style="color: var(--danger);"
+							class="btn btn--text btn--small btn--text--danger"
 							onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('delete-project-%s').showModal()", p.ID)} }
 						>
-							<span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+							<span class="material-symbols-outlined">delete</span>
 						</button>
 					</div>
 				</div>
