@@ -1,10 +1,10 @@
 package search
 
 import (
+	"api/src/domain/apperror"
 	"api/src/routes/response"
 	"encoding/json"
 	"net/http"
-
 	"time"
 
 	db "utils/db/db"
@@ -129,19 +129,20 @@ type unavailableError struct{}
 func (e *unavailableError) Error() string     { return "embedding service not available" }
 func (e *unavailableError) ErrorName() string  { return "ServiceUnavailableError" }
 func (e *unavailableError) DomainName() string { return "Search" }
+func (e *unavailableError) Unwrap() error     { return nil }
 
 type validationError struct{ msg string }
 
 func (e *validationError) Error() string     { return e.msg }
 func (e *validationError) ErrorName() string  { return "ValidationError" }
 func (e *validationError) DomainName() string { return "Search" }
+func (e *validationError) Unwrap() error     { return nil }
 
-// Ensure we satisfy AppError for proper HTTP status mapping
-var _ interface {
-	Error() string
-	ErrorName() string
-	DomainName() string
-} = (*unavailableError)(nil)
+// Compile-time check: both error types satisfy apperror.AppError.
+var (
+	_ apperror.AppError = (*unavailableError)(nil)
+	_ apperror.AppError = (*validationError)(nil)
+)
 
 // EmbeddingStatus returns a handler that shows embedding service status.
 func (h *SearchHandler) EmbeddingStatus() http.HandlerFunc {

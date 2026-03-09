@@ -1,14 +1,17 @@
 package consulting
 
 import (
+	domain "api/src/domain/consulting"
 	"api/src/infra/rds/consulting_repository"
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 	"utils/db/db"
 	"utils/testutil"
 
@@ -55,6 +58,22 @@ func seedSession(t *testing.T, q db.Querier, orgID uuid.UUID, title string) uuid
 	return session.ID
 }
 
+// seedIndustryConfig creates an industry config and returns its ID.
+func seedIndustryConfig(t *testing.T, q db.Querier) uuid.UUID {
+	t.Helper()
+	ic, err := q.CreateIndustryConfig(context.Background(), db.CreateIndustryConfigParams{
+		Slug:            "test-industry-" + uuid.New().String()[:8],
+		Name:            "Test Industry",
+		Description:     sql.NullString{String: "A test industry", Valid: true},
+		KnowledgeBase:   json.RawMessage(`{}`),
+		ComplianceRules: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("failed to seed industry config: %v", err)
+	}
+	return ic.ID
+}
+
 // --- PostSession Tests ---
 
 func TestPostSession(t *testing.T) {
@@ -86,6 +105,16 @@ func TestPostSession(t *testing.T) {
 					return map[string]any{"org_id": orgID.String(), "title": "Session No Industry"}
 				},
 				expected: expected{statusCode: http.StatusCreated, title: "Session No Industry", status: "active"},
+			},
+			// 正常系 - with valid industry_config_id
+			{
+				testName: "create session with valid industry_config_id",
+				setup: func(t *testing.T, q db.Querier) map[string]any {
+					orgID := seedOrg(t, q)
+					icID := seedIndustryConfig(t, q)
+					return map[string]any{"org_id": orgID.String(), "title": "Industry Session", "industry_config_id": icID.String()}
+				},
+				expected: expected{statusCode: http.StatusCreated, title: "Industry Session", status: "active"},
 			},
 			// 特殊文字
 			{
@@ -234,6 +263,60 @@ func TestPostSession(t *testing.T) {
 				setup: func(t *testing.T, q db.Querier) map[string]any {
 					orgID := seedOrg(t, q)
 					return map[string]any{"org_id": orgID.String(), "title": nil}
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.testName, func(t *testing.T) {
+				q, handler := setupHandler(t)
+				body := tt.setup(t, q)
+
+				jsonBody, err := json.Marshal(body)
+				if err != nil {
+					t.Fatalf("failed to marshal request: %v", err)
+				}
+
+				req := httptest.NewRequest(http.MethodPost, "/consulting/sessions", bytes.NewReader(jsonBody))
+				req.Header.Set("Content-Type", "application/json")
+				testutil.SetAuthHeader(req)
+				w := httptest.NewRecorder()
+
+				handler.PostSession().ServeHTTP(w, req)
+
+				resp := w.Result()
+				if resp.StatusCode == http.StatusCreated {
+					t.Errorf("expected non-201 status, got %d", resp.StatusCode)
+				}
+			})
+		}
+	})
+
+	t.Run("500 or error - non-existent org_id FK violation", func(t *testing.T) {
+		tests := []struct {
+			testName string
+			setup    func(t *testing.T, q db.Querier) map[string]any
+		}{
+			// 異常系 - valid UUID but org doesn't exist (FK constraint)
+			{
+				testName: "non-existent org_id causes create error",
+				setup: func(t *testing.T, q db.Querier) map[string]any {
+					return map[string]any{
+						"org_id": uuid.New().String(),
+						"title":  "Orphan Session",
+					}
+				},
+			},
+			// 異常系 - valid UUID for industry_config_id but doesn't exist (FK constraint)
+			{
+				testName: "non-existent industry_config_id causes create error",
+				setup: func(t *testing.T, q db.Querier) map[string]any {
+					orgID := seedOrg(t, q)
+					return map[string]any{
+						"org_id":             orgID.String(),
+						"title":              "Bad Industry Session",
+						"industry_config_id": uuid.New().String(),
+					}
 				},
 			},
 		}
@@ -971,6 +1054,30 @@ func TestPostMessage(t *testing.T) {
 		}
 	})
 
+	t.Run("error - non-existent session FK violation", func(t *testing.T) {
+		// 異常系 - valid UUID but session doesn't exist (FK constraint)
+		_, handler := setupHandler(t)
+		nonExistentSessionID := uuid.New().String()
+
+		body := map[string]any{"role": "user", "content": "Hello"}
+		jsonBody, _ := json.Marshal(body)
+
+		req := httptest.NewRequest(http.MethodPost, "/consulting/sessions/"+nonExistentSessionID+"/messages", bytes.NewReader(jsonBody))
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("session_id", nonExistentSessionID)
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		req.Header.Set("Content-Type", "application/json")
+		testutil.SetAuthHeader(req)
+		w := httptest.NewRecorder()
+
+		handler.PostMessage().ServeHTTP(w, req)
+
+		resp := w.Result()
+		if resp.StatusCode == http.StatusCreated {
+			t.Errorf("expected error status for non-existent session, got %d", resp.StatusCode)
+		}
+	})
+
 	t.Run("400 Invalid JSON", func(t *testing.T) {
 		q, handler := setupHandler(t)
 		orgID := seedOrg(t, q)
@@ -1175,6 +1282,281 @@ func TestPostSessionAndGetSession(t *testing.T) {
 			t.Errorf("title mismatch (-want +got):\n%s", diff)
 		}
 	})
+}
+
+// --- toSessionResponse Tests ---
+
+func TestToSessionResponse(t *testing.T) {
+	type args struct {
+		session domain.Session
+	}
+	type expected struct {
+		hasIndustryConfigID bool
+		title               string
+		status              string
+	}
+
+	industryID := uuid.New()
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// 正常系 - session without industry config
+		{
+			testName: "session without industry config has nil industry_config_id",
+			args: args{
+				session: domain.Session{
+					ID:               uuid.New(),
+					OrgID:            uuid.New(),
+					Title:            "Test Session",
+					IndustryConfigID: nil,
+					Status:           "active",
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
+				},
+			},
+			expected: expected{hasIndustryConfigID: false, title: "Test Session", status: "active"},
+		},
+		// 正常系 - session with industry config
+		{
+			testName: "session with industry config has non-nil industry_config_id",
+			args: args{
+				session: domain.Session{
+					ID:               uuid.New(),
+					OrgID:            uuid.New(),
+					Title:            "Industry Session",
+					IndustryConfigID: &industryID,
+					Status:           "active",
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
+				},
+			},
+			expected: expected{hasIndustryConfigID: true, title: "Industry Session", status: "active"},
+		},
+		// 境界値 - closed session
+		{
+			testName: "closed session has correct status",
+			args: args{
+				session: domain.Session{
+					ID:               uuid.New(),
+					OrgID:            uuid.New(),
+					Title:            "Closed Session",
+					IndustryConfigID: nil,
+					Status:           "closed",
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
+				},
+			},
+			expected: expected{hasIndustryConfigID: false, title: "Closed Session", status: "closed"},
+		},
+		// 特殊文字 - Japanese title
+		{
+			testName: "session with Japanese title",
+			args: args{
+				session: domain.Session{
+					ID:               uuid.New(),
+					OrgID:            uuid.New(),
+					Title:            "日本語セッション",
+					IndustryConfigID: nil,
+					Status:           "active",
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
+				},
+			},
+			expected: expected{hasIndustryConfigID: false, title: "日本語セッション", status: "active"},
+		},
+		// 空文字 - empty title
+		{
+			testName: "session with empty title",
+			args: args{
+				session: domain.Session{
+					ID:               uuid.New(),
+					OrgID:            uuid.New(),
+					Title:            "",
+					IndustryConfigID: nil,
+					Status:           "active",
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
+				},
+			},
+			expected: expected{hasIndustryConfigID: false, title: "", status: "active"},
+		},
+		// Null/Nil - zero value UUID session
+		{
+			testName: "session with zero UUID",
+			args: args{
+				session: domain.Session{
+					ID:               uuid.UUID{},
+					OrgID:            uuid.UUID{},
+					Title:            "Zero UUID",
+					IndustryConfigID: nil,
+					Status:           "active",
+					CreatedAt:        time.Time{},
+					UpdatedAt:        time.Time{},
+				},
+			},
+			expected: expected{hasIndustryConfigID: false, title: "Zero UUID", status: "active"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			got := toSessionResponse(tt.args.session)
+
+			if diff := cmp.Diff(tt.expected.title, got.Title); diff != "" {
+				t.Errorf("title mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.expected.status, got.Status); diff != "" {
+				t.Errorf("status mismatch (-want +got):\n%s", diff)
+			}
+			if tt.expected.hasIndustryConfigID {
+				if got.IndustryConfigID == nil {
+					t.Error("expected non-nil industry_config_id")
+				} else if diff := cmp.Diff(industryID.String(), *got.IndustryConfigID); diff != "" {
+					t.Errorf("industry_config_id mismatch (-want +got):\n%s", diff)
+				}
+			} else {
+				if got.IndustryConfigID != nil {
+					t.Errorf("expected nil industry_config_id, got %v", *got.IndustryConfigID)
+				}
+			}
+			// Verify ID and OrgID are serialized
+			if got.ID == "" {
+				t.Error("expected non-empty ID")
+			}
+			if got.OrgID == "" {
+				t.Error("expected non-empty OrgID")
+			}
+		})
+	}
+}
+
+// --- toMessageResponse Tests ---
+
+func TestToMessageResponse(t *testing.T) {
+	type args struct {
+		msg domain.Message
+	}
+	type expected struct {
+		role    string
+		content string
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// 正常系 - user message
+		{
+			testName: "user message response",
+			args: args{
+				msg: domain.Message{
+					ID:        uuid.New(),
+					SessionID: uuid.New(),
+					Role:      "user",
+					Content:   "Hello world",
+					CreatedAt: time.Now(),
+				},
+			},
+			expected: expected{role: "user", content: "Hello world"},
+		},
+		// 正常系 - assistant message with citations
+		{
+			testName: "assistant message with citations",
+			args: args{
+				msg: domain.Message{
+					ID:           uuid.New(),
+					SessionID:    uuid.New(),
+					Role:         "assistant",
+					Content:      "Based on research",
+					Citations:    json.RawMessage(`[{"source":"doc.pdf"}]`),
+					ActionsTaken: json.RawMessage(`["analyzed"]`),
+					CreatedAt:    time.Now(),
+				},
+			},
+			expected: expected{role: "assistant", content: "Based on research"},
+		},
+		// 特殊文字 - Japanese content
+		{
+			testName: "message with Japanese content",
+			args: args{
+				msg: domain.Message{
+					ID:        uuid.New(),
+					SessionID: uuid.New(),
+					Role:      "user",
+					Content:   "こんにちは世界",
+					CreatedAt: time.Now(),
+				},
+			},
+			expected: expected{role: "user", content: "こんにちは世界"},
+		},
+		// Null/Nil - nil citations and actions
+		{
+			testName: "message with nil citations and actions",
+			args: args{
+				msg: domain.Message{
+					ID:           uuid.New(),
+					SessionID:    uuid.New(),
+					Role:         "assistant",
+					Content:      "Response",
+					Citations:    nil,
+					ActionsTaken: nil,
+					CreatedAt:    time.Now(),
+				},
+			},
+			expected: expected{role: "assistant", content: "Response"},
+		},
+		// 空文字 - empty content
+		{
+			testName: "message with empty content",
+			args: args{
+				msg: domain.Message{
+					ID:        uuid.New(),
+					SessionID: uuid.New(),
+					Role:      "system",
+					Content:   "",
+					CreatedAt: time.Now(),
+				},
+			},
+			expected: expected{role: "system", content: ""},
+		},
+		// 境界値 - zero UUID
+		{
+			testName: "message with zero UUIDs",
+			args: args{
+				msg: domain.Message{
+					ID:        uuid.UUID{},
+					SessionID: uuid.UUID{},
+					Role:      "user",
+					Content:   "Zero IDs",
+					CreatedAt: time.Time{},
+				},
+			},
+			expected: expected{role: "user", content: "Zero IDs"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			got := toMessageResponse(tt.args.msg)
+
+			if diff := cmp.Diff(tt.expected.role, got.Role); diff != "" {
+				t.Errorf("role mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.expected.content, got.Content); diff != "" {
+				t.Errorf("content mismatch (-want +got):\n%s", diff)
+			}
+			if got.ID == "" {
+				t.Error("expected non-empty ID")
+			}
+			if got.SessionID == "" {
+				t.Error("expected non-empty SessionID")
+			}
+		})
+	}
 }
 
 // --- Integration: PostMessage + ListMessages round-trip ---

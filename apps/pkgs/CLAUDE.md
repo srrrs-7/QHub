@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with the `apps/pkgs` mod
 
 ## Overview
 
-Shared Go packages used by api, web, and cli modules. Contains database layer, utilities, and test helpers.
+Shared Go packages used by api, web, and cli modules. Contains database layer, external service clients, utilities, and test helpers.
 
 ## Packages
 
@@ -38,6 +38,14 @@ Type-safe environment variable loading with `GetEnv(key, defaultValue)` and type
 - `SetupTestTx(t)` - Creates transaction-wrapped DB connection that auto-rolls back on test cleanup
 - `SetAuthHeader(req)` - Sets Bearer auth header for handler tests
 - Requires running PostgreSQL (`docker compose up -d db`)
+
+### ollama/ - Ollama LLM Client
+
+HTTP client for the Ollama inference API (`ollama.Client`). Supports streaming (`Chat`) and synchronous (`ChatSync`) chat completions, plus health checks. Configured via `OLLAMA_URI` env var. Reports `Available() == false` when unconfigured.
+
+### embedding/ - TEI Embedding Client
+
+HTTP client for the Hugging Face Text Embeddings Inference (TEI) API (`embedding.Client`). Methods: `Embed(texts)` for batch, `EmbedOne(text)` for single text, `Health()` for readiness. Configured via `EMBEDDING_URL` env var.
 
 ## Commands
 

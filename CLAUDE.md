@@ -54,16 +54,20 @@ make tf-fmt                   # Format .tf files
 ```
 routes/    → HTTP handlers (depend on domain interfaces only)
 domain/    → Value objects, entities, repository interfaces (no external deps)
-services/  → Cross-cutting business logic (diff, lint) using db.Querier directly
+services/  → Cross-cutting business logic (diff, lint, RAG, embeddings) using db.Querier directly
 infra/     → Repository implementations (sqlc + PostgreSQL)
 ```
 
 Dependency direction: `routes → domain ← infra`, `routes → services → domain`
 
+Middleware chain (in `routes.go`): `RequestID → RealIP → Recoverer → Logger → CORS → BearerAuth → RateLimit`
+
 DI wiring in `cmd/main.go`:
 ```
 db.Querier → New*Repository(q) → New*Handler(repo) → routes.Handlers → NewRouter(h)
-db.Querier → New*Service(q)   → Handler (for diff/lint)
+db.Querier → New*Service(q)   → Handler (for diff/lint/RAG/embedding)
+embedding.Client → EmbeddingService → PromptHandler, SearchHandler, RAGService
+ollama.Client → RAGService → ConsultingHandler
 ```
 
 ### Domain Entities
@@ -85,8 +89,11 @@ Services handle complex business logic that doesn't fit in repositories:
 
 - **`services/diffservice/`**: Semantic diff between prompt versions (length, variables, tone, specificity analysis + LCS-based text diff)
 - **`services/lintservice/`**: Prompt linting (excessive-length, output-format, variable-check, vague-instructions; score 0-100)
+- **`services/ragservice/`**: RAG pipeline — embed query, search similar prompt versions, build context, stream LLM response via Ollama
+- **`services/embeddingservice/`**: Generate and store vector embeddings for prompt versions (TEI backend); enables semantic search
+- **`services/contentutil/`**: Shared text extraction from JSONB content and `{{variable}}` placeholder detection
 
-Both receive `db.Querier` directly and are wired in `cmd/main.go`.
+Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go`. RAG and embedding services are optional (enabled by `OLLAMA_URI` and `EMBEDDING_URL` env vars).
 
 ### API Routes (`/api/v1`, Bearer auth)
 
@@ -115,6 +122,17 @@ Both receive `db.Querier` directly and are wired in `cmd/main.go`.
 /consulting/sessions                             GET POST
 /consulting/sessions/{session_id}                GET
 /consulting/sessions/{session_id}/messages       GET POST
+/consulting/sessions/{session_id}/stream         GET (SSE)
+/search/semantic                                 POST
+/search/embedding-status                         GET
+/analytics/projects/{project_id}                 GET
+/analytics/prompts/{prompt_id}                   GET
+/analytics/prompts/{prompt_id}/versions/{v}      GET
+/analytics/prompts/{prompt_id}/trend             GET
+/organizations/{org_id}/api-keys                 GET POST
+/organizations/{org_id}/api-keys/{id}            DELETE
+/organizations/{org_id}/members                  GET POST
+/organizations/{org_id}/members/{user_id}        PUT DELETE
 /tags                                            GET POST DELETE
 /industries                                      GET POST
 /industries/{slug}                               GET PUT
@@ -170,15 +188,17 @@ Type-safe wrappers with validation in constructors returning `(T, error)`:
 
 ### Module Structure
 
-Go workspace `apps/go.work` manages five modules:
+Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 
 | Directory | Module Name | Description |
 |-----------|-------------|-------------|
 | `apps/api` | `api` | Backend API (chi, port 8080) |
-| `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/` |
+| `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/`, `ollama/`, `embedding/` |
 | `apps/web` | `web` | templ + HTMX frontend (M3 design, port 3000) |
 | `apps/cli` | `cli` | `qhub` CLI (cobra, JSON/table output) |
-| `apps/sdk` | `sdk` | SDK module |
+| `apps/sdk` | `sdk` | Go SDK module |
+| `apps/sdk-python` | `qhub-sdk` | Python SDK (httpx + Pydantic v2, pip installable) |
+| `apps/sdk-typescript` | `@qhub/sdk` | TypeScript SDK (native fetch, zero runtime deps) |
 
 `apps/iac/` — Terraform AWS infrastructure (VPC, ECS, Aurora, Cognito, CloudFront, WAF)
 

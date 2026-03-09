@@ -234,6 +234,96 @@ func TestSSEWriter_WriteMessage(t *testing.T) {
 	}
 }
 
+func TestSSEWriter_WriteMessage_EdgeCases(t *testing.T) {
+	type expected struct {
+		role    string
+		content string
+	}
+
+	tests := []struct {
+		testName string
+		msg      messageResponse
+		expected expected
+	}{
+		// 境界値 - empty content
+		{
+			testName: "write message with empty content",
+			msg:      messageResponse{ID: "id-empty", SessionID: "sess-1", Role: "assistant", Content: "", CreatedAt: "2026-01-01T00:00:00Z"},
+			expected: expected{role: "assistant", content: ""},
+		},
+		// 特殊文字 - emoji content
+		{
+			testName: "write message with emoji content",
+			msg:      messageResponse{ID: "id-emoji", SessionID: "sess-1", Role: "assistant", Content: "Great work! 🎉👍", CreatedAt: "2026-01-01T00:00:00Z"},
+			expected: expected{role: "assistant", content: "Great work! 🎉👍"},
+		},
+		// 正常系 - message with citations
+		{
+			testName: "write message with citations JSON",
+			msg:      messageResponse{ID: "id-cite", SessionID: "sess-1", Role: "assistant", Content: "Based on data", Citations: json.RawMessage(`[{"source":"doc.pdf"}]`), CreatedAt: "2026-01-01T00:00:00Z"},
+			expected: expected{role: "assistant", content: "Based on data"},
+		},
+		// 正常系 - message with actions_taken
+		{
+			testName: "write message with actions taken",
+			msg:      messageResponse{ID: "id-action", SessionID: "sess-1", Role: "assistant", Content: "Analyzed", ActionsTaken: json.RawMessage(`["search","analyze"]`), CreatedAt: "2026-01-01T00:00:00Z"},
+			expected: expected{role: "assistant", content: "Analyzed"},
+		},
+		// 境界値 - system role
+		{
+			testName: "write system message",
+			msg:      messageResponse{ID: "id-sys", SessionID: "sess-1", Role: "system", Content: "You are a helpful assistant.", CreatedAt: "2026-01-01T00:00:00Z"},
+			expected: expected{role: "system", content: "You are a helpful assistant."},
+		},
+		// 特殊文字 - SQL injection in content
+		{
+			testName: "write message with SQL injection content",
+			msg:      messageResponse{ID: "id-sql", SessionID: "sess-1", Role: "user", Content: "'; DROP TABLE users; --", CreatedAt: "2026-01-01T00:00:00Z"},
+			expected: expected{role: "user", content: "'; DROP TABLE users; --"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			rec := &flushRecorder{ResponseRecorder: httptest.NewRecorder()}
+			sw, err := NewSSEWriter(rec)
+			if err != nil {
+				t.Fatalf("unexpected error creating SSEWriter: %v", err)
+			}
+
+			err = sw.WriteMessage(tt.msg)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			body := rec.Body.String()
+			if !strings.HasPrefix(body, "event: message\ndata: ") {
+				t.Errorf("expected SSE message event prefix, got: %s", body)
+			}
+
+			// Extract JSON data from SSE format
+			dataLine := strings.TrimPrefix(body, "event: message\ndata: ")
+			dataLine = strings.TrimSuffix(dataLine, "\n\n")
+
+			var parsed messageResponse
+			if err := json.Unmarshal([]byte(dataLine), &parsed); err != nil {
+				t.Fatalf("failed to parse JSON data: %v", err)
+			}
+
+			if diff := cmp.Diff(tt.expected.role, parsed.Role); diff != "" {
+				t.Errorf("role mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.expected.content, parsed.Content); diff != "" {
+				t.Errorf("content mismatch (-want +got):\n%s", diff)
+			}
+
+			if rec.flushed == 0 {
+				t.Error("expected flush to be called")
+			}
+		})
+	}
+}
+
 func TestSSEWriter_WriteDone(t *testing.T) {
 	// 正常系
 	t.Run("writes done event with complete status", func(t *testing.T) {
@@ -307,6 +397,74 @@ func TestSSEWriter_WriteError(t *testing.T) {
 			}
 		})
 	}
+}
+
+// errorWriter is an http.ResponseWriter + http.Flusher that always returns an error on Write.
+type errorWriter struct {
+	header http.Header
+}
+
+func (e *errorWriter) Header() http.Header {
+	if e.header == nil {
+		e.header = make(http.Header)
+	}
+	return e.header
+}
+func (e *errorWriter) Write(_ []byte) (int, error) {
+	return 0, fmt.Errorf("simulated write error")
+}
+func (e *errorWriter) WriteHeader(_ int) {}
+func (e *errorWriter) Flush()            {}
+
+func TestSSEWriter_WriteEvent_Error(t *testing.T) {
+	// 異常系 - write returns error
+	t.Run("returns error when write fails", func(t *testing.T) {
+		ew := &errorWriter{}
+		sw, err := NewSSEWriter(ew)
+		if err != nil {
+			t.Fatalf("unexpected error creating SSEWriter: %v", err)
+		}
+
+		err = sw.WriteEvent("message", "test data")
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if !strings.Contains(err.Error(), "simulated write error") {
+			t.Errorf("expected simulated write error, got: %v", err)
+		}
+	})
+}
+
+func TestSSEWriter_WriteMessage_Error(t *testing.T) {
+	// 異常系 - write returns error
+	t.Run("returns error when write fails", func(t *testing.T) {
+		ew := &errorWriter{}
+		sw, err := NewSSEWriter(ew)
+		if err != nil {
+			t.Fatalf("unexpected error creating SSEWriter: %v", err)
+		}
+
+		err = sw.WriteMessage(messageResponse{ID: "id-1", Role: "user", Content: "test"})
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+	})
+}
+
+func TestSSEWriter_Ping_Error(t *testing.T) {
+	// 異常系 - write returns error
+	t.Run("returns error when write fails", func(t *testing.T) {
+		ew := &errorWriter{}
+		sw, err := NewSSEWriter(ew)
+		if err != nil {
+			t.Fatalf("unexpected error creating SSEWriter: %v", err)
+		}
+
+		err = sw.Ping()
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+	})
 }
 
 func TestSSEWriter_Ping(t *testing.T) {

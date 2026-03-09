@@ -685,3 +685,224 @@ func TestHandleAppError(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleErrorWithNonAppError(t *testing.T) {
+	type args struct {
+		err error
+	}
+	type expected struct {
+		statusCode int
+		bodyContains string
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// 正常系 - plain error falls through to http.Error
+		{
+			testName: "plain error returns 500",
+			args: args{
+				err: fmt.Errorf("something went wrong"),
+			},
+			expected: expected{
+				statusCode:   http.StatusInternalServerError,
+				bodyContains: "something went wrong",
+			},
+		},
+		// 特殊文字 - Unicode error message
+		{
+			testName: "error with Unicode message",
+			args: args{
+				err: fmt.Errorf("エラーが発生しました"),
+			},
+			expected: expected{
+				statusCode:   http.StatusInternalServerError,
+				bodyContains: "エラーが発生しました",
+			},
+		},
+		// 境界値 - wrapped plain error (not AppError)
+		{
+			testName: "wrapped plain error returns 500",
+			args: args{
+				err: fmt.Errorf("outer: %w", fmt.Errorf("inner error")),
+			},
+			expected: expected{
+				statusCode:   http.StatusInternalServerError,
+				bodyContains: "outer: inner error",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			HandleError(w, tt.args.err)
+
+			resp := w.Result()
+			if diff := cmp.Diff(tt.expected.statusCode, resp.StatusCode); diff != "" {
+				t.Errorf("status code mismatch (-want +got):\n%s", diff)
+			}
+
+			body := w.Body.String()
+			if !strings.Contains(body, tt.expected.bodyContains) {
+				t.Errorf("expected body to contain %q, got %q", tt.expected.bodyContains, body)
+			}
+		})
+	}
+}
+
+func TestMapSlice(t *testing.T) {
+	type testCase[S any, D any] struct {
+		testName string
+		src      []S
+		fn       func(S) D
+		expected []D
+	}
+
+	t.Run("string to int conversion", func(t *testing.T) {
+		tests := []testCase[string, int]{
+			// 正常系
+			{
+				testName: "convert multiple items",
+				src:      []string{"a", "bb", "ccc"},
+				fn:       func(s string) int { return len(s) },
+				expected: []int{1, 2, 3},
+			},
+			// 空文字 - empty slice
+			{
+				testName: "empty slice returns empty slice",
+				src:      []string{},
+				fn:       func(s string) int { return len(s) },
+				expected: []int{},
+			},
+			// 境界値 - single element
+			{
+				testName: "single element slice",
+				src:      []string{"hello"},
+				fn:       func(s string) int { return len(s) },
+				expected: []int{5},
+			},
+			// 特殊文字
+			{
+				testName: "Unicode strings",
+				src:      []string{"日本", "🎉"},
+				fn:       func(s string) int { return len(s) },
+				expected: []int{6, 4}, // byte length
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.testName, func(t *testing.T) {
+				result := MapSlice(tt.src, tt.fn)
+				if diff := cmp.Diff(tt.expected, result); diff != "" {
+					t.Errorf("result mismatch (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
+
+	t.Run("struct transformation", func(t *testing.T) {
+		type input struct {
+			Name string
+			Age  int
+		}
+		type output struct {
+			Label string
+		}
+
+		tests := []testCase[input, output]{
+			// 正常系
+			{
+				testName: "transform structs",
+				src:      []input{{Name: "Alice", Age: 30}, {Name: "Bob", Age: 25}},
+				fn:       func(i input) output { return output{Label: i.Name} },
+				expected: []output{{Label: "Alice"}, {Label: "Bob"}},
+			},
+			// Nil - nil slice
+			{
+				testName: "nil slice returns empty slice",
+				src:      nil,
+				fn:       func(i input) output { return output{Label: i.Name} },
+				expected: []output{},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.testName, func(t *testing.T) {
+				result := MapSlice(tt.src, tt.fn)
+				if diff := cmp.Diff(tt.expected, result); diff != "" {
+					t.Errorf("result mismatch (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
+
+	t.Run("identity transformation", func(t *testing.T) {
+		// 境界値 - large slice
+		src := make([]int, 1000)
+		for i := range src {
+			src[i] = i
+		}
+		result := MapSlice(src, func(i int) int { return i * 2 })
+		if len(result) != 1000 {
+			t.Errorf("expected length 1000, got %d", len(result))
+		}
+		if result[0] != 0 {
+			t.Errorf("expected first element 0, got %d", result[0])
+		}
+		if result[999] != 1998 {
+			t.Errorf("expected last element 1998, got %d", result[999])
+		}
+	})
+}
+
+func TestHandleAppErrorUnknownErrorName(t *testing.T) {
+	tests := []struct {
+		testName string
+		err      apperror.AppError
+		expected int
+	}{
+		// 異常系 - custom error name not in errorStatusMap
+		{
+			testName: "ServiceUnavailableError maps to 500",
+			err: customAppError{
+				errName:    "ServiceUnavailableError",
+				domainName: "Search",
+				err:        nil,
+			},
+			expected: http.StatusInternalServerError,
+		},
+		{
+			testName: "RateLimitError maps to 500",
+			err: customAppError{
+				errName:    "RateLimitError",
+				domainName: "API",
+				err:        nil,
+			},
+			expected: http.StatusInternalServerError,
+		},
+		// 空文字 - empty error name
+		{
+			testName: "empty error name maps to 500",
+			err: customAppError{
+				errName:    "",
+				domainName: "Test",
+				err:        nil,
+			},
+			expected: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			HandleError(w, tt.err)
+
+			if diff := cmp.Diff(tt.expected, w.Result().StatusCode); diff != "" {
+				t.Errorf("status code mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
