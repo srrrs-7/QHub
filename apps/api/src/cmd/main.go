@@ -208,7 +208,7 @@ func healthHandler(conn *sql.DB, cacheClient *cache.Client) http.HandlerFunc {
 			resp.Database = "unhealthy"
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -222,6 +222,6 @@ func healthHandler(conn *sql.DB, cacheClient *cache.Client) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}
 }

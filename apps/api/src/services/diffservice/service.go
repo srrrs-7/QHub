@@ -19,6 +19,7 @@ import (
 	"api/src/services/contentutil"
 
 	"github.com/google/uuid"
+
 	"utils/cache"
 )
 
@@ -244,7 +245,6 @@ func lcsStrings(a, b []string) []string {
 	return result
 }
 
-
 // buildDiff performs a rule-based comparison of two content strings.
 func buildDiff(fromContent, toContent string) *intelligence.SemanticDiff {
 	var changes []intelligence.DiffChange
@@ -320,7 +320,6 @@ func buildDiff(fromContent, toContent string) *intelligence.SemanticDiff {
 		Specificity: specificity,
 	}
 }
-
 
 // detectTone scores content against tone keyword categories and returns the dominant tone.
 func detectTone(content string) string {

@@ -7,8 +7,8 @@ package intelligence
 type SemanticDiff struct {
 	Summary     string       `json:"summary"`
 	Changes     []DiffChange `json:"changes"`
-	ToneShift   string       `json:"tone_shift,omitempty"`   // e.g. "casual → formal"
-	Specificity float64      `json:"specificity_change"`     // ratio of content-length change
+	ToneShift   string       `json:"tone_shift,omitempty"` // e.g. "casual → formal"
+	Specificity float64      `json:"specificity_change"`   // ratio of content-length change
 }
 
 // DiffChange represents a single change detected between prompt versions.

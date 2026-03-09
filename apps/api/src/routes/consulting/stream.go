@@ -51,7 +51,7 @@ func (h *ConsultingHandler) Stream() http.HandlerFunc {
 		// Fetch existing messages for the session
 		messages, err := h.messageRepo.FindAllBySession(r.Context(), sessionID)
 		if err != nil {
-			sse.WriteError(err)
+			_ = sse.WriteError(err)
 			return
 		}
 
@@ -77,7 +77,7 @@ func (h *ConsultingHandler) Stream() http.HandlerFunc {
 		}
 
 		// Signal completion
-		sse.WriteDone()
+		_ = sse.WriteDone()
 	}
 }
 
@@ -87,7 +87,7 @@ func (h *ConsultingHandler) Stream() http.HandlerFunc {
 func (h *ConsultingHandler) streamRAGResponse(r *http.Request, sse *SSEWriter, sessionID uuid.UUID, query string, orgID uuid.UUID) {
 	result, err := h.ragSvc.GenerateResponse(r.Context(), sessionID, query, orgID)
 	if err != nil {
-		sse.WriteError(err)
+		_ = sse.WriteError(err)
 		return
 	}
 
@@ -118,11 +118,11 @@ func (h *ConsultingHandler) streamRAGResponse(r *http.Request, sse *SSEWriter, s
 		}
 		created, err := h.messageRepo.Create(r.Context(), msg)
 		if err != nil {
-			sse.WriteError(err)
+			_ = sse.WriteError(err)
 			return
 		}
 		// Send the final persisted message
-		sse.WriteMessage(toMessageResponse(created))
+		_ = sse.WriteMessage(toMessageResponse(created))
 	}
 }
 

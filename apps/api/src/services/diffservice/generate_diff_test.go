@@ -890,13 +890,13 @@ func TestGenerateTextDiffLineDetails(t *testing.T) {
 
 func TestBuildDiffEdgeCases(t *testing.T) {
 	tests := []struct {
-		testName        string
-		fromContent     string
-		toContent       string
-		expectChanges   int
-		expectTone      string
-		checkSpecific   bool
-		expectSpecZero  bool
+		testName       string
+		fromContent    string
+		toContent      string
+		expectChanges  int
+		expectTone     string
+		checkSpecific  bool
+		expectSpecZero bool
 	}{
 		// 空文字: empty from content (covers specificity = 0 branch)
 		{

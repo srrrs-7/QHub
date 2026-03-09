@@ -60,12 +60,12 @@ func TestRequireRole(t *testing.T) {
 	}
 
 	type args struct {
-		minRole    string
-		orgID      string // chi URL param "org_id"
-		userIDHdr  string // X-User-ID header
-		apiKeyOrg  *uuid.UUID
-		member     db.OrganizationMember
-		memberErr  error
+		minRole   string
+		orgID     string // chi URL param "org_id"
+		userIDHdr string // X-User-ID header
+		apiKeyOrg *uuid.UUID
+		member    db.OrganizationMember
+		memberErr error
 	}
 	type expected struct {
 		statusCode int

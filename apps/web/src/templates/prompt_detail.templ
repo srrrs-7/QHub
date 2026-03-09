@@ -5,6 +5,13 @@ import (
 	"web/src/client"
 )
 
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func lintScoreClass(score int) string {
 	if score >= 80 {
 		return "status-badge--production"
@@ -29,15 +36,21 @@ templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Pr
 		<div class="detail-layout">
 			<!-- Sidebar: Version History -->
 			<div class="detail-sidebar">
-				<div class="flex items-center justify-between mb-16">
+				<div class="flex items-center justify-between mb-16" id="prompt-header">
 					<h2 class="page-header__title">{ prompt.Name }</h2>
+					<button
+						class="btn btn--outlined btn--small"
+						onclick="document.getElementById('edit-prompt-dialog').showModal()"
+					>
+						<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+					</button>
 				</div>
 				<div class="flex gap-8 mb-16">
 					<span class="type-badge">{ prompt.PromptType }</span>
 					@StatusBadge(prompt.StatusLabel())
 				</div>
 				if prompt.Description != "" {
-					<p class="prompt-card__desc mb-16">{ prompt.Description }</p>
+					<p class="prompt-card__desc mb-16" id="prompt-description">{ prompt.Description }</p>
 				}
 				<hr class="divider"/>
 				<div class="flex items-center justify-between mb-8">
@@ -88,6 +101,29 @@ templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Pr
 				<div class="flex gap-8 justify-between">
 					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
 					<button type="submit" class="btn btn--filled">Create Version</button>
+				</div>
+			</form>
+		</dialog>
+		<!-- Edit Prompt Dialog -->
+		<dialog id="edit-prompt-dialog">
+			<form
+				method="dialog"
+				hx-put={ "/partials/projects/" + project.ID + "/prompts/" + prompt.Slug }
+				hx-target="#prompt-header"
+				hx-swap="outerHTML"
+			>
+				<h2 class="mb-16">Edit Prompt</h2>
+				<div class="form-field">
+					<label for="edit-prompt-name">Name</label>
+					<input type="text" id="edit-prompt-name" name="name" value={ prompt.Name } required/>
+				</div>
+				<div class="form-field">
+					<label for="edit-prompt-description">Description</label>
+					<textarea id="edit-prompt-description" name="description">{ prompt.Description }</textarea>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Save Changes</button>
 				</div>
 			</form>
 		</dialog>
@@ -172,7 +208,7 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 	}
 	<div class="prompt-content">{ v.ContentString() }</div>
 	<!-- Lint & Diff Actions -->
-	<div class="flex gap-8 mt-16 mb-16">
+	<div class="flex gap-8 mt-16 mb-16" style="flex-wrap: wrap;">
 		<button
 			class="btn btn--outlined"
 			hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/lint" }
@@ -192,10 +228,45 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 				<span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">difference</span>
 				Show Diff
 			</button>
+			<button
+				class="btn btn--outlined"
+				hx-get={ "/partials/prompts/" + v.PromptID + "/semantic-diff/" + fmt.Sprintf("%d", v.VersionNumber-1) + "/" + fmt.Sprintf("%d", v.VersionNumber) }
+				hx-target="#semantic-diff-result"
+				hx-swap="innerHTML"
+			>
+				<span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">psychology</span>
+				Semantic Diff
+			</button>
 		}
 	</div>
 	<div id="lint-result"></div>
 	<div id="diff-result"></div>
+	<div id="semantic-diff-result"></div>
+	<!-- Version Compare -->
+	<hr class="divider"/>
+	<div class="mb-16">
+		<h3 style="font: var(--md-sys-typescale-title-medium); margin-bottom: 12px;">Compare Versions</h3>
+		<form
+			class="form-inline"
+			hx-get={ "/partials/prompts/" + v.PromptID + "/compare" }
+			hx-target="#compare-result"
+			hx-swap="innerHTML"
+		>
+			<div class="form-field" style="max-width: 100px;">
+				<label for="compare-v1">Version A</label>
+				<input type="number" id="compare-v1" name="v1" min="1" value={ fmt.Sprintf("%d", maxInt(1, v.VersionNumber-1)) } required style="padding: 8px 12px;"/>
+			</div>
+			<div class="form-field" style="max-width: 100px;">
+				<label for="compare-v2">Version B</label>
+				<input type="number" id="compare-v2" name="v2" min="1" value={ fmt.Sprintf("%d", v.VersionNumber) } required style="padding: 8px 12px;"/>
+			</div>
+			<button type="submit" class="btn btn--tonal" style="margin-bottom: 0;">
+				<span class="material-symbols-outlined" style="font-size: 18px;">compare_arrows</span>
+				Compare
+			</button>
+		</form>
+	</div>
+	<div id="compare-result"></div>
 }
 
 templ LintResultCard(lint *client.LintResult) {
@@ -280,4 +351,137 @@ templ TextDiffCard(diff *client.TextDiffResult) {
 			}
 		</div>
 	</div>
+}
+
+templ SemanticDiffCard(diff *client.SemanticDiff) {
+	<div class="card mb-24" style="padding: 24px;">
+		<div class="flex items-center gap-8 mb-16">
+			<span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">psychology</span>
+			<h2 style="font: var(--md-sys-typescale-title-large); flex: 1;">Semantic Diff</h2>
+		</div>
+		if diff.Summary != "" {
+			<div style="font: var(--md-sys-typescale-body-medium); margin-bottom: 16px; padding: 12px; background: var(--md-sys-color-primary-container); border-radius: var(--md-sys-shape-corner-small);">
+				{ diff.Summary }
+			</div>
+		}
+		if len(diff.Changes) > 0 {
+			<table class="data-table mb-16">
+				<thead>
+					<tr>
+						<th>Category</th>
+						<th>Description</th>
+						<th>Impact</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, c := range diff.Changes {
+						<tr>
+							<td><span class="type-badge">{ c.Category }</span></td>
+							<td>{ c.Description }</td>
+							<td>
+								@impactBadge(c.Impact)
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+		<div class="flex gap-24">
+			if diff.ToneShift != "" {
+				<div>
+					<span style="font: var(--md-sys-typescale-label-medium); color: var(--md-sys-color-on-surface-variant);">Tone Shift</span>
+					<div style="font: var(--md-sys-typescale-body-medium); margin-top: 4px;">{ diff.ToneShift }</div>
+				</div>
+			}
+			<div>
+				<span style="font: var(--md-sys-typescale-label-medium); color: var(--md-sys-color-on-surface-variant);">Specificity Change</span>
+				<div style="font: var(--md-sys-typescale-body-medium); margin-top: 4px;">
+					{ fmt.Sprintf("%.1f%%", diff.Specificity*100) }
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ impactBadge(impact string) {
+	if impact == "high" {
+		<span class="status-badge status-badge--error">{ impact }</span>
+	} else if impact == "medium" {
+		<span class="status-badge status-badge--draft" style="background: #FEF3C7; color: #D97706;">{ impact }</span>
+	} else {
+		<span class="status-badge status-badge--production">{ impact }</span>
+	}
+}
+
+templ VersionCompareCard(comp *client.VersionComparison) {
+	<div class="card mb-24" style="padding: 24px;">
+		<div class="flex items-center gap-8 mb-16">
+			<span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">compare_arrows</span>
+			<h2 style="font: var(--md-sys-typescale-title-large); flex: 1;">
+				{ fmt.Sprintf("Version Comparison (v%d vs v%d)", comp.VersionA, comp.VersionB) }
+			</h2>
+			@compareWinnerBadge(comp.OverallWinner)
+		</div>
+		if len(comp.Metrics) > 0 {
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Metric</th>
+						<th>{ fmt.Sprintf("v%d Mean", comp.VersionA) }</th>
+						<th>{ fmt.Sprintf("v%d Mean", comp.VersionB) }</th>
+						<th>P-Value</th>
+						<th>Significant</th>
+						<th>Winner</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range comp.Metrics {
+						<tr>
+							<td><span class="type-badge">{ m.MetricName }</span></td>
+							<td>{ fmt.Sprintf("%.2f", m.VersionA.Mean) }</td>
+							<td>{ fmt.Sprintf("%.2f", m.VersionB.Mean) }</td>
+							<td>{ fmt.Sprintf("%.4f", m.PValue) }</td>
+							<td>
+								if m.IsSignificant {
+									<span class="material-symbols-outlined" style="color: var(--md-sys-color-success); font-size: 18px;">check_circle</span>
+								} else {
+									<span class="material-symbols-outlined" style="color: var(--md-sys-color-on-surface-variant); font-size: 18px;">remove_circle_outline</span>
+								}
+							</td>
+							<td>
+								@compareWinnerBadge(m.Winner)
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		} else {
+			<div style="font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-on-surface-variant);">
+				No metric data available for comparison. Execute both versions to generate comparison data.
+			</div>
+		}
+	</div>
+}
+
+templ compareWinnerBadge(winner string) {
+	if winner == "inconclusive" {
+		<span class="status-badge status-badge--draft">{ winner }</span>
+	} else {
+		<span class="status-badge status-badge--production">{ winner }</span>
+	}
+}
+
+templ PromptHeaderUpdated(prompt *client.Prompt) {
+	<div class="flex items-center justify-between mb-16" id="prompt-header">
+		<h2 class="page-header__title">{ prompt.Name }</h2>
+		<button
+			class="btn btn--outlined btn--small"
+			onclick="document.getElementById('edit-prompt-dialog').showModal()"
+		>
+			<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+		</button>
+	</div>
+	if prompt.Description != "" {
+		<p class="prompt-card__desc mb-16" id="prompt-description" hx-swap-oob="true">{ prompt.Description }</p>
+	}
 }

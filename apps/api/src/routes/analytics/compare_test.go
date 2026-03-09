@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
+
 	db "utils/db/db"
 	"utils/testutil"
 )
@@ -181,7 +182,7 @@ func TestCompareVersions(t *testing.T) {
 		// 異常系 - invalid v1 (not a number)
 		{
 			testName: "invalid v1 not a number",
-			args: args{v1: "abc", v2: "2"},
+			args:     args{v1: "abc", v2: "2"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -190,7 +191,7 @@ func TestCompareVersions(t *testing.T) {
 		// 異常系 - invalid v2 (not a number)
 		{
 			testName: "invalid v2 not a number",
-			args: args{v1: "1", v2: "xyz"},
+			args:     args{v1: "1", v2: "xyz"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -199,7 +200,7 @@ func TestCompareVersions(t *testing.T) {
 		// 異常系 - same version numbers
 		{
 			testName: "same version numbers returns validation error",
-			args: args{v1: "1", v2: "1"},
+			args:     args{v1: "1", v2: "1"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -208,7 +209,7 @@ func TestCompareVersions(t *testing.T) {
 		// 異常系 - negative version number
 		{
 			testName: "negative version number",
-			args: args{v1: "-1", v2: "2"},
+			args:     args{v1: "-1", v2: "2"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -217,7 +218,7 @@ func TestCompareVersions(t *testing.T) {
 		// 異常系 - zero version number
 		{
 			testName: "zero version number",
-			args: args{v1: "0", v2: "2"},
+			args:     args{v1: "0", v2: "2"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -226,7 +227,7 @@ func TestCompareVersions(t *testing.T) {
 		// 異常系 - non-existent version (no execution data)
 		{
 			testName: "non-existent version returns not found",
-			args: args{v1: "1", v2: "999"},
+			args:     args{v1: "1", v2: "999"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -241,7 +242,7 @@ func TestCompareVersions(t *testing.T) {
 		// 空文字 - empty v1
 		{
 			testName: "empty v1",
-			args: args{v1: "", v2: "2"},
+			args:     args{v1: "", v2: "2"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},
@@ -250,7 +251,7 @@ func TestCompareVersions(t *testing.T) {
 		// 特殊文字 - special chars in v1
 		{
 			testName: "special characters in v1",
-			args: args{v1: "<script>", v2: "2"},
+			args:     args{v1: "<script>", v2: "2"},
 			setup: func(t *testing.T, q db.Querier) string {
 				return setupTwoVersionData(t, q).String()
 			},

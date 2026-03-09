@@ -1,0 +1,186 @@
+package templates
+
+import (
+	"fmt"
+	"web/src/client"
+)
+
+type PromptAnalyticsData struct {
+	PromptID   string
+	PromptName string
+	Versions   []client.PromptAnalytics
+	Trend      []client.DailyTrend
+	Days       int
+}
+
+func (d PromptAnalyticsData) TotalExecutions() int64 {
+	var total int64
+	for _, v := range d.Versions {
+		total += v.TotalExecutions
+	}
+	return total
+}
+
+func (d PromptAnalyticsData) MaxTrendExecutions() int64 {
+	var max int64
+	for _, t := range d.Trend {
+		if t.TotalExecutions > max {
+			max = t.TotalExecutions
+		}
+	}
+	return max
+}
+
+func successRate(s, e int64) float64 {
+	total := s + e
+	if total == 0 {
+		return 0
+	}
+	return float64(s) / float64(total) * 100
+}
+
+func successRateClass(rate float64) string {
+	if rate >= 90 {
+		return "color: var(--md-sys-color-success)"
+	}
+	if rate >= 70 {
+		return "color: var(--md-sys-color-warning)"
+	}
+	return "color: var(--md-sys-color-error)"
+}
+
+templ PromptAnalyticsPage(page PageData, data PromptAnalyticsData) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/analytics">Analytics</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ data.PromptName }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">{ data.PromptName } — Analytics</h1>
+		</div>
+		<div id="prompt-analytics-content">
+			@PromptAnalyticsPartial(data)
+		</div>
+	}
+}
+
+templ PromptAnalyticsPartial(data PromptAnalyticsData) {
+	<!-- Version Metrics Table -->
+	<div class="card mb-24" style="padding: 24px;">
+		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Version Metrics</h2>
+		if len(data.Versions) == 0 {
+			<div class="empty-state">
+				<span class="material-symbols-outlined">analytics</span>
+				<div class="empty-state__title">No analytics data</div>
+				<div class="empty-state__desc">Execute some prompts to see analytics here.</div>
+			</div>
+		} else {
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>VERSION</th>
+						<th>EXECUTIONS</th>
+						<th>AVG TOKENS</th>
+						<th>AVG LATENCY</th>
+						<th>COST</th>
+						<th>SUCCESS</th>
+						<th>ERROR</th>
+						<th>SUCCESS RATE</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, v := range data.Versions {
+						<tr>
+							<td>
+								<strong>v{ fmt.Sprintf("%d", v.VersionNumber) }</strong>
+							</td>
+							<td>{ fmt.Sprintf("%d", v.TotalExecutions) }</td>
+							<td>{ fmt.Sprintf("%d", v.AvgTokens) }</td>
+							<td>{ fmt.Sprintf("%dms", v.AvgLatencyMs) }</td>
+							<td>{ v.TotalCost }</td>
+							<td>{ fmt.Sprintf("%d", v.SuccessCount) }</td>
+							<td>{ fmt.Sprintf("%d", v.ErrorCount) }</td>
+							<td>
+								<span style={ successRateClass(successRate(v.SuccessCount, v.ErrorCount)) }>
+									{ fmt.Sprintf("%.1f%%", successRate(v.SuccessCount, v.ErrorCount)) }
+								</span>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+	<!-- Daily Trend -->
+	<div class="card mb-24" style="padding: 24px;">
+		<div class="flex items-center justify-between mb-16">
+			<h2 style="font: var(--md-sys-typescale-title-large)">Daily Trend</h2>
+			<div class="flex gap-8">
+				for _, d := range []int{7, 14, 30, 60} {
+					if d == data.Days {
+						<button
+							class="btn btn--filled btn--small"
+							hx-get={ fmt.Sprintf("/partials/analytics/prompts/%s/trend?days=%d", data.PromptID, d) }
+							hx-target="#daily-trend-content"
+							hx-swap="innerHTML"
+						>
+							{ fmt.Sprintf("%dd", d) }
+						</button>
+					} else {
+						<button
+							class="btn btn--outlined btn--small"
+							hx-get={ fmt.Sprintf("/partials/analytics/prompts/%s/trend?days=%d", data.PromptID, d) }
+							hx-target="#daily-trend-content"
+							hx-swap="innerHTML"
+						>
+							{ fmt.Sprintf("%dd", d) }
+						</button>
+					}
+				}
+			</div>
+		</div>
+		<div id="daily-trend-content">
+			@DailyTrendPartial(data.PromptID, data.Trend, data.MaxTrendExecutions())
+		</div>
+	</div>
+}
+
+templ DailyTrendPartial(promptID string, trend []client.DailyTrend, maxExec int64) {
+	if len(trend) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">trending_up</span>
+			<div class="empty-state__title">No trend data</div>
+			<div class="empty-state__desc">Trend data will appear once executions are logged.</div>
+		</div>
+	} else {
+		<table class="data-table mb-16">
+			<thead>
+				<tr>
+					<th>DATE</th>
+					<th>EXECUTIONS</th>
+					<th>AVG TOKENS</th>
+					<th>AVG LATENCY</th>
+					<th>COST</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, t := range trend {
+					<tr>
+						<td>{ t.Day }</td>
+						<td>{ fmt.Sprintf("%d", t.TotalExecutions) }</td>
+						<td>{ fmt.Sprintf("%d", t.AvgTokens) }</td>
+						<td>{ fmt.Sprintf("%dms", t.AvgLatencyMs) }</td>
+						<td>{ t.TotalCost }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<!-- Simple bar chart -->
+		<div class="bar-chart">
+			for _, t := range trend {
+				@BarChartRow(t.Day, int(t.TotalExecutions), int(maxExec))
+			}
+		</div>
+	}
+}

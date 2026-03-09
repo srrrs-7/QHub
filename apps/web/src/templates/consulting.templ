@@ -74,10 +74,22 @@ templ ChatPage(page PageData, session *client.ConsultingSession, messages []clie
 			<span class="breadcrumb__sep">/</span>
 			<span>{ session.Title }</span>
 		</div>
-		<div class="page-header">
+		<div class="page-header" id="chat-header">
 			<h1 class="page-header__title">{ session.Title }</h1>
 			<div class="page-header__actions">
 				@SessionStatusBadge(session.Status)
+				if session.Status == "active" {
+					<button
+						class="btn btn--outlined btn--small"
+						hx-put={ "/partials/consulting/sessions/" + session.ID + "/close" }
+						hx-target="#chat-header"
+						hx-swap="outerHTML"
+						hx-confirm="Close this session? This cannot be undone."
+					>
+						<span class="material-symbols-outlined">close</span>
+						Close Session
+					</button>
+				}
 			</div>
 		</div>
 		<div class="chat-container">
@@ -87,20 +99,36 @@ templ ChatPage(page PageData, session *client.ConsultingSession, messages []clie
 				}
 				<div sse-swap="message" hx-swap="beforeend"></div>
 			</div>
-			<form
-				class="chat-input"
-				hx-post={ "/partials/consulting/sessions/" + session.ID + "/messages" }
-				hx-target="#chat-messages"
-				hx-swap="beforeend"
-				hx-on::after-request="this.reset()"
-			>
-				<input type="text" name="content" placeholder="Type your message..." required autocomplete="off"/>
-				<button type="submit" class="btn btn--filled">
-					<span class="material-symbols-outlined">send</span>
-				</button>
-			</form>
+			if session.Status == "active" {
+				<form
+					class="chat-input"
+					id="chat-input-form"
+					hx-post={ "/partials/consulting/sessions/" + session.ID + "/messages" }
+					hx-target="#chat-messages"
+					hx-swap="beforeend"
+					hx-on::after-request="this.reset()"
+				>
+					<input type="text" name="content" placeholder="Type your message..." required autocomplete="off"/>
+					<button type="submit" class="btn btn--filled">
+						<span class="material-symbols-outlined">send</span>
+					</button>
+				</form>
+			} else {
+				<div class="chat-input" style="justify-content: center;">
+					<span class="status-badge status-badge--closed">Session closed</span>
+				</div>
+			}
 		</div>
 	}
+}
+
+templ ChatHeaderClosed(session *client.ConsultingSession) {
+	<div class="page-header" id="chat-header">
+		<h1 class="page-header__title">{ session.Title }</h1>
+		<div class="page-header__actions">
+			@SessionStatusBadge(session.Status)
+		</div>
+	</div>
 }
 
 templ ChatMessage(m client.ConsultingMessage) {

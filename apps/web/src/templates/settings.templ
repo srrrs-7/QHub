@@ -1,32 +1,293 @@
 package templates
 
-templ SettingsPage(page PageData) {
+import (
+	"web/src/client"
+)
+
+type SettingsData struct {
+	Org     *client.Organization
+	Members []client.Member
+	APIKeys []client.APIKey
+}
+
+templ SettingsPage(page PageData, data SettingsData) {
 	@Layout(page) {
 		<div class="page-header">
 			<h1 class="page-header__title">Settings</h1>
 		</div>
-		<div class="card-grid">
+		<div class="flex-col gap-24">
+			<!-- Organization Info -->
 			<div class="card" style="padding: 24px;">
-				<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Organization</h2>
-				<div class="meta-grid">
-					<span class="meta-grid__label">Slug</span>
-					<span>{ page.OrgSlug }</span>
+				<div class="flex items-center justify-between mb-16">
+					<h2 style="font: var(--md-sys-typescale-title-large)">Organization</h2>
+					<button
+						class="btn btn--outlined btn--small"
+						onclick="document.getElementById('org-edit-form').style.display = document.getElementById('org-edit-form').style.display === 'none' ? 'block' : 'none'; document.getElementById('org-info-display').style.display = document.getElementById('org-info-display').style.display === 'none' ? 'grid' : 'none';"
+					>
+						<span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
+						Edit
+					</button>
+				</div>
+				<div id="org-info-section">
+					@OrgInfoSection(data.Org)
 				</div>
 			</div>
+			<!-- Members -->
 			<div class="card" style="padding: 24px;">
-				<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">API Keys</h2>
-				<div class="empty-state">
-					<span class="material-symbols-outlined">key</span>
-					<div class="empty-state__desc">API key management coming soon.</div>
+				<div class="flex items-center justify-between mb-16">
+					<h2 style="font: var(--md-sys-typescale-title-large)">Members</h2>
+					<button
+						class="btn btn--filled btn--small"
+						onclick="document.getElementById('add-member-form').style.display = document.getElementById('add-member-form').style.display === 'none' ? 'flex' : 'none';"
+					>
+						<span class="material-symbols-outlined" style="font-size: 18px;">person_add</span>
+						Add Member
+					</button>
+				</div>
+				<form
+					id="add-member-form"
+					class="form-inline mb-16"
+					style="display: none;"
+					hx-post={ "/partials/orgs/" + data.Org.ID + "/members" }
+					hx-target="#member-list"
+					hx-swap="innerHTML"
+					hx-on::after-request="if(event.detail.successful) { this.reset(); this.style.display='none'; }"
+				>
+					<div class="form-field">
+						<label for="member-user-id">User ID</label>
+						<input type="text" id="member-user-id" name="user_id" required placeholder="Enter user ID"/>
+					</div>
+					<div class="form-field">
+						<label for="member-role">Role</label>
+						<select id="member-role" name="role" required>
+							<option value="member">Member</option>
+							<option value="admin">Admin</option>
+							<option value="viewer">Viewer</option>
+						</select>
+					</div>
+					<button type="submit" class="btn btn--filled">Add</button>
+				</form>
+				<div id="member-list">
+					@MemberList(data.Org.ID, data.Members)
 				</div>
 			</div>
+			<!-- API Keys -->
 			<div class="card" style="padding: 24px;">
-				<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Members</h2>
-				<div class="empty-state">
-					<span class="material-symbols-outlined">group</span>
-					<div class="empty-state__desc">Member management coming soon.</div>
+				<div class="flex items-center justify-between mb-16">
+					<h2 style="font: var(--md-sys-typescale-title-large)">API Keys</h2>
+					<button
+						class="btn btn--filled btn--small"
+						onclick="document.getElementById('create-apikey-form').style.display = document.getElementById('create-apikey-form').style.display === 'none' ? 'flex' : 'none';"
+					>
+						<span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+						Create API Key
+					</button>
+				</div>
+				<form
+					id="create-apikey-form"
+					class="form-inline mb-16"
+					style="display: none;"
+					hx-post={ "/partials/orgs/" + data.Org.ID + "/api-keys" }
+					hx-target="#apikey-list"
+					hx-swap="innerHTML"
+					hx-on::after-request="if(event.detail.successful) { this.reset(); this.style.display='none'; }"
+				>
+					<div class="form-field">
+						<label for="apikey-name">Key Name</label>
+						<input type="text" id="apikey-name" name="name" required placeholder="e.g. CI/CD Pipeline"/>
+					</div>
+					<button type="submit" class="btn btn--filled">Create</button>
+				</form>
+				<div id="apikey-list">
+					@APIKeyList(data.Org.ID, data.APIKeys)
 				</div>
 			</div>
 		</div>
 	}
+}
+
+templ OrgInfoSection(org *client.Organization) {
+	<div id="org-info-display" class="meta-grid">
+		<span class="meta-grid__label">Name</span>
+		<span>{ org.Name }</span>
+		<span class="meta-grid__label">Slug</span>
+		<span>{ org.Slug }</span>
+		<span class="meta-grid__label">Plan</span>
+		<span>{ org.Plan }</span>
+	</div>
+	<form
+		id="org-edit-form"
+		style="display: none;"
+		hx-put={ "/partials/orgs/" + org.Slug }
+		hx-target="#org-info-section"
+		hx-swap="innerHTML"
+	>
+		<div class="form-field">
+			<label for="org-name">Name</label>
+			<input type="text" id="org-name" name="name" value={ org.Name } required/>
+		</div>
+		<div class="form-field">
+			<label for="org-plan">Plan</label>
+			<select id="org-plan" name="plan">
+				<option value="free" selected?={ org.Plan == "free" }>Free</option>
+				<option value="pro" selected?={ org.Plan == "pro" }>Pro</option>
+				<option value="enterprise" selected?={ org.Plan == "enterprise" }>Enterprise</option>
+			</select>
+		</div>
+		<div class="flex gap-8">
+			<button type="submit" class="btn btn--filled btn--small">Save</button>
+			<button
+				type="button"
+				class="btn btn--outlined btn--small"
+				onclick="document.getElementById('org-edit-form').style.display='none'; document.getElementById('org-info-display').style.display='grid';"
+			>
+				Cancel
+			</button>
+		</div>
+	</form>
+}
+
+func memberRoleBadgeClass(role string) string {
+	switch role {
+	case "owner":
+		return "background: #F3E8FF; color: #7C3AED;"
+	case "admin":
+		return "background: #DBEAFE; color: #2563EB;"
+	case "member":
+		return "background: #DCFCE7; color: #16A34A;"
+	case "viewer":
+		return "background: #F3F4F6; color: #6B7280;"
+	default:
+		return "background: #F3F4F6; color: #6B7280;"
+	}
+}
+
+templ MemberList(orgID string, members []client.Member) {
+	if len(members) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">group</span>
+			<div class="empty-state__title">No members yet</div>
+			<div class="empty-state__desc">Add members to your organization to collaborate.</div>
+		</div>
+	} else {
+		<table class="data-table">
+			<thead>
+				<tr>
+					<th>User ID</th>
+					<th>Role</th>
+					<th>Joined</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, m := range members {
+					<tr>
+						<td style="font-family: monospace; font-size: 0.8rem;">{ m.UserID }</td>
+						<td>
+							<span class="status-badge" style={ memberRoleBadgeClass(m.Role) }>
+								{ m.Role }
+							</span>
+						</td>
+						<td class="text-muted">{ m.JoinedAt }</td>
+						<td>
+							<div class="flex gap-8 items-center">
+								if m.Role != "owner" {
+									<form
+										hx-put={ "/partials/orgs/" + orgID + "/members/" + m.UserID }
+										hx-target="#member-list"
+										hx-swap="innerHTML"
+										style="display: inline-flex; gap: 4px; align-items: center;"
+									>
+										<select name="role" style="padding: 4px 8px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.75rem;">
+											<option value="admin" selected?={ m.Role == "admin" }>Admin</option>
+											<option value="member" selected?={ m.Role == "member" }>Member</option>
+											<option value="viewer" selected?={ m.Role == "viewer" }>Viewer</option>
+										</select>
+										<button type="submit" class="btn btn--tonal btn--small">Update</button>
+									</form>
+									<button
+										class="btn btn--danger btn--small"
+										hx-delete={ "/partials/orgs/" + orgID + "/members/" + m.UserID }
+										hx-target="#member-list"
+										hx-swap="innerHTML"
+										hx-confirm={ "Remove member '" + m.UserID + "' from this organization?" }
+									>
+										Remove
+									</button>
+								}
+							</div>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ APIKeyList(orgID string, keys []client.APIKey) {
+	if len(keys) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">key</span>
+			<div class="empty-state__title">No API keys</div>
+			<div class="empty-state__desc">Create API keys to integrate with your applications.</div>
+		</div>
+	} else {
+		<table class="data-table">
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Key Prefix</th>
+					<th>Created</th>
+					<th>Last Used</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, k := range keys {
+					<tr>
+						<td>{ k.Name }</td>
+						<td style="font-family: monospace;">{ k.KeyPrefix }...</td>
+						<td class="text-muted">{ k.CreatedAt }</td>
+						<td class="text-muted">
+							if k.LastUsedAt != nil {
+								{ *k.LastUsedAt }
+							} else {
+								Never
+							}
+						</td>
+						<td>
+							if k.RevokedAt == nil {
+								<button
+									class="btn btn--danger btn--small"
+									hx-delete={ "/partials/orgs/" + orgID + "/api-keys/" + k.ID }
+									hx-target="#apikey-list"
+									hx-swap="innerHTML"
+									hx-confirm={ "Revoke API key '" + k.Name + "'? This cannot be undone." }
+								>
+									Revoke
+								</button>
+							} else {
+								<span class="status-badge status-badge--archived">Revoked</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ APIKeyCreatedNotice(key *client.APIKeyCreated) {
+	<div style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: var(--md-sys-shape-corner-medium); padding: 16px; margin-bottom: 16px;">
+		<div class="flex items-center gap-8 mb-8">
+			<span class="material-symbols-outlined" style="color: #D97706;">warning</span>
+			<strong>API Key Created - Copy it now!</strong>
+		</div>
+		<p style="font: var(--md-sys-typescale-body-medium); margin-bottom: 8px;">
+			This key will only be shown once. Store it securely.
+		</p>
+		<div style="background: var(--md-sys-color-surface); padding: 12px; border-radius: 8px; font-family: monospace; word-break: break-all;">
+			{ key.Key }
+		</div>
+	</div>
 }

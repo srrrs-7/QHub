@@ -194,8 +194,7 @@ func TestBearerOrApiKeyAuth(t *testing.T) {
 		// We're testing that the middleware correctly routes to API key auth
 		defer func() {
 			if r := recover(); r != nil {
-				// Expected: nil querier causes panic in ApiKeyAuth
-				// This confirms the middleware correctly routes to API key auth
+				_ = r // Expected: nil querier causes panic in ApiKeyAuth
 			}
 		}()
 

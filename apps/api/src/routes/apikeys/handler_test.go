@@ -766,8 +766,8 @@ func TestGenerateApiKey(t *testing.T) {
 		}
 
 		// prefix hex part should match beginning of hex part in rawKey
-		hexPart := rawKey[8:]    // strip pl_live_
-		prefixHex := prefix[8:]  // strip pl_live_
+		hexPart := rawKey[8:]   // strip pl_live_
+		prefixHex := prefix[8:] // strip pl_live_
 		if diff := cmp.Diff(hexPart[:8], prefixHex); diff != "" {
 			t.Errorf("prefix hex should match start of hex part (-want +got):\n%s", diff)
 		}

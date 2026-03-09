@@ -25,7 +25,9 @@ func TestGetHandler(t *testing.T) {
 
 		tests := []struct {
 			testName string
-			setup    func(t *testing.T, q interface{ CreateEvaluation(ctx context.Context, arg interface{}) }) (evalID string)
+			setup    func(t *testing.T, q interface {
+				CreateEvaluation(ctx context.Context, arg interface{})
+			}) (evalID string)
 			expected expected
 		}{
 			{

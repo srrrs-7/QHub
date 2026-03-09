@@ -20,9 +20,9 @@ import (
 func TestGetTextDiffHandler(t *testing.T) {
 	t.Run("200 OK", func(t *testing.T) {
 		tests := []struct {
-			testName    string
-			version     string
-			fromQuery   string // query param ?from=N
+			testName     string
+			version      string
+			fromQuery    string // query param ?from=N
 			expectedFrom int
 			expectedTo   int
 		}{

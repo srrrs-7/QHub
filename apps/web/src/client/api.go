@@ -225,6 +225,50 @@ func (c *APIClient) ListBenchmarks(ctx context.Context, slug string) ([]Benchmar
 	return benchmarks, c.do(ctx, http.MethodGet, "/api/v1/industries/"+slug+"/benchmarks", nil, &benchmarks)
 }
 
+// --- Members ---
+
+func (c *APIClient) ListMembers(ctx context.Context, orgID string) ([]Member, error) {
+	var members []Member
+	return members, c.do(ctx, http.MethodGet, "/api/v1/organizations/"+orgID+"/members", nil, &members)
+}
+
+func (c *APIClient) AddMember(ctx context.Context, orgID string, body map[string]string) (*Member, error) {
+	var member Member
+	return &member, c.do(ctx, http.MethodPost, "/api/v1/organizations/"+orgID+"/members", body, &member)
+}
+
+func (c *APIClient) UpdateMemberRole(ctx context.Context, orgID, userID string, body map[string]string) (*Member, error) {
+	var member Member
+	return &member, c.do(ctx, http.MethodPut, "/api/v1/organizations/"+orgID+"/members/"+userID, body, &member)
+}
+
+func (c *APIClient) RemoveMember(ctx context.Context, orgID, userID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/organizations/"+orgID+"/members/"+userID, nil, nil)
+}
+
+// --- API Keys ---
+
+func (c *APIClient) ListAPIKeys(ctx context.Context, orgID string) ([]APIKey, error) {
+	var keys []APIKey
+	return keys, c.do(ctx, http.MethodGet, "/api/v1/organizations/"+orgID+"/api-keys", nil, &keys)
+}
+
+func (c *APIClient) CreateAPIKey(ctx context.Context, orgID string, body map[string]string) (*APIKeyCreated, error) {
+	var key APIKeyCreated
+	return &key, c.do(ctx, http.MethodPost, "/api/v1/organizations/"+orgID+"/api-keys", body, &key)
+}
+
+func (c *APIClient) DeleteAPIKey(ctx context.Context, orgID, id string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/organizations/"+orgID+"/api-keys/"+id, nil, nil)
+}
+
+// --- Update Organization ---
+
+func (c *APIClient) UpdateOrganization(ctx context.Context, slug string, body map[string]string) (*Organization, error) {
+	var org Organization
+	return &org, c.do(ctx, http.MethodPut, "/api/v1/organizations/"+slug, body, &org)
+}
+
 // --- Analytics ---
 
 func (c *APIClient) GetPromptAnalytics(ctx context.Context, promptID string) ([]PromptAnalytics, error) {
@@ -232,9 +276,42 @@ func (c *APIClient) GetPromptAnalytics(ctx context.Context, promptID string) ([]
 	return result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/analytics", nil, &result)
 }
 
-func (c *APIClient) GetDailyTrend(ctx context.Context, promptID string) ([]DailyTrend, error) {
+func (c *APIClient) GetDailyTrend(ctx context.Context, promptID string, days string) ([]DailyTrend, error) {
 	var result []DailyTrend
-	return result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/trend", nil, &result)
+	path := "/api/v1/prompts/" + promptID + "/trend"
+	if days != "" {
+		path += "?days=" + days
+	}
+	return result, c.do(ctx, http.MethodGet, path, nil, &result)
+}
+
+// --- Project Analytics ---
+
+func (c *APIClient) GetProjectAnalytics(ctx context.Context, projectID string) ([]ProjectAnalytics, error) {
+	var result []ProjectAnalytics
+	return result, c.do(ctx, http.MethodGet, "/api/v1/projects/"+projectID+"/analytics", nil, &result)
+}
+
+// --- Version Analytics ---
+
+func (c *APIClient) GetVersionAnalytics(ctx context.Context, promptID string, version string) (*PromptAnalytics, error) {
+	var result PromptAnalytics
+	return &result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/versions/"+version+"/analytics", nil, &result)
+}
+
+// --- Close Session ---
+
+func (c *APIClient) CloseSession(ctx context.Context, sessionID string) (*ConsultingSession, error) {
+	var session ConsultingSession
+	body := map[string]string{"status": "closed"}
+	return &session, c.do(ctx, http.MethodPut, "/api/v1/consulting/sessions/"+sessionID, body, &session)
+}
+
+// --- Embedding Status ---
+
+func (c *APIClient) GetEmbeddingStatus(ctx context.Context) (map[string]string, error) {
+	var result map[string]string
+	return result, c.do(ctx, http.MethodGet, "/api/v1/search/embedding-status", nil, &result)
 }
 
 // --- Diff ---
@@ -270,9 +347,39 @@ func (c *APIClient) ListEvaluations(ctx context.Context) ([]Evaluation, error) {
 	return evals, c.do(ctx, http.MethodGet, "/api/v1/evaluations", nil, &evals)
 }
 
-// --- Projects (create) ---
+// --- Projects (CRUD) ---
 
 func (c *APIClient) CreateProject(ctx context.Context, orgID string, body map[string]string) (*Project, error) {
 	var project Project
 	return &project, c.do(ctx, http.MethodPost, "/api/v1/organizations/"+orgID+"/projects", body, &project)
+}
+
+func (c *APIClient) UpdateProject(ctx context.Context, orgID, slug string, body map[string]string) (*Project, error) {
+	var project Project
+	return &project, c.do(ctx, http.MethodPut, "/api/v1/organizations/"+orgID+"/projects/"+slug, body, &project)
+}
+
+func (c *APIClient) DeleteProject(ctx context.Context, orgID, slug string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/organizations/"+orgID+"/projects/"+slug, nil, nil)
+}
+
+// --- Prompts (update) ---
+
+func (c *APIClient) UpdatePrompt(ctx context.Context, projectID, slug string, body map[string]string) (*Prompt, error) {
+	var prompt Prompt
+	return &prompt, c.do(ctx, http.MethodPut, "/api/v1/projects/"+projectID+"/prompts/"+slug, body, &prompt)
+}
+
+// --- Version Comparison ---
+
+func (c *APIClient) CompareVersions(ctx context.Context, promptID, v1, v2 string) (*VersionComparison, error) {
+	var result VersionComparison
+	return &result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/versions/"+v1+"/"+v2+"/compare", nil, &result)
+}
+
+// --- Evaluations (create) ---
+
+func (c *APIClient) CreateEvaluation(ctx context.Context, logID string, body map[string]any) (*Evaluation, error) {
+	var eval Evaluation
+	return &eval, c.do(ctx, http.MethodPost, "/api/v1/logs/"+logID+"/evaluations", body, &eval)
 }

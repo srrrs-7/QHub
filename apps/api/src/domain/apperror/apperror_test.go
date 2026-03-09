@@ -234,8 +234,6 @@ func TestAllErrorConstructors(t *testing.T) {
 // TestError tests the Error() method formatting
 func TestError(t *testing.T) {
 	type args struct {
-		errName    string
-		domainName string
 		underlying error
 	}
 	type expected struct {

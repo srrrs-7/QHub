@@ -78,11 +78,7 @@ func matchesResponse(lowerResponse string, item contextItem) bool {
 		return true
 	}
 	vLong := fmt.Sprintf("version %d", item.VersionNumber)
-	if strings.Contains(lowerResponse, vLong) {
-		return true
-	}
-
-	return false
+	return strings.Contains(lowerResponse, vLong)
 }
 
 // MarshalCitations converts a slice of citations to JSON for storage

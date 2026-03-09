@@ -244,11 +244,33 @@ func (h *PageHandler) Search() http.HandlerFunc {
 func (h *PageHandler) Settings() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		orgSlug := chi.URLParam(r, "org_slug")
+
+		org, err := h.api.GetOrganization(r.Context(), orgSlug)
+		if err != nil {
+			http.Error(w, "Organization not found", http.StatusNotFound)
+			return
+		}
+
+		members, err := h.api.ListMembers(r.Context(), org.ID)
+		if err != nil {
+			members = []client.Member{}
+		}
+
+		apiKeys, err := h.api.ListAPIKeys(r.Context(), org.ID)
+		if err != nil {
+			apiKeys = []client.APIKey{}
+		}
+
 		page := templates.PageData{
 			ActiveNav: "settings",
 			OrgSlug:   orgSlug,
 		}
-		render(w, r, templates.SettingsPage(page))
+		data := templates.SettingsData{
+			Org:     org,
+			Members: members,
+			APIKeys: apiKeys,
+		}
+		render(w, r, templates.SettingsPage(page, data))
 	}
 }
 
@@ -271,9 +293,72 @@ func (h *PageHandler) Analytics() http.HandlerFunc {
 			sessions = []client.ConsultingSession{}
 		}
 
-		data := templates.AnalyticsDataFromLogs(logs, evals, sessions)
+		// Fetch projects for the project analytics selector.
+		var projects []client.Project
+		orgs, err := h.api.ListOrganizations(r.Context())
+		if err == nil {
+			for _, org := range orgs {
+				ps, err := h.api.ListProjects(r.Context(), org.ID)
+				if err == nil {
+					projects = append(projects, ps...)
+				}
+			}
+		}
+
+		data := templates.AnalyticsDataFromLogs(logs, evals, sessions, projects)
 		page := templates.PageData{ActiveNav: "analytics"}
 		render(w, r, templates.AnalyticsPage(page, data))
+	}
+}
+
+// --- Prompt Analytics ---
+
+func (h *PageHandler) PromptAnalytics() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+
+		versions, err := h.api.GetPromptAnalytics(r.Context(), promptID)
+		if err != nil {
+			versions = []client.PromptAnalytics{}
+		}
+
+		trend, err := h.api.GetDailyTrend(r.Context(), promptID, "30")
+		if err != nil {
+			trend = []client.DailyTrend{}
+		}
+
+		data := templates.PromptAnalyticsData{
+			PromptID:   promptID,
+			PromptName: "Prompt",
+			Versions:   versions,
+			Trend:      trend,
+			Days:       30,
+		}
+
+		page := templates.PageData{ActiveNav: "analytics"}
+		render(w, r, templates.PromptAnalyticsPage(page, data))
+	}
+}
+
+// --- Project Analytics ---
+
+func (h *PageHandler) ProjectAnalytics() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		projectID := chi.URLParam(r, "project_id")
+
+		analytics, err := h.api.GetProjectAnalytics(r.Context(), projectID)
+		if err != nil {
+			analytics = []client.ProjectAnalytics{}
+		}
+
+		data := templates.ProjectAnalyticsData{
+			ProjectID:   projectID,
+			ProjectName: "Project",
+			Prompts:     analytics,
+		}
+
+		page := templates.PageData{ActiveNav: "analytics"}
+		render(w, r, templates.ProjectAnalyticsPage(page, data))
 	}
 }
 

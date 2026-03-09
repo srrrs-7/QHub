@@ -12,6 +12,7 @@ import (
 	"api/src/domain/apperror"
 
 	"github.com/google/uuid"
+
 	db "utils/db/db"
 )
 

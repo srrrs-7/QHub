@@ -83,11 +83,6 @@ func RateLimit(cfg RateLimiterConfig) func(http.Handler) http.Handler {
 			}
 			bucket.lastRefill = now
 
-			remaining := int(bucket.tokens)
-			if remaining < 0 {
-				remaining = 0
-			}
-
 			// Calculate reset time (when bucket would be full again)
 			tokensNeeded := float64(cfg.BurstSize) - bucket.tokens
 			var resetSeconds int
@@ -109,13 +104,13 @@ func RateLimit(cfg RateLimiterConfig) func(http.Handler) http.Handler {
 				w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter)))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				json.NewEncoder(w).Encode(errorResponse{Error: "rate limit exceeded"})
+				_ = json.NewEncoder(w).Encode(errorResponse{Error: "rate limit exceeded"})
 				return
 			}
 
 			// Consume a token
 			bucket.tokens--
-			remaining = int(bucket.tokens)
+			remaining := int(bucket.tokens)
 			if remaining < 0 {
 				remaining = 0
 			}

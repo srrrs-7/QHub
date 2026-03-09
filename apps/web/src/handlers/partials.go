@@ -187,6 +187,186 @@ func (h *PartialHandler) CreateProject() http.HandlerFunc {
 	}
 }
 
+// --- Projects (update/delete) ---
+
+func (h *PartialHandler) UpdateProject() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+		projectSlug := chi.URLParam(r, "project_slug")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]string{
+			"name":        r.FormValue("name"),
+			"description": r.FormValue("description"),
+		}
+
+		if _, err := h.api.UpdateProject(r.Context(), orgID, projectSlug, body); err != nil {
+			renderSnackbar(w, r, "Error updating project: "+err.Error(), true)
+			return
+		}
+
+		org, err := h.api.GetOrganization(r.Context(), orgID)
+		if err != nil {
+			renderSnackbar(w, r, "Error fetching organization: "+err.Error(), true)
+			return
+		}
+
+		projects, err := h.api.ListProjects(r.Context(), orgID)
+		if err != nil {
+			projects = []client.Project{}
+		}
+
+		page := templates.PageData{}
+		render(w, r, templates.ProjectList(page, org, projects))
+	}
+}
+
+func (h *PartialHandler) DeleteProject() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+		projectSlug := chi.URLParam(r, "project_slug")
+
+		if err := h.api.DeleteProject(r.Context(), orgID, projectSlug); err != nil {
+			renderSnackbar(w, r, "Error deleting project: "+err.Error(), true)
+			return
+		}
+
+		org, err := h.api.GetOrganization(r.Context(), orgID)
+		if err != nil {
+			renderSnackbar(w, r, "Error fetching organization: "+err.Error(), true)
+			return
+		}
+
+		projects, err := h.api.ListProjects(r.Context(), orgID)
+		if err != nil {
+			projects = []client.Project{}
+		}
+
+		page := templates.PageData{}
+		render(w, r, templates.ProjectList(page, org, projects))
+	}
+}
+
+// --- Prompts (update) ---
+
+func (h *PartialHandler) UpdatePrompt() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		projectID := chi.URLParam(r, "project_id")
+		promptSlug := chi.URLParam(r, "prompt_slug")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]string{
+			"name":        r.FormValue("name"),
+			"description": r.FormValue("description"),
+		}
+
+		prompt, err := h.api.UpdatePrompt(r.Context(), projectID, promptSlug, body)
+		if err != nil {
+			renderSnackbar(w, r, "Error updating prompt: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.PromptHeaderUpdated(prompt))
+	}
+}
+
+// --- Version Comparison ---
+
+func (h *PartialHandler) CompareVersions() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		v1 := r.URL.Query().Get("v1")
+		v2 := r.URL.Query().Get("v2")
+
+		if v1 == "" || v2 == "" {
+			http.Error(w, "v1 and v2 query params are required", http.StatusBadRequest)
+			return
+		}
+
+		result, err := h.api.CompareVersions(r.Context(), promptID, v1, v2)
+		if err != nil {
+			renderSnackbar(w, r, "Error comparing versions: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.VersionCompareCard(result))
+	}
+}
+
+// --- Semantic Diff ---
+
+func (h *PartialHandler) GetSemanticDiff() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		v1 := chi.URLParam(r, "v1")
+		v2 := chi.URLParam(r, "v2")
+
+		result, err := h.api.GetSemanticDiff(r.Context(), promptID, v1, v2)
+		if err != nil {
+			renderSnackbar(w, r, "Error loading semantic diff: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.SemanticDiffCard(result))
+	}
+}
+
+// --- Evaluations ---
+
+func (h *PartialHandler) CreateEvaluation() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logID := chi.URLParam(r, "log_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]any{
+			"evaluator_type": r.FormValue("evaluator_type"),
+		}
+
+		if v := r.FormValue("overall_score"); v != "" {
+			body["overall_score"] = v
+		}
+		if v := r.FormValue("accuracy_score"); v != "" {
+			body["accuracy_score"] = v
+		}
+		if v := r.FormValue("relevance_score"); v != "" {
+			body["relevance_score"] = v
+		}
+		if v := r.FormValue("fluency_score"); v != "" {
+			body["fluency_score"] = v
+		}
+		if v := r.FormValue("safety_score"); v != "" {
+			body["safety_score"] = v
+		}
+		if v := r.FormValue("feedback"); v != "" {
+			body["feedback"] = v
+		}
+
+		if _, err := h.api.CreateEvaluation(r.Context(), logID, body); err != nil {
+			renderSnackbar(w, r, "Error creating evaluation: "+err.Error(), true)
+			return
+		}
+
+		evals, err := h.api.ListLogEvaluations(r.Context(), logID)
+		if err != nil {
+			evals = []client.Evaluation{}
+		}
+
+		render(w, r, templates.EvaluationsList(evals))
+	}
+}
+
 // --- Consulting ---
 
 func (h *PartialHandler) CreateConsultingSession() http.HandlerFunc {
@@ -401,6 +581,267 @@ func (h *PartialHandler) GetTextDiff() http.HandlerFunc {
 			return
 		}
 		render(w, r, templates.TextDiffCard(result))
+	}
+}
+
+// --- Settings: Organization ---
+
+func (h *PartialHandler) UpdateOrganization() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := chi.URLParam(r, "slug")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]string{
+			"name": r.FormValue("name"),
+			"plan": r.FormValue("plan"),
+		}
+
+		org, err := h.api.UpdateOrganization(r.Context(), slug, body)
+		if err != nil {
+			renderSnackbar(w, r, "Error updating organization: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.OrgInfoSection(org))
+	}
+}
+
+// --- Settings: Members ---
+
+func (h *PartialHandler) AddMember() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]string{
+			"user_id": r.FormValue("user_id"),
+			"role":    r.FormValue("role"),
+		}
+
+		if _, err := h.api.AddMember(r.Context(), orgID, body); err != nil {
+			renderSnackbar(w, r, "Error adding member: "+err.Error(), true)
+			return
+		}
+
+		members, err := h.api.ListMembers(r.Context(), orgID)
+		if err != nil {
+			members = []client.Member{}
+		}
+
+		render(w, r, templates.MemberList(orgID, members))
+	}
+}
+
+func (h *PartialHandler) UpdateMemberRole() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+		userID := chi.URLParam(r, "user_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]string{
+			"role": r.FormValue("role"),
+		}
+
+		if _, err := h.api.UpdateMemberRole(r.Context(), orgID, userID, body); err != nil {
+			renderSnackbar(w, r, "Error updating member role: "+err.Error(), true)
+			return
+		}
+
+		members, err := h.api.ListMembers(r.Context(), orgID)
+		if err != nil {
+			members = []client.Member{}
+		}
+
+		render(w, r, templates.MemberList(orgID, members))
+	}
+}
+
+func (h *PartialHandler) RemoveMember() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+		userID := chi.URLParam(r, "user_id")
+
+		if err := h.api.RemoveMember(r.Context(), orgID, userID); err != nil {
+			renderSnackbar(w, r, "Error removing member: "+err.Error(), true)
+			return
+		}
+
+		members, err := h.api.ListMembers(r.Context(), orgID)
+		if err != nil {
+			members = []client.Member{}
+		}
+
+		render(w, r, templates.MemberList(orgID, members))
+	}
+}
+
+// --- Settings: API Keys ---
+
+func (h *PartialHandler) CreateAPIKey() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]string{
+			"name": r.FormValue("name"),
+		}
+
+		created, err := h.api.CreateAPIKey(r.Context(), orgID, body)
+		if err != nil {
+			renderSnackbar(w, r, "Error creating API key: "+err.Error(), true)
+			return
+		}
+
+		// Show the created key notice first (key is only shown once)
+		render(w, r, templates.APIKeyCreatedNotice(created))
+
+		// Then render the updated list
+		keys, err := h.api.ListAPIKeys(r.Context(), orgID)
+		if err != nil {
+			keys = []client.APIKey{}
+		}
+
+		render(w, r, templates.APIKeyList(orgID, keys))
+	}
+}
+
+func (h *PartialHandler) DeleteAPIKey() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		orgID := chi.URLParam(r, "org_id")
+		keyID := chi.URLParam(r, "key_id")
+
+		if err := h.api.DeleteAPIKey(r.Context(), orgID, keyID); err != nil {
+			renderSnackbar(w, r, "Error revoking API key: "+err.Error(), true)
+			return
+		}
+
+		keys, err := h.api.ListAPIKeys(r.Context(), orgID)
+		if err != nil {
+			keys = []client.APIKey{}
+		}
+
+		render(w, r, templates.APIKeyList(orgID, keys))
+	}
+}
+
+// --- Analytics Partials ---
+
+// GetPromptAnalyticsPartial fetches and renders prompt analytics data.
+func (h *PartialHandler) GetPromptAnalyticsPartial() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+
+		versions, err := h.api.GetPromptAnalytics(r.Context(), promptID)
+		if err != nil {
+			versions = []client.PromptAnalytics{}
+		}
+
+		trend, err := h.api.GetDailyTrend(r.Context(), promptID, "30")
+		if err != nil {
+			trend = []client.DailyTrend{}
+		}
+
+		data := templates.PromptAnalyticsData{
+			PromptID:   promptID,
+			PromptName: "Prompt",
+			Versions:   versions,
+			Trend:      trend,
+			Days:       30,
+		}
+
+		render(w, r, templates.PromptAnalyticsPartial(data))
+	}
+}
+
+// GetDailyTrendPartial fetches and renders daily trend data with a configurable days parameter.
+func (h *PartialHandler) GetDailyTrendPartial() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		days := r.URL.Query().Get("days")
+		if days == "" {
+			days = "30"
+		}
+
+		trend, err := h.api.GetDailyTrend(r.Context(), promptID, days)
+		if err != nil {
+			trend = []client.DailyTrend{}
+		}
+
+		var maxExec int64
+		for _, t := range trend {
+			if t.TotalExecutions > maxExec {
+				maxExec = t.TotalExecutions
+			}
+		}
+
+		render(w, r, templates.DailyTrendPartial(promptID, trend, maxExec))
+	}
+}
+
+// GetProjectAnalyticsPartial fetches and renders project analytics data.
+func (h *PartialHandler) GetProjectAnalyticsPartial() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		projectID := chi.URLParam(r, "project_id")
+
+		analytics, err := h.api.GetProjectAnalytics(r.Context(), projectID)
+		if err != nil {
+			analytics = []client.ProjectAnalytics{}
+		}
+
+		data := templates.ProjectAnalyticsData{
+			ProjectID:   projectID,
+			ProjectName: "Project",
+			Prompts:     analytics,
+		}
+
+		render(w, r, templates.ProjectAnalyticsPartial(data))
+	}
+}
+
+// --- Close Session ---
+
+// CloseSession handles HTMX PUT to close a consulting session.
+func (h *PartialHandler) CloseSession() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessionID := chi.URLParam(r, "id")
+
+		session, err := h.api.CloseSession(r.Context(), sessionID)
+		if err != nil {
+			renderSnackbar(w, r, "Error closing session: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.ChatHeaderClosed(session))
+	}
+}
+
+// --- Embedding Status ---
+
+// GetEmbeddingStatus fetches and renders the embedding service status badge.
+func (h *PartialHandler) GetEmbeddingStatus() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		status, err := h.api.GetEmbeddingStatus(r.Context())
+		if err != nil {
+			status = map[string]string{"status": "error"}
+		}
+
+		render(w, r, templates.EmbeddingStatusBadge(status))
 	}
 }
 

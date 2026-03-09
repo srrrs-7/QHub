@@ -84,4 +84,3 @@ func (s *EmbeddingService) embedAndStore(ctx context.Context, versionID uuid.UUI
 	logger.Info("embedding generated", "version_id", versionID, "dimensions", len(emb))
 	return nil
 }
-

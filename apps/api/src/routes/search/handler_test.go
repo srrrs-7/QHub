@@ -26,10 +26,10 @@ func TestSemanticSearch(t *testing.T) {
 	}
 
 	tests := []struct {
-		testName   string
-		args       args
-		embSvcNil  bool
-		expected   expected
+		testName  string
+		args      args
+		embSvcNil bool
+		expected  expected
 	}{
 		// 異常系 - embedding service unavailable
 		{

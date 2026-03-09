@@ -67,7 +67,7 @@ type errorResponse struct {
 func unauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(errorResponse{Error: message})
+	_ = json.NewEncoder(w).Encode(errorResponse{Error: message})
 }
 
 // GetBearerToken retrieves the bearer token from context

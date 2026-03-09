@@ -107,8 +107,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "create intent with single code block extracts one action",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "Here is a prompt:\n```\nYou are a helpful assistant.\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -116,8 +116,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "improve intent with code block extracts action",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentImprove, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentImprove, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "Improved version:\n```\nYou are a precise assistant.\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -125,8 +125,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "multiple code blocks extracts multiple actions",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "Option A:\n```\nFirst prompt.\n```\nOption B:\n```\nSecond prompt.\n```\n",
 			},
 			expected: expected{count: 2, actionTypes: []ActionType{ActionCreateVersion, ActionCreateVersion}, hasContent: true},
@@ -134,8 +134,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "code block with language tag is extracted",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "```markdown\nYou are an assistant.\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -228,8 +228,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "single character code block is extracted",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "```\na\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -237,8 +237,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "very long code block content is extracted",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: fmt.Sprintf("```\n%s\n```\n", strings.Repeat("A long line of prompt text. ", 200)),
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -248,8 +248,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "code block with emoji content",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "```\nYou are a helpful assistant 🤖\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -257,8 +257,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "code block with Japanese content",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "```\nあなたは親切なアシスタントです。\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -266,8 +266,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "code block with SQL injection attempt",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "```\nSELECT * FROM users; DROP TABLE users;--\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},
@@ -275,8 +275,8 @@ func TestExtractActions(t *testing.T) {
 		{
 			testName: "code block with special JSON characters",
 			args: args{
-				intent:   intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
-				promptID: promptID,
+				intent:       intentservice.Intent{Type: intentservice.IntentCreate, Confidence: 0.8},
+				promptID:     promptID,
 				responseText: "```\n{\"key\": \"value with \\\"quotes\\\"\"}\n```\n",
 			},
 			expected: expected{count: 1, actionTypes: []ActionType{ActionCreateVersion}, hasContent: true},

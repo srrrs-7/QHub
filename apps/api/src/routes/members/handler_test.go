@@ -399,7 +399,7 @@ func TestListHandler(t *testing.T) {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 
-		if body != nil && len(body) != 0 {
+		if len(body) != 0 {
 			t.Errorf("expected empty list, got %d members", len(body))
 		}
 	})

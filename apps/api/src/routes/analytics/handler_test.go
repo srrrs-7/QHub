@@ -138,7 +138,7 @@ func TestGetProjectAnalytics(t *testing.T) {
 				}
 				proj, err := q.CreateProject(ctx, db.CreateProjectParams{
 					OrganizationID: org.ID, Name: "Empty Project",
-					Slug: "empty-proj-" + uuid.New().String()[:8],
+					Slug:        "empty-proj-" + uuid.New().String()[:8],
 					Description: sql.NullString{},
 				})
 				if err != nil {
@@ -577,7 +577,7 @@ func TestGetVersionAnalytics(t *testing.T) {
 		// 異常系 - invalid version (not a number)
 		{
 			testName: "invalid version (not a number)",
-			args: args{version: "abc"},
+			args:     args{version: "abc"},
 			setup: func(t *testing.T, q db.Querier) string {
 				_, _, promptID := setupAnalyticsData(t, q)
 				return promptID.String()
@@ -587,7 +587,7 @@ func TestGetVersionAnalytics(t *testing.T) {
 		// 異常系 - non-existent version (no rows in result set)
 		{
 			testName: "non-existent version returns error",
-			args: args{version: "999"},
+			args:     args{version: "999"},
 			setup: func(t *testing.T, q db.Querier) string {
 				_, _, promptID := setupAnalyticsData(t, q)
 				return promptID.String()
@@ -603,7 +603,7 @@ func TestGetVersionAnalytics(t *testing.T) {
 		// 空文字 - empty version
 		{
 			testName: "empty version string",
-			args: args{version: ""},
+			args:     args{version: ""},
 			setup: func(t *testing.T, q db.Querier) string {
 				_, _, promptID := setupAnalyticsData(t, q)
 				return promptID.String()
@@ -613,7 +613,7 @@ func TestGetVersionAnalytics(t *testing.T) {
 		// 境界値 - version 0
 		{
 			testName: "version 0 returns error (no data)",
-			args: args{version: "0"},
+			args:     args{version: "0"},
 			setup: func(t *testing.T, q db.Querier) string {
 				_, _, promptID := setupAnalyticsData(t, q)
 				return promptID.String()
@@ -623,7 +623,7 @@ func TestGetVersionAnalytics(t *testing.T) {
 		// 特殊文字
 		{
 			testName: "special characters in version",
-			args: args{version: "<script>"},
+			args:     args{version: "<script>"},
 			setup: func(t *testing.T, q db.Querier) string {
 				_, _, promptID := setupAnalyticsData(t, q)
 				return promptID.String()

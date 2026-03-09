@@ -27,7 +27,7 @@ type Session struct {
 type Message struct {
 	ID           uuid.UUID
 	SessionID    uuid.UUID
-	Role         string          // "user" or "assistant"
+	Role         string // "user" or "assistant"
 	Content      string
 	Citations    json.RawMessage // optional reference citations
 	ActionsTaken json.RawMessage // optional actions performed

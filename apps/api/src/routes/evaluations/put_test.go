@@ -19,7 +19,7 @@ import (
 func TestPutHandler(t *testing.T) {
 	t.Run("200 OK", func(t *testing.T) {
 		type expected struct {
-			statusCode int
+			statusCode  int
 			hasFeedback bool
 		}
 

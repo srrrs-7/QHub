@@ -200,7 +200,7 @@ func BuildSystemPrompt(items []contextItem, intent *intentservice.Intent) string
 	sb.WriteString("Reference specific prompts when relevant.\n\n")
 
 	if intent != nil && intent.Type != intentservice.IntentGeneral {
-		sb.WriteString(fmt.Sprintf("## User Intent: %s (confidence: %.0f%%)\n", intent.Type, intent.Confidence*100))
+		fmt.Fprintf(&sb, "## User Intent: %s (confidence: %.0f%%)\n", intent.Type, intent.Confidence*100)
 		sb.WriteString("Tailor your response to address this specific intent.\n\n")
 	}
 
@@ -211,7 +211,7 @@ func BuildSystemPrompt(items []contextItem, intent *intentservice.Intent) string
 
 	sb.WriteString("## Relevant Prompt Context\n\n")
 	for i, item := range items {
-		sb.WriteString(fmt.Sprintf("### %d. %s (v%d, similarity: %.2f)\n", i+1, item.PromptName, item.VersionNumber, item.Similarity))
+		fmt.Fprintf(&sb, "### %d. %s (v%d, similarity: %.2f)\n", i+1, item.PromptName, item.VersionNumber, item.Similarity)
 		sb.WriteString(item.Content)
 		sb.WriteString("\n\n")
 	}

@@ -53,6 +53,8 @@ func NewRouter(apiClient *client.APIClient) http.Handler {
 
 	// Pages - Analytics
 	r.Get("/analytics", pages.Analytics())
+	r.Get("/analytics/prompts/{prompt_id}", pages.PromptAnalytics())
+	r.Get("/analytics/projects/{project_id}", pages.ProjectAnalytics())
 
 	// Pages - Tags
 	r.Get("/tags", pages.Tags())
@@ -65,22 +67,42 @@ func NewRouter(apiClient *client.APIClient) http.Handler {
 	r.Route("/partials", func(r chi.Router) {
 		// Prompts & Versions
 		r.Post("/projects/{project_id}/prompts", partials.CreatePrompt())
+		r.Put("/projects/{project_id}/prompts/{prompt_slug}", partials.UpdatePrompt())
 		r.Post("/prompts/{prompt_id}/versions", partials.CreateVersion())
 		r.Get("/prompts/{prompt_id}/versions/{version}", partials.GetVersionDetail())
 		r.Put("/prompts/{prompt_id}/versions/{version}/status", partials.UpdateVersionStatus())
 		r.Get("/prompts/{prompt_id}/versions/{version}/lint", partials.GetLint())
 		r.Get("/prompts/{prompt_id}/versions/{version}/text-diff", partials.GetTextDiff())
+		r.Get("/prompts/{prompt_id}/semantic-diff/{v1}/{v2}", partials.GetSemanticDiff())
+		r.Get("/prompts/{prompt_id}/compare", partials.CompareVersions())
 
 		// Organizations
 		r.Post("/organizations", partials.CreateOrganization())
 
 		// Projects
 		r.Post("/orgs/{org_id}/projects", partials.CreateProject())
+		r.Put("/orgs/{org_id}/projects/{project_slug}", partials.UpdateProject())
+		r.Delete("/orgs/{org_id}/projects/{project_slug}", partials.DeleteProject())
+
+		// Evaluations
+		r.Post("/logs/{log_id}/evaluations", partials.CreateEvaluation())
 
 		// Consulting
 		r.Post("/consulting/sessions", partials.CreateConsultingSession())
 		r.Post("/consulting/sessions/{session_id}/messages", partials.SendConsultingMessage())
 		r.Get("/consulting/sessions/{session_id}/stream", partials.SSEStream())
+
+		// Settings: Organization
+		r.Put("/orgs/{slug}", partials.UpdateOrganization())
+
+		// Settings: Members
+		r.Post("/orgs/{org_id}/members", partials.AddMember())
+		r.Put("/orgs/{org_id}/members/{user_id}", partials.UpdateMemberRole())
+		r.Delete("/orgs/{org_id}/members/{user_id}", partials.RemoveMember())
+
+		// Settings: API Keys
+		r.Post("/orgs/{org_id}/api-keys", partials.CreateAPIKey())
+		r.Delete("/orgs/{org_id}/api-keys/{key_id}", partials.DeleteAPIKey())
 
 		// Tags
 		r.Post("/tags", partials.CreateTag())
@@ -89,6 +111,17 @@ func NewRouter(apiClient *client.APIClient) http.Handler {
 		// Industries
 		r.Post("/industries", partials.CreateIndustry())
 		r.Post("/industries/{slug}/compliance", partials.CheckCompliance())
+
+		// Analytics
+		r.Get("/analytics/prompts/{prompt_id}", partials.GetPromptAnalyticsPartial())
+		r.Get("/analytics/prompts/{prompt_id}/trend", partials.GetDailyTrendPartial())
+		r.Get("/analytics/projects/{project_id}", partials.GetProjectAnalyticsPartial())
+
+		// Session Close
+		r.Put("/consulting/sessions/{id}/close", partials.CloseSession())
+
+		// Embedding Status
+		r.Get("/search/embedding-status", partials.GetEmbeddingStatus())
 
 		// Search
 		r.Post("/search", partials.Search())

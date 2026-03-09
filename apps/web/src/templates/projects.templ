@@ -2,6 +2,8 @@ package templates
 
 import "web/src/client"
 
+import "fmt"
+
 templ ProjectsPage(page PageData, org *client.Organization, projects []client.Project) {
 	@Layout(page) {
 		<div class="breadcrumb">
@@ -18,32 +20,14 @@ templ ProjectsPage(page PageData, org *client.Organization, projects []client.Pr
 				</button>
 			</div>
 		</div>
-		if len(projects) == 0 {
-			<div class="empty-state">
-				<span class="material-symbols-outlined">folder_open</span>
-				<div class="empty-state__title">No projects yet</div>
-				<div class="empty-state__desc">Create your first project to start managing prompts.</div>
-			</div>
-		} else {
-			<div class="card-grid">
-				for _, p := range projects {
-					<a
-						class="card card--clickable"
-						href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + p.Slug + "/prompts") }
-					>
-						<div class="prompt-card__name">{ p.Name }</div>
-						if p.Description != "" {
-							<div class="prompt-card__desc">{ p.Description }</div>
-						}
-					</a>
-				}
-			</div>
-		}
+		<div id="project-list">
+			@ProjectList(page, org, projects)
+		</div>
 		<dialog id="new-project-dialog">
 			<form
 				method="dialog"
 				hx-post={ "/partials/orgs/" + org.ID + "/projects" }
-				hx-target="#snackbar"
+				hx-target="#project-list"
 				hx-swap="innerHTML"
 			>
 				<h2 class="mb-16">New Project</h2>
@@ -65,5 +49,99 @@ templ ProjectsPage(page PageData, org *client.Organization, projects []client.Pr
 				</div>
 			</form>
 		</dialog>
+		for _, p := range projects {
+			@ProjectEditDialog(org, p)
+			@ProjectDeleteDialog(org, p)
+		}
 	}
+}
+
+templ ProjectList(page PageData, org *client.Organization, projects []client.Project) {
+	if len(projects) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">folder_open</span>
+			<div class="empty-state__title">No projects yet</div>
+			<div class="empty-state__desc">Create your first project to start managing prompts.</div>
+		</div>
+	} else {
+		<div class="card-grid">
+			for _, p := range projects {
+				<div class="card" style="position: relative;">
+					<a
+						class="card--clickable"
+						href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + p.Slug + "/prompts") }
+						style="display: block; text-decoration: none; color: inherit;"
+					>
+						<div class="prompt-card__name">{ p.Name }</div>
+						if p.Description != "" {
+							<div class="prompt-card__desc">{ p.Description }</div>
+						}
+					</a>
+					<div class="flex gap-8 mt-16" style="justify-content: flex-end;">
+						<button
+							class="btn btn--outlined btn--small"
+							onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('edit-project-%s').showModal()", p.ID)} }
+						>
+							<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+							Edit
+						</button>
+						<button
+							class="btn btn--outlined btn--small"
+							style="color: var(--md-sys-color-error); border-color: var(--md-sys-color-error);"
+							onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('delete-project-%s').showModal()", p.ID)} }
+						>
+							<span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+							Delete
+						</button>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+templ ProjectEditDialog(org *client.Organization, p client.Project) {
+	<dialog id={ "edit-project-" + p.ID }>
+		<form
+			method="dialog"
+			hx-put={ "/partials/orgs/" + org.ID + "/projects/" + p.Slug }
+			hx-target="#project-list"
+			hx-swap="innerHTML"
+		>
+			<h2 class="mb-16">Edit Project</h2>
+			<div class="form-field">
+				<label for={ "edit-name-" + p.ID }>Name</label>
+				<input type="text" id={ "edit-name-" + p.ID } name="name" value={ p.Name } required/>
+			</div>
+			<div class="form-field">
+				<label for={ "edit-desc-" + p.ID }>Description</label>
+				<textarea id={ "edit-desc-" + p.ID } name="description">{ p.Description }</textarea>
+			</div>
+			<div class="flex gap-8 justify-between">
+				<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+				<button type="submit" class="btn btn--filled">Save Changes</button>
+			</div>
+		</form>
+	</dialog>
+}
+
+templ ProjectDeleteDialog(org *client.Organization, p client.Project) {
+	<dialog id={ "delete-project-" + p.ID }>
+		<h2 class="mb-16">Delete Project</h2>
+		<p style="font: var(--md-sys-typescale-body-medium); margin-bottom: 24px;">
+			Are you sure you want to delete <strong>{ p.Name }</strong>? This action cannot be undone.
+		</p>
+		<div class="flex gap-8 justify-between">
+			<button class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+			<button
+				class="btn btn--danger"
+				hx-delete={ "/partials/orgs/" + org.ID + "/projects/" + p.Slug }
+				hx-target="#project-list"
+				hx-swap="innerHTML"
+				onclick="this.closest('dialog').close()"
+			>
+				Delete
+			</button>
+		</div>
+	</dialog>
 }

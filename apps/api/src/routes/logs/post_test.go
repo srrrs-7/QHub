@@ -61,26 +61,6 @@ func seedOrgAndPrompt(t *testing.T, q db.Querier, label string) (orgID, promptID
 	return org.ID.String(), prompt.ID.String()
 }
 
-func validPostLogBody(orgID, promptID string) string {
-	return fmt.Sprintf(`{
-		"org_id": %q,
-		"prompt_id": %q,
-		"version_number": 1,
-		"request_body": {"prompt": "hello"},
-		"response_body": {"text": "world"},
-		"model": "claude-sonnet-4-20250514",
-		"provider": "anthropic",
-		"input_tokens": 100,
-		"output_tokens": 50,
-		"total_tokens": 150,
-		"latency_ms": 1200,
-		"estimated_cost": "0.003000",
-		"status": "success",
-		"environment": "production",
-		"executed_at": %q
-	}`, orgID, promptID, time.Now().UTC().Format(time.RFC3339))
-}
-
 func TestPostHandler(t *testing.T) {
 	t.Run("201 Created", func(t *testing.T) {
 		type expected struct {

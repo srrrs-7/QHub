@@ -192,10 +192,10 @@ func TestGenerateEmbedding(t *testing.T) {
 	}
 
 	tests := []struct {
-		testName    string
-		teiHandler  http.HandlerFunc
-		args        args
-		expected    expected
+		testName   string
+		teiHandler http.HandlerFunc
+		args       args
+		expected   expected
 	}{
 		// 正常系
 		{

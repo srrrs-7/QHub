@@ -1,0 +1,128 @@
+package templates
+
+import (
+	"fmt"
+	"web/src/client"
+)
+
+type ProjectAnalyticsData struct {
+	ProjectID   string
+	ProjectName string
+	Prompts     []client.ProjectAnalytics
+}
+
+func (d ProjectAnalyticsData) TotalExecutions() int64 {
+	var total int64
+	for _, p := range d.Prompts {
+		total += p.TotalExecutions
+	}
+	return total
+}
+
+func (d ProjectAnalyticsData) AvgLatency() int32 {
+	if len(d.Prompts) == 0 {
+		return 0
+	}
+	var total int64
+	var count int64
+	for _, p := range d.Prompts {
+		if p.TotalExecutions > 0 {
+			total += int64(p.AvgLatencyMs) * p.TotalExecutions
+			count += p.TotalExecutions
+		}
+	}
+	if count == 0 {
+		return 0
+	}
+	return int32(total / count)
+}
+
+func (d ProjectAnalyticsData) TotalCost() float64 {
+	var total float64
+	for _, p := range d.Prompts {
+		var cost float64
+		fmt.Sscanf(p.TotalCost, "%f", &cost)
+		total += cost
+	}
+	return total
+}
+
+templ ProjectAnalyticsPage(page PageData, data ProjectAnalyticsData) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/analytics">Analytics</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ data.ProjectName }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">{ data.ProjectName } — Analytics</h1>
+		</div>
+		<div id="project-analytics-content">
+			@ProjectAnalyticsPartial(data)
+		</div>
+	}
+}
+
+templ ProjectAnalyticsPartial(data ProjectAnalyticsData) {
+	<!-- Summary Cards -->
+	<div class="stats-grid">
+		<div class="stat-card">
+			<div class="stat-card__value">{ fmt.Sprintf("%d", data.TotalExecutions()) }</div>
+			<div class="stat-card__label">Total Executions</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-card__value">{ fmt.Sprintf("%dms", data.AvgLatency()) }</div>
+			<div class="stat-card__label">Average Latency</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-card__value">{ fmt.Sprintf("$%.4f", data.TotalCost()) }</div>
+			<div class="stat-card__label">Total Cost</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-card__value">{ fmt.Sprintf("%d", len(data.Prompts)) }</div>
+			<div class="stat-card__label">Prompts</div>
+		</div>
+	</div>
+	<!-- Prompt Comparison Table -->
+	<div class="card mb-24" style="padding: 24px;">
+		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Prompt Comparison</h2>
+		if len(data.Prompts) == 0 {
+			<div class="empty-state">
+				<span class="material-symbols-outlined">analytics</span>
+				<div class="empty-state__title">No analytics data</div>
+				<div class="empty-state__desc">Execute some prompts in this project to see analytics.</div>
+			</div>
+		} else {
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>PROMPT</th>
+						<th>EXECUTIONS</th>
+						<th>AVG TOKENS</th>
+						<th>AVG LATENCY</th>
+						<th>COST</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, p := range data.Prompts {
+						<tr class="clickable" onclick={ goToPromptAnalytics(p.PromptID) }>
+							<td>
+								<a href={ templ.SafeURL("/analytics/prompts/" + p.PromptID) } style="color: var(--md-sys-color-primary); text-decoration: none;">
+									{ p.PromptName }
+								</a>
+							</td>
+							<td>{ fmt.Sprintf("%d", p.TotalExecutions) }</td>
+							<td>{ fmt.Sprintf("%d", p.AvgTokens) }</td>
+							<td>{ fmt.Sprintf("%dms", p.AvgLatencyMs) }</td>
+							<td>{ p.TotalCost }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+}
+
+script goToPromptAnalytics(promptID string) {
+	window.location.href = "/analytics/prompts/" + promptID;
+}

@@ -190,13 +190,3 @@ func truncate(s string, maxLen int) string {
 func printSuccess(msg string) {
 	fmt.Fprintf(os.Stderr, "\033[32m%s\033[0m %s\n", "ok:", msg)
 }
-
-// printInfo prints a cyan info message to stderr.
-func printInfo(msg string) {
-	fmt.Fprintf(os.Stderr, "\033[36minfo:\033[0m %s\n", msg)
-}
-
-// printWarning prints a yellow warning to stderr.
-func printWarning(msg string) {
-	fmt.Fprintf(os.Stderr, "\033[33mwarn:\033[0m %s\n", msg)
-}

@@ -302,6 +302,83 @@ type LintIssue struct {
 	Suggestion string `json:"suggestion,omitempty"`
 }
 
+// --- Member ---
+
+type Member struct {
+	OrganizationID string `json:"organization_id"`
+	UserID         string `json:"user_id"`
+	Role           string `json:"role"`
+	JoinedAt       string `json:"joined_at"`
+}
+
+// --- API Key ---
+
+type APIKey struct {
+	ID             string  `json:"id"`
+	OrganizationID string  `json:"organization_id"`
+	Name           string  `json:"name"`
+	KeyPrefix      string  `json:"key_prefix"`
+	LastUsedAt     *string `json:"last_used_at"`
+	ExpiresAt      *string `json:"expires_at"`
+	RevokedAt      *string `json:"revoked_at"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+type APIKeyCreated struct {
+	ID             string  `json:"id"`
+	OrganizationID string  `json:"organization_id"`
+	Name           string  `json:"name"`
+	Key            string  `json:"key"`
+	KeyPrefix      string  `json:"key_prefix"`
+	ExpiresAt      *string `json:"expires_at"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+// --- ProjectAnalytics ---
+
+type ProjectAnalytics struct {
+	PromptID        string `json:"prompt_id"`
+	PromptName      string `json:"prompt_name"`
+	TotalExecutions int64  `json:"total_executions"`
+	AvgTokens       int32  `json:"avg_tokens"`
+	AvgLatencyMs    int32  `json:"avg_latency_ms"`
+	TotalCost       string `json:"total_cost"`
+}
+
+// --- EmbeddingStatus ---
+
+type EmbeddingStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+// --- Version Comparison ---
+
+type VersionComparison struct {
+	PromptID      string                    `json:"prompt_id"`
+	VersionA      int                       `json:"version_a"`
+	VersionB      int                       `json:"version_b"`
+	Metrics       []VersionMetricComparison `json:"metrics"`
+	OverallWinner string                    `json:"overall_winner"`
+}
+
+type VersionMetricComparison struct {
+	MetricName    string             `json:"metric_name"`
+	VersionA      VersionMetricStats `json:"version_a"`
+	VersionB      VersionMetricStats `json:"version_b"`
+	TStatistic    float64            `json:"t_statistic"`
+	PValue        float64            `json:"p_value"`
+	IsSignificant bool               `json:"is_significant"`
+	Winner        string             `json:"winner"`
+}
+
+type VersionMetricStats struct {
+	Version int     `json:"version"`
+	Mean    float64 `json:"mean"`
+	StdDev  float64 `json:"std_dev"`
+	N       int     `json:"n"`
+}
+
 // --- Benchmark ---
 
 type Benchmark struct {

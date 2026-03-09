@@ -38,9 +38,9 @@ type Action struct {
 
 // ExecuteResult holds the outcome of executing an action.
 type ExecuteResult struct {
-	Action        Action              `json:"action"`
+	Action        Action                 `json:"action"`
 	VersionID     prompt.PromptVersionID `json:"version_id"`
-	VersionNumber int                 `json:"version_number"`
+	VersionNumber int                    `json:"version_number"`
 }
 
 // ActionService detects actionable suggestions in AI responses and executes

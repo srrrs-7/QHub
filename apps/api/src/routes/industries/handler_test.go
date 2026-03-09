@@ -78,9 +78,9 @@ func TestPostHandler(t *testing.T) {
 		}
 
 		tests := []struct {
-			testName        string
-			reqBody         map[string]any
-			expected        expected
+			testName string
+			reqBody  map[string]any
+			expected expected
 		}{
 			// 正常系
 			{
@@ -106,8 +106,8 @@ func TestPostHandler(t *testing.T) {
 			{
 				testName: "create with Japanese name",
 				reqBody: map[string]any{
-					"slug": "jp-healthcare",
-					"name": "医療業界",
+					"slug":        "jp-healthcare",
+					"name":        "医療業界",
 					"description": "医療業界の設定",
 				},
 				expected: expected{statusCode: http.StatusCreated, slug: "jp-healthcare", name: "医療業界", description: "医療業界の設定"},

@@ -85,9 +85,9 @@ type semanticSearchRequest struct {
 }
 
 type searchResponse struct {
-	Query   string               `json:"query"`
+	Query   string                 `json:"query"`
 	Results []searchResultResponse `json:"results"`
-	Total   int                  `json:"total"`
+	Total   int                    `json:"total"`
 }
 
 type searchResultResponse struct {
@@ -126,17 +126,17 @@ func toSearchResult(row db.SearchPromptVersionsByEmbeddingRow) searchResultRespo
 
 type unavailableError struct{}
 
-func (e *unavailableError) Error() string     { return "embedding service not available" }
+func (e *unavailableError) Error() string      { return "embedding service not available" }
 func (e *unavailableError) ErrorName() string  { return "ServiceUnavailableError" }
 func (e *unavailableError) DomainName() string { return "Search" }
-func (e *unavailableError) Unwrap() error     { return nil }
+func (e *unavailableError) Unwrap() error      { return nil }
 
 type validationError struct{ msg string }
 
-func (e *validationError) Error() string     { return e.msg }
+func (e *validationError) Error() string      { return e.msg }
 func (e *validationError) ErrorName() string  { return "ValidationError" }
 func (e *validationError) DomainName() string { return "Search" }
-func (e *validationError) Unwrap() error     { return nil }
+func (e *validationError) Unwrap() error      { return nil }
 
 // Compile-time check: both error types satisfy apperror.AppError.
 var (
@@ -158,5 +158,3 @@ func (h *SearchHandler) EmbeddingStatus() http.HandlerFunc {
 		response.OK(w, map[string]string{"embedding_service": status})
 	}
 }
-
-

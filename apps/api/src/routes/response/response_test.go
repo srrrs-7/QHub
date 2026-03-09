@@ -691,7 +691,7 @@ func TestHandleErrorWithNonAppError(t *testing.T) {
 		err error
 	}
 	type expected struct {
-		statusCode int
+		statusCode   int
 		bodyContains string
 	}
 

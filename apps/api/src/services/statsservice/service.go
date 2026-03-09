@@ -16,6 +16,7 @@ import (
 	"api/src/domain/apperror"
 
 	"github.com/google/uuid"
+
 	db "utils/db/db"
 )
 
@@ -327,7 +328,7 @@ func RegularizedIncompleteBeta(x, a, b float64) float64 {
 	}
 
 	lnBeta := lgamma(a) + lgamma(b) - lgamma(a+b)
-	front := math.Exp(math.Log(x)*a + math.Log(1-x)*b - lnBeta) / a
+	front := math.Exp(math.Log(x)*a+math.Log(1-x)*b-lnBeta) / a
 
 	// Lentz's continued fraction
 	return front * betaCF(x, a, b)
@@ -340,14 +341,13 @@ func betaCF(x, a, b float64) float64 {
 	const tiny = 1e-30
 
 	// Modified Lentz's algorithm
-	f := 1.0
 	c := 1.0
 	d := 1.0 - (a+b)*x/(a+1)
 	if math.Abs(d) < tiny {
 		d = tiny
 	}
 	d = 1.0 / d
-	f = d
+	f := d
 
 	for m := 1; m <= maxIter; m++ {
 		mf := float64(m)

@@ -5,6 +5,13 @@ import (
 	"web/src/client"
 )
 
+func displayOptionalScore(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return "-"
+}
+
 templ LogsPage(page PageData, logs []client.ExecutionLog) {
 	@Layout(page) {
 		<div class="page-header">
@@ -95,34 +102,100 @@ templ LogDetailPage(page PageData, log *client.ExecutionLog, evals []client.Eval
 		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-8">Output</h2>
 		<div class="prompt-content mb-24">{ log.OutputString() }</div>
 		<hr class="divider"/>
-		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Evaluations</h2>
-		if len(evals) == 0 {
-			<div class="empty-state">
-				<span class="material-symbols-outlined">grade</span>
-				<div class="empty-state__title">No evaluations</div>
-				<div class="empty-state__desc">No evaluations have been recorded for this log.</div>
-			</div>
-		} else {
-			<table class="data-table">
-				<thead>
+		<div class="flex items-center justify-between mb-16">
+			<h2 style="font: var(--md-sys-typescale-title-large)">Evaluations</h2>
+			<button class="btn btn--tonal" onclick="document.getElementById('new-eval-dialog').showModal()">
+				<span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+				Add Evaluation
+			</button>
+		</div>
+		<div id="evaluations-list">
+			@EvaluationsList(evals)
+		</div>
+		<!-- New Evaluation Dialog -->
+		<dialog id="new-eval-dialog" style="max-width: 500px; width: 100%;">
+			<form
+				method="dialog"
+				hx-post={ "/partials/logs/" + log.ID + "/evaluations" }
+				hx-target="#evaluations-list"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">Add Evaluation</h2>
+				<div class="form-field">
+					<label for="eval-overall">Overall Score (0-100)</label>
+					<input type="number" id="eval-overall" name="overall_score" min="0" max="100" required/>
+				</div>
+				<div class="form-field">
+					<label for="eval-accuracy">Accuracy Score (0-100)</label>
+					<input type="number" id="eval-accuracy" name="accuracy_score" min="0" max="100"/>
+				</div>
+				<div class="form-field">
+					<label for="eval-relevance">Relevance Score (0-100)</label>
+					<input type="number" id="eval-relevance" name="relevance_score" min="0" max="100"/>
+				</div>
+				<div class="form-field">
+					<label for="eval-fluency">Fluency Score (0-100)</label>
+					<input type="number" id="eval-fluency" name="fluency_score" min="0" max="100"/>
+				</div>
+				<div class="form-field">
+					<label for="eval-safety">Safety Score (0-100)</label>
+					<input type="number" id="eval-safety" name="safety_score" min="0" max="100"/>
+				</div>
+				<div class="form-field">
+					<label for="eval-feedback">Feedback</label>
+					<textarea id="eval-feedback" name="feedback"></textarea>
+				</div>
+				<div class="form-field">
+					<label for="eval-type">Evaluator Type</label>
+					<select id="eval-type" name="evaluator_type" required>
+						<option value="human">Human</option>
+						<option value="automated">Automated</option>
+					</select>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Submit Evaluation</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}
+
+templ EvaluationsList(evals []client.Evaluation) {
+	if len(evals) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">grade</span>
+			<div class="empty-state__title">No evaluations</div>
+			<div class="empty-state__desc">No evaluations have been recorded for this log.</div>
+		</div>
+	} else {
+		<table class="data-table">
+			<thead>
+				<tr>
+					<th>Evaluator</th>
+					<th>Overall</th>
+					<th>Accuracy</th>
+					<th>Relevance</th>
+					<th>Fluency</th>
+					<th>Safety</th>
+					<th>Feedback</th>
+					<th>Created</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, e := range evals {
 					<tr>
-						<th>Evaluator</th>
-						<th>Score</th>
-						<th>Feedback</th>
-						<th>Created</th>
+						<td><span class="type-badge">{ e.EvaluatorType }</span></td>
+						<td>{ e.DisplayScore() }</td>
+						<td>{ displayOptionalScore(e.AccuracyScore) }</td>
+						<td>{ displayOptionalScore(e.RelevanceScore) }</td>
+						<td>{ displayOptionalScore(e.FluencyScore) }</td>
+						<td>{ displayOptionalScore(e.SafetyScore) }</td>
+						<td>{ e.Feedback }</td>
+						<td class="text-muted">{ e.CreatedAt }</td>
 					</tr>
-				</thead>
-				<tbody>
-					for _, e := range evals {
-						<tr>
-							<td><span class="type-badge">{ e.EvaluatorType }</span></td>
-							<td>{ e.DisplayScore() }</td>
-							<td>{ e.Feedback }</td>
-							<td class="text-muted">{ e.CreatedAt }</td>
-						</tr>
-					}
-				</tbody>
-			</table>
-		}
+				}
+			</tbody>
+		</table>
 	}
 }
