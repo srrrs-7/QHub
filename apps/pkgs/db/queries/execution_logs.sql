@@ -78,3 +78,13 @@ LEFT JOIN execution_logs el ON el.prompt_id = p.id
 WHERE p.project_id = $1
 GROUP BY p.id, p.name
 ORDER BY total_executions DESC;
+
+-- name: GetVersionMetrics :many
+SELECT
+    latency_ms,
+    total_tokens,
+    COALESCE(e.overall_score, 0)::NUMERIC(5,2) AS overall_score
+FROM execution_logs el
+LEFT JOIN evaluations e ON e.execution_log_id = el.id
+WHERE el.prompt_id = $1 AND el.version_number = $2
+ORDER BY el.executed_at;

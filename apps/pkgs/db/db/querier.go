@@ -66,6 +66,7 @@ type Querier interface {
 	GetTask(ctx context.Context, id uuid.UUID) (Task, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetVersionMetrics(ctx context.Context, arg GetVersionMetricsParams) ([]GetVersionMetricsRow, error)
 	ListApiKeysByOrganization(ctx context.Context, organizationID uuid.UUID) ([]ApiKey, error)
 	ListConsultingMessages(ctx context.Context, sessionID uuid.UUID) ([]ConsultingMessage, error)
 	ListConsultingSessionsByOrg(ctx context.Context, arg ListConsultingSessionsByOrgParams) ([]ConsultingSession, error)

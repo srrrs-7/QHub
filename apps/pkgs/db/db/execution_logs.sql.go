@@ -355,6 +355,51 @@ func (q *Queries) GetPromptVersionAnalytics(ctx context.Context, arg GetPromptVe
 	return i, err
 }
 
+const getVersionMetrics = `-- name: GetVersionMetrics :many
+SELECT
+    latency_ms,
+    total_tokens,
+    COALESCE(e.overall_score, 0)::NUMERIC(5,2) AS overall_score
+FROM execution_logs el
+LEFT JOIN evaluations e ON e.execution_log_id = el.id
+WHERE el.prompt_id = $1 AND el.version_number = $2
+ORDER BY el.executed_at
+`
+
+type GetVersionMetricsParams struct {
+	PromptID      uuid.UUID `json:"prompt_id"`
+	VersionNumber int32     `json:"version_number"`
+}
+
+type GetVersionMetricsRow struct {
+	LatencyMs    int32  `json:"latency_ms"`
+	TotalTokens  int32  `json:"total_tokens"`
+	OverallScore string `json:"overall_score"`
+}
+
+func (q *Queries) GetVersionMetrics(ctx context.Context, arg GetVersionMetricsParams) ([]GetVersionMetricsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getVersionMetrics, arg.PromptID, arg.VersionNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetVersionMetricsRow
+	for rows.Next() {
+		var i GetVersionMetricsRow
+		if err := rows.Scan(&i.LatencyMs, &i.TotalTokens, &i.OverallScore); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExecutionLogsByOrg = `-- name: ListExecutionLogsByOrg :many
 SELECT id, organization_id, prompt_id, version_number, request_body, response_body, model, provider, input_tokens, output_tokens, total_tokens, latency_ms, estimated_cost, status, error_message, environment, metadata, executed_at, created_at FROM execution_logs
 WHERE organization_id = $1

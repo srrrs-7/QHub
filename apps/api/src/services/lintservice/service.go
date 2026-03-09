@@ -3,6 +3,7 @@
 // Rules include: excessive content length, missing output format specification,
 // undeclared template variables, vague instructions, missing constraints, and
 // prompt injection risk detection. Each rule contributes to a 0–100 quality score.
+// User-defined custom rules can be evaluated via [LintService.LintWithCustomRules].
 package lintservice
 
 import (
@@ -325,6 +326,95 @@ func hasGuardrailAroundPlaceholder(content, varName string) bool {
 		}
 	}
 	return false
+}
+
+// CustomRule represents a user-defined lint rule evaluated against prompt content.
+// When Inverted is false the rule triggers when Pattern matches.
+// When Inverted is true the rule triggers when Pattern does NOT match (must-contain).
+type CustomRule struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Severity    string `json:"severity"` // error, warning, info
+	Pattern     string `json:"pattern"`  // regex pattern to match
+	Message     string `json:"message"`  // message when triggered
+	Inverted    bool   `json:"inverted"` // true = trigger when pattern NOT found
+}
+
+// LintWithCustomRules lints a specific prompt version using the built-in rules
+// followed by user-defined custom rules. Custom rules are evaluated AFTER built-in
+// rules. Invalid regex patterns are reported as info-level issues rather than
+// causing an error.
+func (s *LintService) LintWithCustomRules(ctx context.Context, promptID uuid.UUID, versionNumber int, customRules []CustomRule) (*intelligence.LintResult, error) {
+	v, err := s.versionRepo.FindByPromptAndNumber(ctx, prompt.PromptIDFromUUID(promptID), versionNumber)
+	if err != nil {
+		return nil, apperror.NewNotFoundError(
+			fmt.Errorf("version %d not found for prompt %s", versionNumber, promptID),
+			"PromptVersion",
+		)
+	}
+
+	content := contentutil.ExtractText(v.Content)
+	variables := extractVariablesFromJSON(v.Variables)
+
+	result := runLintRules(content, variables)
+	applyCustomRules(result, content, customRules)
+
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return nil, apperror.NewInternalServerError(fmt.Errorf("failed to marshal lint result: %w", err), "LintResult")
+	}
+
+	if err := s.versionRepo.UpdateLintResult(ctx, v.ID, resultJSON); err != nil {
+		return nil, apperror.NewDatabaseError(fmt.Errorf("failed to store lint result: %w", err), "LintResult")
+	}
+
+	return result, nil
+}
+
+// applyCustomRules evaluates each custom rule against content and appends any
+// triggered issues to result. The score is recalculated after all custom rules
+// are applied. Invalid regex patterns produce an info-level diagnostic issue
+// instead of causing a failure.
+func applyCustomRules(result *intelligence.LintResult, content string, rules []CustomRule) {
+	for _, rule := range rules {
+		severity := normalizeSeverity(rule.Severity)
+
+		re, err := regexp.Compile(rule.Pattern)
+		if err != nil {
+			result.Issues = append(result.Issues, intelligence.LintIssue{
+				Rule:     "custom:" + rule.Name,
+				Severity: "info",
+				Message:  fmt.Sprintf("Invalid regex pattern for custom rule %q: %v", rule.Name, err),
+			})
+			continue
+		}
+
+		matched := re.MatchString(content)
+		triggered := (!rule.Inverted && matched) || (rule.Inverted && !matched)
+
+		if triggered {
+			result.Issues = append(result.Issues, intelligence.LintIssue{
+				Rule:     "custom:" + rule.Name,
+				Severity: severity,
+				Message:  rule.Message,
+			})
+		} else {
+			result.Passed = append(result.Passed, "custom:"+rule.Name)
+		}
+	}
+
+	result.Score = calculateScore(result.Issues)
+}
+
+// normalizeSeverity returns a valid severity string, defaulting to "info"
+// for unrecognised values.
+func normalizeSeverity(s string) string {
+	switch s {
+	case "error", "warning", "info":
+		return s
+	default:
+		return "info"
+	}
 }
 
 // calculateScore computes a lint score from 0-100 based on issues found.

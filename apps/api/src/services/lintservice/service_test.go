@@ -618,6 +618,416 @@ func TestRunLintRulesWithNewRules(t *testing.T) {
 	}
 }
 
+func TestApplyCustomRules(t *testing.T) {
+	type args struct {
+		content     string
+		customRules []CustomRule
+		// baseIssues are pre-existing issues from built-in rules to verify interaction
+		baseIssues []intelligence.LintIssue
+	}
+	type expected struct {
+		issueCount  int
+		passedCount int
+		score       int
+		issueRules  []string
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		// ========== 正常系 (Happy Path) ==========
+		{
+			testName: "single matching pattern triggers issue",
+			args: args{
+				content: "Please use TODO markers in the prompt.",
+				customRules: []CustomRule{
+					{Name: "no-todo", Severity: "warning", Pattern: `(?i)\bTODO\b`, Message: "TODO found in prompt"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 90, issueRules: []string{"custom:no-todo"}},
+		},
+		{
+			testName: "non-matching pattern passes",
+			args: args{
+				content: "Clean prompt with no issues.",
+				customRules: []CustomRule{
+					{Name: "no-todo", Severity: "warning", Pattern: `(?i)\bTODO\b`, Message: "TODO found"},
+				},
+			},
+			expected: expected{issueCount: 0, passedCount: 1, score: 100, issueRules: nil},
+		},
+		{
+			testName: "error severity deducts 25 points",
+			args: args{
+				content: "bad content here",
+				customRules: []CustomRule{
+					{Name: "no-bad", Severity: "error", Pattern: `bad`, Message: "bad word found"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 75, issueRules: []string{"custom:no-bad"}},
+		},
+		{
+			testName: "info severity deducts 5 points",
+			args: args{
+				content: "maybe do this",
+				customRules: []CustomRule{
+					{Name: "no-maybe", Severity: "info", Pattern: `maybe`, Message: "uncertain language"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:no-maybe"}},
+		},
+		// ========== Inverted patterns (must-contain) ==========
+		{
+			testName: "inverted pattern triggers when NOT found",
+			args: args{
+				content: "Hello world.",
+				customRules: []CustomRule{
+					{Name: "require-json", Severity: "warning", Pattern: `(?i)\bjson\b`, Message: "Must mention JSON", Inverted: true},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 90, issueRules: []string{"custom:require-json"}},
+		},
+		{
+			testName: "inverted pattern passes when found",
+			args: args{
+				content: "Return as JSON format.",
+				customRules: []CustomRule{
+					{Name: "require-json", Severity: "warning", Pattern: `(?i)\bjson\b`, Message: "Must mention JSON", Inverted: true},
+				},
+			},
+			expected: expected{issueCount: 0, passedCount: 1, score: 100, issueRules: nil},
+		},
+		{
+			testName: "inverted pattern with empty content triggers",
+			args: args{
+				content: "",
+				customRules: []CustomRule{
+					{Name: "require-greeting", Severity: "info", Pattern: `hello`, Message: "Should contain hello", Inverted: true},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:require-greeting"}},
+		},
+		// ========== Invalid regex ==========
+		{
+			testName: "invalid regex produces info issue",
+			args: args{
+				content: "Some content",
+				customRules: []CustomRule{
+					{Name: "bad-regex", Severity: "error", Pattern: `[invalid`, Message: "should not appear"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:bad-regex"}},
+		},
+		{
+			testName: "invalid regex severity is always info regardless of rule severity",
+			args: args{
+				content: "Content",
+				customRules: []CustomRule{
+					{Name: "bad-re", Severity: "error", Pattern: `(unclosed`, Message: "msg"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:bad-re"}},
+		},
+		// ========== 空文字 / Nil (Empty/nil rules slice) ==========
+		{
+			testName: "nil rules slice does nothing",
+			args: args{
+				content:     "Some content",
+				customRules: nil,
+			},
+			expected: expected{issueCount: 0, passedCount: 0, score: 100},
+		},
+		{
+			testName: "empty rules slice does nothing",
+			args: args{
+				content:     "Some content",
+				customRules: []CustomRule{},
+			},
+			expected: expected{issueCount: 0, passedCount: 0, score: 100},
+		},
+		{
+			testName: "empty pattern matches everything",
+			args: args{
+				content: "Some content",
+				customRules: []CustomRule{
+					{Name: "empty-pattern", Severity: "info", Pattern: ``, Message: "empty pattern matches all"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:empty-pattern"}},
+		},
+		{
+			testName: "empty content with non-matching pattern passes",
+			args: args{
+				content: "",
+				customRules: []CustomRule{
+					{Name: "no-secret", Severity: "error", Pattern: `SECRET`, Message: "secret found"},
+				},
+			},
+			expected: expected{issueCount: 0, passedCount: 1, score: 100},
+		},
+		// ========== 特殊文字 (Special characters in pattern) ==========
+		{
+			testName: "pattern with Japanese characters",
+			args: args{
+				content: "この文章には禁止ワードが含まれています",
+				customRules: []CustomRule{
+					{Name: "no-kinjigo", Severity: "warning", Pattern: `禁止ワード`, Message: "禁止ワードが検出されました"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 90, issueRules: []string{"custom:no-kinjigo"}},
+		},
+		{
+			testName: "pattern with emoji",
+			args: args{
+				content: "Do not use 🚫 emoji in prompts",
+				customRules: []CustomRule{
+					{Name: "no-emoji", Severity: "info", Pattern: `🚫`, Message: "Emoji found"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:no-emoji"}},
+		},
+		{
+			testName: "pattern with regex special chars escaped",
+			args: args{
+				content: "Use {{variable}} in the prompt.",
+				customRules: []CustomRule{
+					{Name: "literal-braces", Severity: "info", Pattern: `\{\{variable\}\}`, Message: "literal variable syntax found"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:literal-braces"}},
+		},
+		{
+			testName: "SQL injection in pattern does not crash",
+			args: args{
+				content: "SELECT * FROM users; DROP TABLE users;",
+				customRules: []CustomRule{
+					{Name: "no-sql", Severity: "error", Pattern: `(?i)DROP\s+TABLE`, Message: "SQL DROP detected"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 75, issueRules: []string{"custom:no-sql"}},
+		},
+		// ========== Multiple rules interacting ==========
+		{
+			testName: "multiple rules all trigger",
+			args: args{
+				content: "TODO: fix this bad thing",
+				customRules: []CustomRule{
+					{Name: "no-todo", Severity: "warning", Pattern: `(?i)\bTODO\b`, Message: "TODO found"},
+					{Name: "no-bad", Severity: "error", Pattern: `bad`, Message: "bad word"},
+				},
+			},
+			expected: expected{issueCount: 2, passedCount: 0, score: 65, issueRules: []string{"custom:no-todo", "custom:no-bad"}},
+		},
+		{
+			testName: "multiple rules mixed pass and fail",
+			args: args{
+				content: "TODO: complete this task",
+				customRules: []CustomRule{
+					{Name: "no-todo", Severity: "warning", Pattern: `(?i)\bTODO\b`, Message: "TODO found"},
+					{Name: "no-bad", Severity: "error", Pattern: `bad`, Message: "bad word"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 1, score: 90, issueRules: []string{"custom:no-todo"}},
+		},
+		{
+			testName: "custom rules combined with base issues compound score",
+			args: args{
+				content: "TODO here",
+				baseIssues: []intelligence.LintIssue{
+					{Rule: "missing-output-format", Severity: "warning", Message: "no format"},
+				},
+				customRules: []CustomRule{
+					{Name: "no-todo", Severity: "warning", Pattern: `TODO`, Message: "TODO found"},
+				},
+			},
+			expected: expected{issueCount: 2, passedCount: 0, score: 80, issueRules: []string{"missing-output-format", "custom:no-todo"}},
+		},
+		{
+			testName: "score floors at zero with many custom errors",
+			args: args{
+				content: "a b c d e",
+				customRules: []CustomRule{
+					{Name: "r1", Severity: "error", Pattern: `a`, Message: "m1"},
+					{Name: "r2", Severity: "error", Pattern: `b`, Message: "m2"},
+					{Name: "r3", Severity: "error", Pattern: `c`, Message: "m3"},
+					{Name: "r4", Severity: "error", Pattern: `d`, Message: "m4"},
+					{Name: "r5", Severity: "error", Pattern: `e`, Message: "m5"},
+				},
+			},
+			expected: expected{issueCount: 5, passedCount: 0, score: 0},
+		},
+		{
+			testName: "invalid and valid rules in same batch",
+			args: args{
+				content: "hello world",
+				customRules: []CustomRule{
+					{Name: "valid-rule", Severity: "warning", Pattern: `hello`, Message: "hello found"},
+					{Name: "broken-rule", Severity: "error", Pattern: `[broken`, Message: "should not appear"},
+					{Name: "another-valid", Severity: "info", Pattern: `xyz`, Message: "xyz found"},
+				},
+			},
+			// valid-rule triggers (warning -10), broken-rule becomes info (-5), another-valid passes
+			expected: expected{issueCount: 2, passedCount: 1, score: 85, issueRules: []string{"custom:valid-rule", "custom:broken-rule"}},
+		},
+		// ========== 境界値 (Boundary values) ==========
+		{
+			testName: "unknown severity defaults to info",
+			args: args{
+				content: "trigger",
+				customRules: []CustomRule{
+					{Name: "unknown-sev", Severity: "critical", Pattern: `trigger`, Message: "triggered"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:unknown-sev"}},
+		},
+		{
+			testName: "empty severity defaults to info",
+			args: args{
+				content: "trigger",
+				customRules: []CustomRule{
+					{Name: "empty-sev", Severity: "", Pattern: `trigger`, Message: "triggered"},
+				},
+			},
+			expected: expected{issueCount: 1, passedCount: 0, score: 95, issueRules: []string{"custom:empty-sev"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			result := &intelligence.LintResult{
+				Score:  100,
+				Issues: tt.args.baseIssues,
+				Passed: nil,
+			}
+
+			applyCustomRules(result, tt.args.content, tt.args.customRules)
+
+			if diff := cmp.Diff(tt.expected.score, result.Score); diff != "" {
+				t.Errorf("score mismatch (-want +got):\n%s\nissues: %+v", diff, result.Issues)
+			}
+			if diff := cmp.Diff(tt.expected.issueCount, len(result.Issues)); diff != "" {
+				t.Errorf("issue count mismatch (-want +got):\n%s\nissues: %+v", diff, result.Issues)
+			}
+			if diff := cmp.Diff(tt.expected.passedCount, len(result.Passed)); diff != "" {
+				t.Errorf("passed count mismatch (-want +got):\n%s\npassed: %v", diff, result.Passed)
+			}
+			if len(tt.expected.issueRules) > 0 {
+				rules := make([]string, len(result.Issues))
+				for i, iss := range result.Issues {
+					rules[i] = iss.Rule
+				}
+				if diff := cmp.Diff(tt.expected.issueRules, rules); diff != "" {
+					t.Errorf("issue rules mismatch (-want +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestNormalizeSeverity(t *testing.T) {
+	tests := []struct {
+		testName string
+		input    string
+		expected string
+	}{
+		{testName: "error", input: "error", expected: "error"},
+		{testName: "warning", input: "warning", expected: "warning"},
+		{testName: "info", input: "info", expected: "info"},
+		{testName: "unknown defaults to info", input: "critical", expected: "info"},
+		{testName: "empty defaults to info", input: "", expected: "info"},
+		{testName: "uppercase not matched", input: "ERROR", expected: "info"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			got := normalizeSeverity(tt.input)
+			if diff := cmp.Diff(tt.expected, got); diff != "" {
+				t.Errorf("normalizeSeverity mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestRunLintRulesWithCustomRules(t *testing.T) {
+	// Integration test: verify custom rules are applied after built-in rules
+	type args struct {
+		content     string
+		variables   map[string]bool
+		customRules []CustomRule
+	}
+	type expected struct {
+		score            int
+		minIssueCount    int
+		customIssueRules []string
+	}
+
+	tests := []struct {
+		testName string
+		args     args
+		expected expected
+	}{
+		{
+			testName: "built-in and custom rules both contribute to score",
+			args: args{
+				content:   "Write a good response using {{unknown_var}}.",
+				variables: map[string]bool{},
+				customRules: []CustomRule{
+					{Name: "no-write", Severity: "warning", Pattern: `(?i)\bwrite\b`, Message: "avoid write"},
+				},
+			},
+			expected: expected{
+				score:            50, // missing-output-format(-10) + variable-check(-25) + vague(-5) + custom(-10) = 50
+				minIssueCount:    4,
+				customIssueRules: []string{"custom:no-write"},
+			},
+		},
+		{
+			testName: "custom rules with clean prompt only custom deduction",
+			args: args{
+				content:   "Please respond in JSON format using {{name}}.",
+				variables: map[string]bool{"name": true},
+				customRules: []CustomRule{
+					{Name: "require-version", Severity: "info", Pattern: `v\d+`, Message: "Should include version", Inverted: true},
+				},
+			},
+			expected: expected{
+				score:            95, // all built-in pass, custom info -5
+				minIssueCount:    1,
+				customIssueRules: []string{"custom:require-version"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			vars := tt.args.variables
+			if vars == nil {
+				vars = map[string]bool{}
+			}
+			result := runLintRules(tt.args.content, vars)
+			applyCustomRules(result, tt.args.content, tt.args.customRules)
+
+			if diff := cmp.Diff(tt.expected.score, result.Score); diff != "" {
+				t.Errorf("score mismatch (-want +got):\n%s\nissues: %+v", diff, result.Issues)
+			}
+			if len(result.Issues) < tt.expected.minIssueCount {
+				t.Errorf("expected at least %d issues, got %d: %+v", tt.expected.minIssueCount, len(result.Issues), result.Issues)
+			}
+			var customRules []string
+			for _, iss := range result.Issues {
+				if strings.HasPrefix(iss.Rule, "custom:") {
+					customRules = append(customRules, iss.Rule)
+				}
+			}
+			if diff := cmp.Diff(tt.expected.customIssueRules, customRules); diff != "" {
+				t.Errorf("custom issue rules mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestFindVagueWords(t *testing.T) {
 	tests := []struct {
 		testName string

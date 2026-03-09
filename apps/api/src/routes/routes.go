@@ -107,6 +107,7 @@ func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 					r.Get("/{version}/lint", h.Prompt.GetLint())
 					r.Get("/{version}/text-diff", h.Prompt.GetTextDiff())
 					r.Get("/{version}/analytics", h.Analytics.GetVersionAnalytics())
+					r.Get("/{v1}/{v2}/compare", h.Analytics.CompareVersions())
 				})
 				r.Get("/semantic-diff/{v1}/{v2}", h.Prompt.GetDiff())
 				r.Get("/analytics", h.Analytics.GetPromptAnalytics())
