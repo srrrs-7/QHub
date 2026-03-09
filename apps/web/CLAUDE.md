@@ -38,6 +38,11 @@ Handlers detect HTMX requests (`HX-Request` header) and return:
 
 `client/` package wraps HTTP calls to the backend API. Initialized in `cmd/main.go` with the API base URL.
 
+- `client.Client` interface defines all API methods (50+)
+- `client.APIClient` is the real HTTP implementation
+- `client.MockClient` is a configurable mock for tests (function fields with sensible defaults)
+- Handlers accept `client.Client` interface, not `*APIClient`
+
 ## Commands
 
 ```bash
@@ -59,6 +64,32 @@ docker compose up -d web
 2. Run `make templ-gen` (or `make templ-watch` for auto-rebuild)
 3. Generated `*_templ.go` files are created alongside `.templ` files
 4. Never edit `*_templ.go` files directly — they are regenerated
+
+## Testing
+
+E2E tests use `httptest` with `MockClient` — no DB or running API required:
+
+```bash
+cd apps/web && go test ./...                           # All web tests
+cd apps/web && go test -run TestProjectsPage ./src/handlers/  # Single test
+```
+
+Test files:
+- `handlers/pages_test.go` — All 18 page handlers (status, content-type, HTML content verification)
+- `handlers/partials_test.go` — All 33 partial handlers (CRUD, form parsing, error snackbars)
+- `routes/routes_test.go` — Route existence, method enforcement, 404/405
+
+**Pattern**: Create `MockClient` → Build router via `routes.NewRouter(mock)` → Send `httptest.NewRequest` → Assert response. Override individual mock functions for specific test scenarios:
+
+```go
+mock := &client.MockClient{
+    GetOrganizationFn: func(_ context.Context, _ string) (*client.Organization, error) {
+        return nil, fmt.Errorf("not found")
+    },
+}
+```
+
+Use `client.NewMockClientWithError(err)` to make all API calls return the same error.
 
 ## Dockerfile
 

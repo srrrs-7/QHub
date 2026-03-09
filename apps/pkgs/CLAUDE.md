@@ -47,6 +47,10 @@ HTTP client for the Ollama inference API (`ollama.Client`). Supports streaming (
 
 HTTP client for the Hugging Face Text Embeddings Inference (TEI) API (`embedding.Client`). Methods: `Embed(texts)` for batch, `EmbedOne(text)` for single text, `Health()` for readiness. Configured via `EMBEDDING_URL` env var.
 
+### cache/ - Redis Cache Client
+
+Wraps `go-redis/v9`. Nil-safe design: `nil` client is a no-op (cache is fully optional). `New(url)` returns `*Client`; methods: `Get()`, `Set()`, `Delete()`, `Available()`. Used by DiffService for caching diff results (24h TTL).
+
 ## Commands
 
 ```bash

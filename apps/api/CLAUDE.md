@@ -31,10 +31,14 @@ domain/
   project/            # Project entity, ProjectSlug, repository interface
   prompt/             # Prompt entity, PromptVersion, repository interfaces (PromptRepository, VersionRepository)
 services/
-  diffservice/        # Semantic diff between prompt versions
-  lintservice/        # Prompt quality linting (score 0-100)
-  ragservice/         # RAG pipeline: embed → search → context → Ollama stream
+  diffservice/        # Semantic diff between prompt versions (optional Redis cache)
+  lintservice/        # Prompt quality linting (score 0-100, custom rules)
+  ragservice/         # RAG pipeline: embed → search → context → Ollama stream + citations
   embeddingservice/   # Vector embedding generation + storage (TEI backend)
+  intentservice/      # Rule-based intent classification for consulting chat (EN/JP)
+  actionservice/      # Extract/execute actions from chat responses (create versions)
+  statsservice/       # Welch's t-test for A/B version comparison
+  batchservice/       # Monthly metric aggregation across organizations
   contentutil/        # Shared text extraction + {{variable}} detection
 infra/rds/
   repoerr/            # Shared DB→domain error mapping: Handle(err, repoName, entity)

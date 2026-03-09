@@ -87,13 +87,17 @@ ollama.Client → RAGService → ConsultingHandler
 
 Services handle complex business logic that doesn't fit in repositories:
 
-- **`services/diffservice/`**: Semantic diff between prompt versions (length, variables, tone, specificity analysis + LCS-based text diff)
-- **`services/lintservice/`**: Prompt linting (excessive-length, output-format, variable-check, vague-instructions; score 0-100)
-- **`services/ragservice/`**: RAG pipeline — embed query, search similar prompt versions, build context, stream LLM response via Ollama
-- **`services/embeddingservice/`**: Generate and store vector embeddings for prompt versions (TEI backend); enables semantic search
-- **`services/contentutil/`**: Shared text extraction from JSONB content and `{{variable}}` placeholder detection
+- **`services/diffservice/`**: Semantic diff between prompt versions (length, variables, tone, specificity analysis + LCS-based text diff). Optional Redis caching (24h TTL).
+- **`services/lintservice/`**: Prompt linting (excessive-length, output-format, variable-check, vague-instructions, missing-constraints, prompt-injection-risk; score 0-100). Supports custom regex rules via `LintWithCustomRules`.
+- **`services/ragservice/`**: RAG pipeline — embed query, search similar prompt versions, build context, stream LLM response via Ollama. Includes intent classification and citation extraction.
+- **`services/embeddingservice/`**: Generate and store vector embeddings for prompt versions (TEI backend); enables semantic search.
+- **`services/intentservice/`**: Rule-based intent classifier for consulting chat (EN/JP). 7 intent types: improve, compare, explain, create, compliance, best_practice, general.
+- **`services/actionservice/`**: Extract and execute actions from consulting chat responses (e.g., create prompt versions from code blocks).
+- **`services/statsservice/`**: Welch's t-test for A/B comparing prompt version metrics (latency, tokens, scores). Pure Go implementation (no external stats deps).
+- **`services/batchservice/`**: Monthly metric aggregation across organizations for admin dashboard.
+- **`services/contentutil/`**: Shared text extraction from JSONB content and `{{variable}}` placeholder detection.
 
-Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go`. RAG and embedding services are optional (enabled by `OLLAMA_URI` and `EMBEDDING_URL` env vars).
+Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go`. RAG and embedding services are optional (enabled by `OLLAMA_URI` and `EMBEDDING_URL` env vars). Diff service optionally uses Redis cache (`cache.Client`, nil-safe — nil client is no-op).
 
 ### API Routes (`/api/v1`, Bearer auth)
 
@@ -111,6 +115,7 @@ Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go
 /prompts/{prompt_id}/versions/{version}          GET
 /prompts/{prompt_id}/versions/{version}/status   PUT
 /prompts/{prompt_id}/versions/{v1}/{v2}/diff     GET
+/prompts/{prompt_id}/versions/{v1}/{v2}/compare  GET (Welch's t-test)
 /prompts/{prompt_id}/versions/{version}/lint     GET
 /prompts/{prompt_id}/tags                        GET POST DELETE
 /logs                                            GET POST
@@ -118,7 +123,7 @@ Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go
 /logs/batch                                      POST
 /logs/{log_id}/evaluations                       GET POST
 /evaluations                                     GET
-/evaluations/{id}                                GET
+/evaluations/{id}                                GET PUT
 /consulting/sessions                             GET POST
 /consulting/sessions/{session_id}                GET
 /consulting/sessions/{session_id}/messages       GET POST
@@ -138,7 +143,10 @@ Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go
 /industries/{slug}                               GET PUT
 /industries/{slug}/compliance                    POST
 /industries/{slug}/benchmarks                    GET
+/admin/batch/aggregate                           POST
 ```
+
+Log ingestion routes (`POST /logs`, `POST /logs/batch`) support combined auth: Bearer token or API key (`middleware/combined_auth.go`).
 
 ### Error Handling
 
@@ -193,7 +201,7 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 | Directory | Module Name | Description |
 |-----------|-------------|-------------|
 | `apps/api` | `api` | Backend API (chi, port 8080) |
-| `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/`, `ollama/`, `embedding/` |
+| `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/`, `ollama/`, `embedding/`, `cache/` |
 | `apps/web` | `web` | templ + HTMX frontend (M3 design, port 3000) |
 | `apps/cli` | `cli` | `qhub` CLI (cobra, JSON/table output) |
 | `apps/sdk` | `sdk` | Go SDK module |
@@ -216,6 +224,29 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 
 Devcontainer includes: PostgreSQL 18, Redis, ElasticMQ, Text Embeddings Inference (TEI with `BAAI/bge-m3`).
 Host Ollama accessible via `host.docker.internal:11434` (`OLLAMA_URI` env var).
+
+### Web Frontend Architecture (apps/web)
+
+templ + HTMX server-rendered frontend. Two handler types:
+- **PageHandler**: Full page renders (18 handlers). Returns complete HTML with layout.
+- **PartialHandler**: HTMX partial responses (33 handlers). Returns HTML fragments for dynamic updates.
+
+Both depend on `client.Client` interface (not concrete `*APIClient`), enabling mock-based E2E testing.
+
+**Testing pattern** (no DB required):
+```go
+mock := &client.MockClient{
+    GetOrganizationFn: func(ctx context.Context, slug string) (*client.Organization, error) {
+        return &client.Organization{ID: "org-1", Name: "Test", Slug: slug}, nil
+    },
+}
+router := routes.NewRouter(mock)
+w := httptest.NewRecorder()
+router.ServeHTTP(w, httptest.NewRequest("GET", "/orgs/test/projects", nil))
+// Assert: w.Code, w.Body.String() contains expected HTML
+```
+
+`MockClient` has sensible defaults for all methods. Override individual `Fn` fields. Use `client.NewMockClientWithError(err)` for error scenarios.
 
 ### CI/CD
 
