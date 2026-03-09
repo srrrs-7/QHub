@@ -46,7 +46,11 @@ var searchSemanticCmd = &cobra.Command{
 		if err := apiPost("/api/v1/search/semantic", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printSearchTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -60,7 +64,7 @@ var searchStatusCmd = &cobra.Command{
 		if err := apiGet("/api/v1/search/embedding-status", &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printResult(result)
 		return nil
 	},
 }

@@ -38,7 +38,11 @@ var tagListCmd = &cobra.Command{
 		if err := apiGet(path, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printTagTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -65,7 +69,12 @@ var tagCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/tags", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created tag '" + name + "'")
+		if outputFmt == "table" {
+			printTagTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -79,7 +88,7 @@ var tagDeleteCmd = &cobra.Command{
 		if err := apiDelete("/api/v1/tags/" + args[0]); err != nil {
 			return err
 		}
-		fmt.Println("Tag deleted.")
+		printSuccess("Deleted tag")
 		return nil
 	},
 }
@@ -95,7 +104,12 @@ var tagAddCmd = &cobra.Command{
 		if err := apiPost("/api/v1/prompts/"+args[0]+"/tags", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Added tag to prompt")
+		if outputFmt == "table" {
+			printTagTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -109,7 +123,7 @@ var tagRemoveCmd = &cobra.Command{
 		if err := apiDelete("/api/v1/prompts/" + args[0] + "/tags/" + args[1]); err != nil {
 			return err
 		}
-		fmt.Println("Tag removed.")
+		printSuccess("Removed tag from prompt")
 		return nil
 	},
 }
@@ -124,7 +138,11 @@ var tagListByPromptCmd = &cobra.Command{
 		if err := apiGet("/api/v1/prompts/"+args[0]+"/tags", &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printTagTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }

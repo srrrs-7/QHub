@@ -9,13 +9,23 @@ import (
 var evalCmd = &cobra.Command{
 	Use:     "eval",
 	Aliases: []string{"evaluation"},
-	Short:   "Manage evaluations",
+	Short:   "Manage evaluations (list, view, create, update)",
+	Long:    "Create and view evaluations for execution logs. Evaluations track quality scores including accuracy, relevance, fluency, and safety.",
+	Example: `  # List evaluations for a log
+  qhub eval list --log <log-id>
+
+  # Create an evaluation
+  qhub eval create --log <log-id> --overall-score 0.85 --feedback "Good response"
+
+  # Get evaluation details
+  qhub eval get <eval-id>`,
 }
 
 var evalGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "Get evaluation details",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get <id>",
+	Short:   "Get evaluation details by ID",
+	Example: "  qhub eval get <eval-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/evaluations/"+args[0], &result); err != nil {
@@ -31,8 +41,9 @@ var evalGetCmd = &cobra.Command{
 }
 
 var evalListCmd = &cobra.Command{
-	Use:   "list --log <log-id>",
-	Short: "List evaluations for an execution log",
+	Use:     "list --log <log-id>",
+	Short:   "List all evaluations for an execution log",
+	Example: "  qhub eval list --log <log-id>",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logID, _ := cmd.Flags().GetString("log")
 		if logID == "" {
@@ -53,7 +64,13 @@ var evalListCmd = &cobra.Command{
 
 var evalCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create an evaluation",
+	Short: "Create an evaluation for an execution log",
+	Example: `  # Human evaluation with overall score
+  qhub eval create --log <log-id> --overall-score 0.9 --feedback "Excellent"
+
+  # Detailed scoring
+  qhub eval create --log <log-id> --accuracy-score 0.85 --relevance-score 0.9 \
+    --fluency-score 0.95 --safety-score 1.0 --evaluator-type auto`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logID, _ := cmd.Flags().GetString("log")
 		overall, _ := cmd.Flags().GetString("overall-score")
@@ -105,9 +122,10 @@ var evalCreateCmd = &cobra.Command{
 }
 
 var evalUpdateCmd = &cobra.Command{
-	Use:   "update <id>",
-	Short: "Update an evaluation",
-	Args:  cobra.ExactArgs(1),
+	Use:     "update <id>",
+	Short:   "Update an existing evaluation's scores or feedback",
+	Example: "  qhub eval update <eval-id> --overall-score 0.95 --feedback \"Revised assessment\"",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		body := map[string]any{}
 

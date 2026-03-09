@@ -48,7 +48,11 @@ var memberListCmd = &cobra.Command{
 		if err := apiGet(memberPath(), &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printMemberTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -71,7 +75,12 @@ var memberAddCmd = &cobra.Command{
 		if err := apiPost(memberPath(), body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Added member to organization")
+		if outputFmt == "table" {
+			printMemberTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -92,7 +101,11 @@ var memberUpdateCmd = &cobra.Command{
 		if err := apiPut(memberPath(args[0]), body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printMemberTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -106,7 +119,7 @@ var memberRemoveCmd = &cobra.Command{
 		if err := apiDelete(memberPath(args[0])); err != nil {
 			return err
 		}
-		fmt.Println("Member removed.")
+		printSuccess("Removed member from organization")
 		return nil
 	},
 }

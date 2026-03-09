@@ -8,14 +8,28 @@ import (
 
 var consultingCmd = &cobra.Command{
 	Use:   "consulting",
-	Short: "Manage consulting sessions and messages",
+	Short: "Manage AI consulting sessions and messages",
+	Long:  "Create and manage AI consulting chat sessions with optional industry-specific configurations.",
+	Example: `  # Create a new consulting session
+  qhub consulting create-session --org <org-id> --title "Prompt optimization"
+
+  # List sessions
+  qhub consulting sessions --org <org-id>
+
+  # Send a message
+  qhub consulting send <session-id> "How can I improve my prompt?"
+
+  # View conversation history
+  qhub consulting messages <session-id>`,
 }
 
 // --- Sessions ---
 
 var sessionListCmd = &cobra.Command{
 	Use:   "sessions",
-	Short: "List consulting sessions",
+	Short: "List consulting sessions, optionally filtered by organization",
+	Example: `  qhub consulting sessions
+  qhub consulting sessions --org <org-id>`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		orgID, _ := cmd.Flags().GetString("org")
 		path := "/api/v1/consulting/sessions"
@@ -26,28 +40,39 @@ var sessionListCmd = &cobra.Command{
 		if err := apiGet(path, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printSessionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
 
 var sessionGetCmd = &cobra.Command{
-	Use:   "session <id>",
-	Short: "Get consulting session details",
-	Args:  cobra.ExactArgs(1),
+	Use:     "session <id>",
+	Short:   "Get consulting session details by ID",
+	Example: "  qhub consulting session <session-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/consulting/sessions/"+args[0], &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printSessionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
 
 var sessionCreateCmd = &cobra.Command{
 	Use:   "create-session",
-	Short: "Create a consulting session",
+	Short: "Create a new consulting session",
+	Example: `  qhub consulting create-session --org <org-id> --title "Prompt optimization"
+  qhub consulting create-session --org <org-id> --title "Healthcare prompts" --industry <industry-id>`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		orgID, _ := cmd.Flags().GetString("org")
 		title, _ := cmd.Flags().GetString("title")
@@ -69,7 +94,12 @@ var sessionCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/consulting/sessions", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created consulting session")
+		if outputFmt == "table" {
+			printSessionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -77,15 +107,20 @@ var sessionCreateCmd = &cobra.Command{
 // --- Messages ---
 
 var messageListCmd = &cobra.Command{
-	Use:   "messages <session-id>",
-	Short: "List messages in a consulting session",
-	Args:  cobra.ExactArgs(1),
+	Use:     "messages <session-id>",
+	Short:   "List all messages in a consulting session",
+	Example: "  qhub consulting messages <session-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/consulting/sessions/"+args[0]+"/messages", &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printMessageTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -93,7 +128,9 @@ var messageListCmd = &cobra.Command{
 var messageSendCmd = &cobra.Command{
 	Use:   "send <session-id> <message>",
 	Short: "Send a message to a consulting session",
-	Args:  cobra.ExactArgs(2),
+	Example: `  qhub consulting send <session-id> "How can I improve my prompt?"
+  qhub consulting send <session-id> "Use a more formal tone" --role system`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		role, _ := cmd.Flags().GetString("role")
 
@@ -105,22 +142,32 @@ var messageSendCmd = &cobra.Command{
 		if err := apiPost("/api/v1/consulting/sessions/"+args[0]+"/messages", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printMessageTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
 
 var sessionCloseCmd = &cobra.Command{
-	Use:   "close <session-id>",
-	Short: "Close a consulting session",
-	Args:  cobra.ExactArgs(1),
+	Use:     "close <session-id>",
+	Short:   "Close a consulting session",
+	Example: "  qhub consulting close <session-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		body := map[string]string{"status": "closed"}
 		var result any
 		if err := apiPut("/api/v1/consulting/sessions/"+args[0], body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Closed consulting session")
+		if outputFmt == "table" {
+			printSessionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }

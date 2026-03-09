@@ -37,7 +37,11 @@ var industryListCmd = &cobra.Command{
 		if err := apiGet("/api/v1/industries", &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printIndustryTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -52,7 +56,11 @@ var industryGetCmd = &cobra.Command{
 		if err := apiGet("/api/v1/industries/"+args[0], &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printIndustryTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -80,7 +88,11 @@ var industryCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/industries", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printIndustryTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -103,7 +115,11 @@ var industryUpdateCmd = &cobra.Command{
 		if err := apiPut("/api/v1/industries/"+args[0], body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printIndustryTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -118,7 +134,11 @@ var industryBenchmarksCmd = &cobra.Command{
 		if err := apiGet("/api/v1/industries/"+args[0]+"/benchmarks", &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printIndustryTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -166,7 +186,11 @@ var industryComplianceCmd = &cobra.Command{
 		if err := apiPost("/api/v1/industries/"+args[0]+"/compliance-check", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printIndustryTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }

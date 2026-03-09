@@ -21,7 +21,7 @@ var adminAggregateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/admin/batch/aggregate", nil, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printResult(result)
 		return nil
 	},
 }

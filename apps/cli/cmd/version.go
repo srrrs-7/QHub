@@ -13,7 +13,25 @@ var versionPromptID string
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Manage prompt versions",
+	Short: "Manage prompt versions (create, promote, diff, lint)",
+	Long:  "Manage prompt versions including creation, lifecycle promotion, semantic diffing, and quality linting.",
+	Example: `  # List all versions of a prompt
+  qhub version --prompt <id> list
+
+  # Create a new version
+  qhub version --prompt <id> create --content "You are a helpful assistant"
+
+  # Get the production version
+  qhub version --prompt <id> get production
+
+  # Promote a version from draft to review
+  qhub version --prompt <id> promote 3
+
+  # Lint a version for quality issues
+  qhub version --prompt <id> lint 3
+
+  # Compare two versions
+  qhub version --prompt <id> diff 1 2`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if versionPromptID == "" {
 			return fmt.Errorf("--prompt is required")
@@ -31,8 +49,9 @@ func versionPath(parts ...string) string {
 }
 
 var versionListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List versions of a prompt",
+	Use:     "list",
+	Short:   "List all versions of a prompt",
+	Example: "  qhub version --prompt <id> list",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var versions any
 		if err := apiGet(versionPath(), &versions); err != nil {
@@ -49,8 +68,11 @@ var versionListCmd = &cobra.Command{
 
 var versionGetCmd = &cobra.Command{
 	Use:   "get <number|latest|production>",
-	Short: "Get a specific version",
-	Args:  cobra.ExactArgs(1),
+	Short: "Get a specific version by number or alias",
+	Example: `  qhub version --prompt <id> get 3
+  qhub version --prompt <id> get latest
+  qhub version --prompt <id> get production`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var version any
 		if err := apiGet(versionPath(args[0]), &version); err != nil {
@@ -67,8 +89,19 @@ var versionGetCmd = &cobra.Command{
 
 var versionCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a new version",
-	Long:  "Create a new version. Provide content via --content or --content-file (use - for stdin).",
+	Short: "Create a new prompt version",
+	Long:  "Create a new prompt version. Content can be provided inline, from a file, or from stdin.",
+	Example: `  # Create from inline content
+  qhub version --prompt <id> create --content "You are a helpful assistant"
+
+  # Create from a file
+  qhub version --prompt <id> create --content-file prompt.txt
+
+  # Create from stdin
+  cat prompt.txt | qhub version --prompt <id> create --content-file -
+
+  # Create with variables and change description
+  qhub version --prompt <id> create --content "Hello {{name}}" --variables name --change-description "Added greeting"`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		content, _ := cmd.Flags().GetString("content")
 		contentFile, _ := cmd.Flags().GetString("content-file")
@@ -129,8 +162,14 @@ var versionCreateCmd = &cobra.Command{
 
 var versionPromoteCmd = &cobra.Command{
 	Use:   "promote <version-number>",
-	Short: "Promote a version (draft->review->production)",
-	Args:  cobra.ExactArgs(1),
+	Short: "Promote a version to the next lifecycle stage",
+	Long:  "Promote a version through the lifecycle: draft -> review -> production.",
+	Example: `  # Promote version 3 from draft to review
+  qhub version --prompt <id> promote 3
+
+  # Promote again from review to production
+  qhub version --prompt <id> promote 3`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var current map[string]any
 		if err := apiGet(versionPath(args[0]), &current); err != nil {
@@ -159,8 +198,10 @@ var versionPromoteCmd = &cobra.Command{
 
 var versionStatusCmd = &cobra.Command{
 	Use:   "status <version-number> <status>",
-	Short: "Set version status (draft, review, production, archived)",
-	Args:  cobra.ExactArgs(2),
+	Short: "Set version status directly (draft, review, production, archived)",
+	Example: `  qhub version --prompt <id> status 3 review
+  qhub version --prompt <id> status 2 archived`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiPut(versionPath(args[0], "status"), map[string]string{"status": args[1]}, &result); err != nil {
@@ -176,9 +217,11 @@ var versionStatusCmd = &cobra.Command{
 }
 
 var versionDiffCmd = &cobra.Command{
-	Use:   "diff <v1> <v2>",
-	Short: "Get semantic diff between two versions",
-	Args:  cobra.ExactArgs(2),
+	Use:     "diff <v1> <v2>",
+	Short:   "Compare two versions with semantic diff analysis",
+	Long:    "Get a semantic diff between two versions including length, variables, tone, and specificity changes.",
+	Example: "  qhub version --prompt <id> diff 1 2",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		path := "/api/v1/prompts/" + versionPromptID + "/semantic-diff/" + args[0] + "/" + args[1]
@@ -196,8 +239,13 @@ var versionDiffCmd = &cobra.Command{
 
 var versionTextDiffCmd = &cobra.Command{
 	Use:   "text-diff <version>",
-	Short: "Get line-by-line text diff (against previous version)",
-	Args:  cobra.ExactArgs(1),
+	Short: "Get line-by-line text diff against the previous version",
+	Example: `  # Diff against previous version
+  qhub version --prompt <id> text-diff 3
+
+  # Diff against a specific base version
+  qhub version --prompt <id> text-diff 3 --from 1`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		from, _ := cmd.Flags().GetString("from")
 		path := versionPath(args[0], "text-diff")
@@ -218,9 +266,11 @@ var versionTextDiffCmd = &cobra.Command{
 }
 
 var versionLintCmd = &cobra.Command{
-	Use:   "lint <version>",
-	Short: "Lint a prompt version",
-	Args:  cobra.ExactArgs(1),
+	Use:     "lint <version>",
+	Short:   "Lint a prompt version for quality issues (score 0-100)",
+	Long:    "Run quality checks on a prompt version including excessive-length, output-format, variable-check, and vague-instructions analysis.",
+	Example: "  qhub version --prompt <id> lint 3",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet(versionPath(args[0], "lint"), &result); err != nil {
@@ -236,9 +286,11 @@ var versionLintCmd = &cobra.Command{
 }
 
 var versionCompareCmd = &cobra.Command{
-	Use:   "compare <v1> <v2>",
-	Short: "Statistical comparison between two versions",
-	Args:  cobra.ExactArgs(2),
+	Use:     "compare <v1> <v2>",
+	Short:   "Run statistical A/B comparison between two versions",
+	Long:    "Compare execution metrics between two versions using statistical analysis.",
+	Example: "  qhub version --prompt <id> compare 1 2",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		path := "/api/v1/prompts/" + versionPromptID + "/versions/" + args[0] + "/" + args[1] + "/compare"

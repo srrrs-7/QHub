@@ -44,7 +44,7 @@ var healthCmd = &cobra.Command{
 		if err := json.NewDecoder(bytes.NewReader(body)).Decode(&result); err != nil {
 			return fmt.Errorf("decoding response: %w", err)
 		}
-		printJSON(result)
+		printResult(result)
 		return nil
 	},
 }

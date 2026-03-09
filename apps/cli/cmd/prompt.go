@@ -10,7 +10,16 @@ var promptProjectID string
 
 var promptCmd = &cobra.Command{
 	Use:   "prompt",
-	Short: "Manage prompts",
+	Short: "Manage prompts (list, create, view, update)",
+	Long:  "Manage prompts within a project. Prompts are templates that can have multiple versions.",
+	Example: `  # List prompts in a project
+  qhub prompt --project <proj-id> list
+
+  # Create a new prompt
+  qhub prompt --project <proj-id> create --name "Greeting" --slug greeting --type system
+
+  # Get prompt details
+  qhub prompt --project <proj-id> get greeting`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if promptProjectID == "" {
 			return fmt.Errorf("--project is required")
@@ -20,8 +29,9 @@ var promptCmd = &cobra.Command{
 }
 
 var promptListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List prompts in a project",
+	Use:     "list",
+	Short:   "List all prompts in a project",
+	Example: "  qhub prompt --project <proj-id> list",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var prompts any
 		if err := apiGet("/api/v1/projects/"+promptProjectID+"/prompts", &prompts); err != nil {
@@ -37,9 +47,10 @@ var promptListCmd = &cobra.Command{
 }
 
 var promptGetCmd = &cobra.Command{
-	Use:   "get <slug>",
-	Short: "Get prompt details",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get <slug>",
+	Short:   "Get prompt details by slug",
+	Example: "  qhub prompt --project <proj-id> get greeting",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var prompt any
 		if err := apiGet("/api/v1/projects/"+promptProjectID+"/prompts/"+args[0], &prompt); err != nil {
@@ -56,7 +67,9 @@ var promptGetCmd = &cobra.Command{
 
 var promptCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a prompt",
+	Short: "Create a new prompt in a project",
+	Example: `  qhub prompt --project <proj-id> create --name "Greeting" --slug greeting
+  qhub prompt --project <proj-id> create --name "Summary" --slug summary --type user --description "Summarization prompt"`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		name, _ := cmd.Flags().GetString("name")
 		slug, _ := cmd.Flags().GetString("slug")
@@ -86,9 +99,10 @@ var promptCreateCmd = &cobra.Command{
 }
 
 var promptUpdateCmd = &cobra.Command{
-	Use:   "update <slug>",
-	Short: "Update a prompt",
-	Args:  cobra.ExactArgs(1),
+	Use:     "update <slug>",
+	Short:   "Update an existing prompt",
+	Example: "  qhub prompt --project <proj-id> update greeting --name \"Welcome Greeting\"",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		body := map[string]string{}
 

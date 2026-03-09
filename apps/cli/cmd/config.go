@@ -5,8 +5,9 @@ import (
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Show current configuration",
+	Use:     "config",
+	Short:   "Show current CLI configuration (API URL, token, output format)",
+	Example: "  qhub config",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		masked := authToken
 		if len(masked) > 8 {
@@ -20,7 +21,7 @@ var configCmd = &cobra.Command{
 			"token":   masked,
 			"output":  outputFmt,
 		}
-		printJSON(config)
+		printResult(config)
 		return nil
 	},
 }

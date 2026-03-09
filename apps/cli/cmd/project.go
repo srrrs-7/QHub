@@ -11,7 +11,19 @@ var projectOrgID string
 var projectCmd = &cobra.Command{
 	Use:     "project",
 	Aliases: []string{"proj"},
-	Short:   "Manage projects",
+	Short:   "Manage projects (list, create, view, update, delete)",
+	Long:    "Manage projects within an organization. Projects group related prompts together.",
+	Example: `  # List all projects in an organization
+  qhub project --org <org-id> list
+
+  # Create a new project
+  qhub project --org <org-id> create --name "Chatbot" --slug chatbot
+
+  # Get project details
+  qhub project --org <org-id> get chatbot
+
+  # Delete a project
+  qhub project --org <org-id> delete chatbot`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if projectOrgID == "" {
 			return fmt.Errorf("--org is required")
@@ -21,8 +33,9 @@ var projectCmd = &cobra.Command{
 }
 
 var projectListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List projects in an organization",
+	Use:     "list",
+	Short:   "List all projects in an organization",
+	Example: "  qhub project --org <org-id> list",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var projects any
 		if err := apiGet("/api/v1/organizations/"+projectOrgID+"/projects", &projects); err != nil {
@@ -38,9 +51,10 @@ var projectListCmd = &cobra.Command{
 }
 
 var projectGetCmd = &cobra.Command{
-	Use:   "get <slug>",
-	Short: "Get project details",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get <slug>",
+	Short:   "Get project details by slug",
+	Example: "  qhub project --org <org-id> get chatbot",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var project any
 		if err := apiGet("/api/v1/organizations/"+projectOrgID+"/projects/"+args[0], &project); err != nil {
@@ -57,7 +71,9 @@ var projectGetCmd = &cobra.Command{
 
 var projectCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a project",
+	Short: "Create a new project in an organization",
+	Example: `  qhub project --org <org-id> create --name "Chatbot" --slug chatbot
+  qhub project --org <org-id> create --name "Support" --slug support --description "Customer support prompts"`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		name, _ := cmd.Flags().GetString("name")
 		slug, _ := cmd.Flags().GetString("slug")
@@ -85,9 +101,10 @@ var projectCreateCmd = &cobra.Command{
 }
 
 var projectDeleteCmd = &cobra.Command{
-	Use:   "delete <slug>",
-	Short: "Delete a project",
-	Args:  cobra.ExactArgs(1),
+	Use:     "delete <slug>",
+	Short:   "Delete a project by slug",
+	Example: "  qhub project --org <org-id> delete chatbot",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if err := apiDelete("/api/v1/organizations/" + projectOrgID + "/projects/" + args[0]); err != nil {
 			return err
@@ -98,9 +115,10 @@ var projectDeleteCmd = &cobra.Command{
 }
 
 var projectUpdateCmd = &cobra.Command{
-	Use:   "update <slug>",
-	Short: "Update a project",
-	Args:  cobra.ExactArgs(1),
+	Use:     "update <slug>",
+	Short:   "Update an existing project",
+	Example: "  qhub project --org <org-id> update chatbot --name \"AI Chatbot\" --description \"Updated description\"",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		body := map[string]string{}
 

@@ -46,7 +46,11 @@ var apikeyListCmd = &cobra.Command{
 		if err := apiGet(apikeyPath(), &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printAPIKeyTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -69,7 +73,12 @@ var apikeyCreateCmd = &cobra.Command{
 		if err := apiPost(apikeyPath(), body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created API key '" + name + "'")
+		if outputFmt == "table" {
+			printAPIKeyTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -83,7 +92,7 @@ var apikeyDeleteCmd = &cobra.Command{
 		if err := apiDelete(apikeyPath(args[0])); err != nil {
 			return err
 		}
-		fmt.Println("API key revoked.")
+		printSuccess("Revoked API key")
 		return nil
 	},
 }
