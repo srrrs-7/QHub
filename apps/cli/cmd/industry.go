@@ -10,12 +10,28 @@ import (
 
 var industryCmd = &cobra.Command{
 	Use:   "industry",
-	Short: "Manage industry configurations",
+	Short: "Manage industry configurations and compliance",
+	Long:  "Manage industry-specific configurations including compliance rules and benchmarks for prompt quality.",
+	Example: `  # List available industries
+  qhub industry list
+
+  # Get industry details
+  qhub industry get healthcare
+
+  # Create an industry configuration
+  qhub industry create --name "Healthcare" --slug healthcare
+
+  # Run compliance check
+  qhub industry compliance-check healthcare --content "Your prompt text"
+
+  # View benchmarks
+  qhub industry benchmarks healthcare`,
 }
 
 var industryListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List industry configurations",
+	Use:     "list",
+	Short:   "List all available industry configurations",
+	Example: "  qhub industry list",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var result any
 		if err := apiGet("/api/v1/industries", &result); err != nil {
@@ -27,9 +43,10 @@ var industryListCmd = &cobra.Command{
 }
 
 var industryGetCmd = &cobra.Command{
-	Use:   "get <slug>",
-	Short: "Get industry configuration by slug",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get <slug>",
+	Short:   "Get industry configuration details by slug",
+	Example: "  qhub industry get healthcare",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/industries/"+args[0], &result); err != nil {
@@ -42,7 +59,9 @@ var industryGetCmd = &cobra.Command{
 
 var industryCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create an industry configuration",
+	Short: "Create a new industry configuration",
+	Example: `  qhub industry create --name "Healthcare" --slug healthcare
+  qhub industry create --name "Finance" --slug finance --description "Financial services compliance"`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		name, _ := cmd.Flags().GetString("name")
 		slug, _ := cmd.Flags().GetString("slug")
@@ -67,9 +86,10 @@ var industryCreateCmd = &cobra.Command{
 }
 
 var industryUpdateCmd = &cobra.Command{
-	Use:   "update <slug>",
-	Short: "Update an industry configuration",
-	Args:  cobra.ExactArgs(1),
+	Use:     "update <slug>",
+	Short:   "Update an existing industry configuration",
+	Example: "  qhub industry update healthcare --name \"Healthcare & Life Sciences\"",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		body := map[string]any{}
 		if name, _ := cmd.Flags().GetString("name"); name != "" {
@@ -89,9 +109,10 @@ var industryUpdateCmd = &cobra.Command{
 }
 
 var industryBenchmarksCmd = &cobra.Command{
-	Use:   "benchmarks <slug>",
-	Short: "List benchmarks for an industry",
-	Args:  cobra.ExactArgs(1),
+	Use:     "benchmarks <slug>",
+	Short:   "List quality benchmarks for an industry",
+	Example: "  qhub industry benchmarks healthcare",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/industries/"+args[0]+"/benchmarks", &result); err != nil {
@@ -104,9 +125,17 @@ var industryBenchmarksCmd = &cobra.Command{
 
 var industryComplianceCmd = &cobra.Command{
 	Use:   "compliance-check <slug>",
-	Short: "Run compliance check against industry rules",
-	Long:  "Check prompt content against industry compliance rules. Provide content via --content or --file.",
-	Args:  cobra.ExactArgs(1),
+	Short: "Check prompt content against industry compliance rules",
+	Long:  "Run a compliance check on prompt content against industry-specific rules. Provide content via --content or --file (use - for stdin).",
+	Example: `  # Check inline content
+  qhub industry compliance-check healthcare --content "Your prompt text here"
+
+  # Check content from a file
+  qhub industry compliance-check finance --file prompt.txt
+
+  # Check content from stdin
+  cat prompt.txt | qhub industry compliance-check healthcare --file -`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		content, _ := cmd.Flags().GetString("content")
 		file, _ := cmd.Flags().GetString("file")

@@ -110,9 +110,24 @@ var messageSendCmd = &cobra.Command{
 	},
 }
 
+var sessionCloseCmd = &cobra.Command{
+	Use:   "close <session-id>",
+	Short: "Close a consulting session",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		body := map[string]string{"status": "closed"}
+		var result any
+		if err := apiPut("/api/v1/consulting/sessions/"+args[0], body, &result); err != nil {
+			return err
+		}
+		printJSON(result)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(consultingCmd)
-	consultingCmd.AddCommand(sessionListCmd, sessionGetCmd, sessionCreateCmd, messageListCmd, messageSendCmd)
+	consultingCmd.AddCommand(sessionListCmd, sessionGetCmd, sessionCreateCmd, messageListCmd, messageSendCmd, sessionCloseCmd)
 
 	sessionListCmd.Flags().String("org", "", "Filter by organization ID")
 

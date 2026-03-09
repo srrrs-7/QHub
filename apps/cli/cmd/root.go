@@ -20,9 +20,29 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "qhub",
-	Short: "PromptLab CLI - LLM prompt version management",
-	Long:  `qhub is a CLI for PromptLab, providing prompt version management, quality tracking, and lifecycle control.`,
+	Use:     "qhub",
+	Short:   "QHub CLI — Prompt version management and intelligence",
+	Version: "0.1.0",
+	Long: `QHub is a prompt/answer version management system with consulting,
+execution logging, and prompt intelligence features.
+
+Key features:
+  • Prompt version management with lifecycle (draft -> review -> production)
+  • Semantic diff and quality linting for prompt versions
+  • Execution log tracking and evaluation analytics
+  • AI consulting chat sessions with industry-specific configurations
+  • Semantic search across prompts via embeddings
+  • Organization, project, and member management
+
+Environment variables:
+  QHUB_API_URL   API server URL (default: http://localhost:8080)
+  QHUB_TOKEN     Authentication token (default: dev-token)
+
+Get started:
+  qhub org create --name "My Org" --slug my-org
+  qhub project --org <org-id> create --name "My Project" --slug my-proj
+  qhub prompt --project <proj-id> create --name "My Prompt" --slug my-prompt
+  qhub version --prompt <prompt-id> create --content "You are a helpful assistant"`,
 }
 
 func Execute() error {
@@ -32,7 +52,7 @@ func Execute() error {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", envOrDefault("QHUB_API_URL", "http://localhost:8080"), "API server URL")
 	rootCmd.PersistentFlags().StringVar(&authToken, "token", envOrDefault("QHUB_TOKEN", "dev-token"), "Authentication token")
-	rootCmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "Output format: json, table")
+	rootCmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format: table, json")
 }
 
 func envOrDefault(key, def string) string {

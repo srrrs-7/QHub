@@ -28,7 +28,11 @@ var projectListCmd = &cobra.Command{
 		if err := apiGet("/api/v1/organizations/"+projectOrgID+"/projects", &projects); err != nil {
 			return err
 		}
-		printJSON(projects)
+		if outputFmt == "table" {
+			printProjectTable(projects)
+		} else {
+			printJSON(projects)
+		}
 		return nil
 	},
 }
@@ -42,7 +46,11 @@ var projectGetCmd = &cobra.Command{
 		if err := apiGet("/api/v1/organizations/"+projectOrgID+"/projects/"+args[0], &project); err != nil {
 			return err
 		}
-		printJSON(project)
+		if outputFmt == "table" {
+			printProjectTable(project)
+		} else {
+			printJSON(project)
+		}
 		return nil
 	},
 }
@@ -66,7 +74,12 @@ var projectCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/organizations/"+projectOrgID+"/projects", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created project '" + slug + "'")
+		if outputFmt == "table" {
+			printProjectTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -79,7 +92,40 @@ var projectDeleteCmd = &cobra.Command{
 		if err := apiDelete("/api/v1/organizations/" + projectOrgID + "/projects/" + args[0]); err != nil {
 			return err
 		}
-		fmt.Println("Project deleted.")
+		printSuccess("Deleted project '" + args[0] + "'")
+		return nil
+	},
+}
+
+var projectUpdateCmd = &cobra.Command{
+	Use:   "update <slug>",
+	Short: "Update a project",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		body := map[string]string{}
+
+		if cmd.Flags().Changed("name") {
+			name, _ := cmd.Flags().GetString("name")
+			body["name"] = name
+		}
+		if cmd.Flags().Changed("description") {
+			desc, _ := cmd.Flags().GetString("description")
+			body["description"] = desc
+		}
+
+		if len(body) == 0 {
+			return fmt.Errorf("at least one of --name or --description must be provided")
+		}
+
+		var result any
+		if err := apiPut("/api/v1/organizations/"+projectOrgID+"/projects/"+args[0], body, &result); err != nil {
+			return err
+		}
+		if outputFmt == "table" {
+			printProjectTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -88,9 +134,12 @@ func init() {
 	rootCmd.AddCommand(projectCmd)
 	projectCmd.PersistentFlags().StringVar(&projectOrgID, "org", "", "Organization ID (required)")
 
-	projectCmd.AddCommand(projectListCmd, projectGetCmd, projectCreateCmd, projectDeleteCmd)
+	projectCmd.AddCommand(projectListCmd, projectGetCmd, projectCreateCmd, projectDeleteCmd, projectUpdateCmd)
 
 	projectCreateCmd.Flags().String("name", "", "Project name (required)")
 	projectCreateCmd.Flags().String("slug", "", "Project slug (required)")
 	projectCreateCmd.Flags().String("description", "", "Project description")
+
+	projectUpdateCmd.Flags().String("name", "", "Project name")
+	projectUpdateCmd.Flags().String("description", "", "Project description")
 }

@@ -8,12 +8,26 @@ import (
 
 var tagCmd = &cobra.Command{
 	Use:   "tag",
-	Short: "Manage tags",
+	Short: "Manage tags (create, delete, assign to prompts)",
+	Long:  "Create, delete, and assign tags to prompts for organization and filtering.",
+	Example: `  # List all tags
+  qhub tag list --org <org-id>
+
+  # Create a tag
+  qhub tag create --org <org-id> --name "production" --color green
+
+  # Add a tag to a prompt
+  qhub tag add <prompt-id> <tag-id>
+
+  # List tags on a prompt
+  qhub tag list-by-prompt <prompt-id>`,
 }
 
 var tagListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List tags",
+	Short: "List tags, optionally filtered by organization",
+	Example: `  qhub tag list
+  qhub tag list --org <org-id>`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		orgID, _ := cmd.Flags().GetString("org")
 		path := "/api/v1/tags"
@@ -30,8 +44,9 @@ var tagListCmd = &cobra.Command{
 }
 
 var tagCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create a tag",
+	Use:     "create",
+	Short:   "Create a new tag in an organization",
+	Example: `  qhub tag create --org <org-id> --name "production" --color green`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		orgID, _ := cmd.Flags().GetString("org")
 		name, _ := cmd.Flags().GetString("name")
@@ -56,9 +71,10 @@ var tagCreateCmd = &cobra.Command{
 }
 
 var tagDeleteCmd = &cobra.Command{
-	Use:   "delete <id>",
-	Short: "Delete a tag",
-	Args:  cobra.ExactArgs(1),
+	Use:     "delete <id>",
+	Short:   "Delete a tag by ID",
+	Example: "  qhub tag delete <tag-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if err := apiDelete("/api/v1/tags/" + args[0]); err != nil {
 			return err
@@ -69,9 +85,10 @@ var tagDeleteCmd = &cobra.Command{
 }
 
 var tagAddCmd = &cobra.Command{
-	Use:   "add <prompt-id> <tag-id>",
-	Short: "Add a tag to a prompt",
-	Args:  cobra.ExactArgs(2),
+	Use:     "add <prompt-id> <tag-id>",
+	Short:   "Assign a tag to a prompt",
+	Example: "  qhub tag add <prompt-id> <tag-id>",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		body := map[string]string{"tag_id": args[1]}
 		var result any
@@ -84,9 +101,10 @@ var tagAddCmd = &cobra.Command{
 }
 
 var tagRemoveCmd = &cobra.Command{
-	Use:   "remove <prompt-id> <tag-id>",
-	Short: "Remove a tag from a prompt",
-	Args:  cobra.ExactArgs(2),
+	Use:     "remove <prompt-id> <tag-id>",
+	Short:   "Remove a tag from a prompt",
+	Example: "  qhub tag remove <prompt-id> <tag-id>",
+	Args:    cobra.ExactArgs(2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if err := apiDelete("/api/v1/prompts/" + args[0] + "/tags/" + args[1]); err != nil {
 			return err
@@ -97,9 +115,10 @@ var tagRemoveCmd = &cobra.Command{
 }
 
 var tagListByPromptCmd = &cobra.Command{
-	Use:   "list-by-prompt <prompt-id>",
-	Short: "List tags for a prompt",
-	Args:  cobra.ExactArgs(1),
+	Use:     "list-by-prompt <prompt-id>",
+	Short:   "List all tags assigned to a specific prompt",
+	Example: "  qhub tag list-by-prompt <prompt-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/prompts/"+args[0]+"/tags", &result); err != nil {

@@ -21,7 +21,11 @@ var evalGetCmd = &cobra.Command{
 		if err := apiGet("/api/v1/evaluations/"+args[0], &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printEvalTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -38,7 +42,11 @@ var evalListCmd = &cobra.Command{
 		if err := apiGet("/api/v1/logs/"+logID+"/evaluations", &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printEvalTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -87,14 +95,67 @@ var evalCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/evaluations", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printEvalTable(result)
+		} else {
+			printJSON(result)
+		}
+		return nil
+	},
+}
+
+var evalUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update an evaluation",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		body := map[string]any{}
+
+		if cmd.Flags().Changed("overall-score") {
+			v, _ := cmd.Flags().GetString("overall-score")
+			body["overall_score"] = v
+		}
+		if cmd.Flags().Changed("accuracy-score") {
+			v, _ := cmd.Flags().GetString("accuracy-score")
+			body["accuracy_score"] = v
+		}
+		if cmd.Flags().Changed("relevance-score") {
+			v, _ := cmd.Flags().GetString("relevance-score")
+			body["relevance_score"] = v
+		}
+		if cmd.Flags().Changed("fluency-score") {
+			v, _ := cmd.Flags().GetString("fluency-score")
+			body["fluency_score"] = v
+		}
+		if cmd.Flags().Changed("safety-score") {
+			v, _ := cmd.Flags().GetString("safety-score")
+			body["safety_score"] = v
+		}
+		if cmd.Flags().Changed("feedback") {
+			v, _ := cmd.Flags().GetString("feedback")
+			body["feedback"] = v
+		}
+
+		if len(body) == 0 {
+			return fmt.Errorf("at least one flag must be provided")
+		}
+
+		var result any
+		if err := apiPut("/api/v1/evaluations/"+args[0], body, &result); err != nil {
+			return err
+		}
+		if outputFmt == "table" {
+			printEvalTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(evalCmd)
-	evalCmd.AddCommand(evalGetCmd, evalListCmd, evalCreateCmd)
+	evalCmd.AddCommand(evalGetCmd, evalListCmd, evalCreateCmd, evalUpdateCmd)
 
 	evalListCmd.Flags().String("log", "", "Execution log ID (required)")
 
@@ -106,4 +167,11 @@ func init() {
 	evalCreateCmd.Flags().String("safety-score", "", "Safety score")
 	evalCreateCmd.Flags().String("feedback", "", "Feedback text")
 	evalCreateCmd.Flags().String("evaluator-type", "human", "Evaluator type: human, auto")
+
+	evalUpdateCmd.Flags().String("overall-score", "", "Overall score")
+	evalUpdateCmd.Flags().String("accuracy-score", "", "Accuracy score")
+	evalUpdateCmd.Flags().String("relevance-score", "", "Relevance score")
+	evalUpdateCmd.Flags().String("fluency-score", "", "Fluency score")
+	evalUpdateCmd.Flags().String("safety-score", "", "Safety score")
+	evalUpdateCmd.Flags().String("feedback", "", "Feedback text")
 }

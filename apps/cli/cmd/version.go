@@ -38,7 +38,11 @@ var versionListCmd = &cobra.Command{
 		if err := apiGet(versionPath(), &versions); err != nil {
 			return err
 		}
-		printJSON(versions)
+		if outputFmt == "table" {
+			printVersionTable(versions)
+		} else {
+			printJSON(versions)
+		}
 		return nil
 	},
 }
@@ -52,7 +56,11 @@ var versionGetCmd = &cobra.Command{
 		if err := apiGet(versionPath(args[0]), &version); err != nil {
 			return err
 		}
-		printJSON(version)
+		if outputFmt == "table" {
+			printVersionTable(version)
+		} else {
+			printJSON(version)
+		}
 		return nil
 	},
 }
@@ -109,7 +117,12 @@ var versionCreateCmd = &cobra.Command{
 		if err := apiPost(versionPath(), body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created new version")
+		if outputFmt == "table" {
+			printVersionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -134,7 +147,12 @@ var versionPromoteCmd = &cobra.Command{
 		if err := apiPut(versionPath(args[0], "status"), map[string]string{"status": nextStatus}, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Promoted version " + args[0] + " to " + nextStatus)
+		if outputFmt == "table" {
+			printVersionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -148,7 +166,11 @@ var versionStatusCmd = &cobra.Command{
 		if err := apiPut(versionPath(args[0], "status"), map[string]string{"status": args[1]}, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printVersionTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -163,7 +185,11 @@ var versionDiffCmd = &cobra.Command{
 		if err := apiGet(path, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printDiffTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -182,7 +208,11 @@ var versionTextDiffCmd = &cobra.Command{
 		if err := apiGet(path, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printDiffTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -196,7 +226,26 @@ var versionLintCmd = &cobra.Command{
 		if err := apiGet(versionPath(args[0], "lint"), &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printLintTable(result)
+		} else {
+			printJSON(result)
+		}
+		return nil
+	},
+}
+
+var versionCompareCmd = &cobra.Command{
+	Use:   "compare <v1> <v2>",
+	Short: "Statistical comparison between two versions",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(_ *cobra.Command, args []string) error {
+		var result any
+		path := "/api/v1/prompts/" + versionPromptID + "/versions/" + args[0] + "/" + args[1] + "/compare"
+		if err := apiGet(path, &result); err != nil {
+			return err
+		}
+		printResult(result)
 		return nil
 	},
 }
@@ -205,7 +254,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	versionCmd.PersistentFlags().StringVar(&versionPromptID, "prompt", "", "Prompt ID (required)")
 
-	versionCmd.AddCommand(versionListCmd, versionGetCmd, versionCreateCmd, versionPromoteCmd, versionStatusCmd, versionDiffCmd, versionTextDiffCmd, versionLintCmd)
+	versionCmd.AddCommand(versionListCmd, versionGetCmd, versionCreateCmd, versionPromoteCmd, versionStatusCmd, versionDiffCmd, versionTextDiffCmd, versionLintCmd, versionCompareCmd)
 
 	versionCreateCmd.Flags().String("content", "", "Prompt content")
 	versionCreateCmd.Flags().String("content-file", "", "Read content from file (use - for stdin)")

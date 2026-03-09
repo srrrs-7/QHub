@@ -11,12 +11,27 @@ import (
 
 var logCmd = &cobra.Command{
 	Use:   "log",
-	Short: "Manage execution logs",
+	Short: "Manage execution logs (list, view, create)",
+	Long:  "Track and manage LLM execution logs including token usage, latency, cost, and status.",
+	Example: `  # List recent logs
+  qhub log list --limit 10
+
+  # List logs for a specific prompt
+  qhub log list --prompt <prompt-id>
+
+  # Get log details
+  qhub log get <log-id>
+
+  # Create a log entry from a JSON file
+  qhub log create --file log-data.json`,
 }
 
 var logListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List execution logs",
+	Short: "List execution logs with optional filtering",
+	Example: `  qhub log list
+  qhub log list --org <org-id> --limit 50
+  qhub log list --prompt <prompt-id> --offset 20`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		orgID, _ := cmd.Flags().GetString("org")
 		promptID, _ := cmd.Flags().GetString("prompt")
@@ -35,29 +50,47 @@ var logListCmd = &cobra.Command{
 		if err := apiGet(path, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printLogTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
 
 var logGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "Get execution log details",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get <id>",
+	Short:   "Get execution log details by ID",
+	Example: "  qhub log get <log-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		var result any
 		if err := apiGet("/api/v1/logs/"+args[0], &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		if outputFmt == "table" {
+			printLogTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
 
 var logCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create an execution log",
-	Long:  "Create an execution log entry. Provide request/response bodies via flags or --file for full JSON.",
+	Short: "Create an execution log entry",
+	Long:  "Create an execution log entry. Provide data via individual flags or --file for a full JSON payload (use - for stdin).",
+	Example: `  # Create from individual flags
+  qhub log create --org <org-id> --prompt <prompt-id> --version 1 \
+    --model gpt-4 --provider openai --input-tokens 150 --output-tokens 50
+
+  # Create from a JSON file
+  qhub log create --file log-entry.json
+
+  # Create from stdin
+  cat log-entry.json | qhub log create --file -`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		file, _ := cmd.Flags().GetString("file")
 
@@ -115,7 +148,12 @@ var logCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/logs", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created execution log")
+		if outputFmt == "table" {
+			printLogTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }

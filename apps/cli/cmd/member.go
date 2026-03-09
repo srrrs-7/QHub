@@ -10,7 +10,19 @@ var memberOrgID string
 
 var memberCmd = &cobra.Command{
 	Use:   "member",
-	Short: "Manage organization members",
+	Short: "Manage organization members (list, add, update, remove)",
+	Long:  "Manage members of an organization including role assignments (owner, admin, member, viewer).",
+	Example: `  # List members
+  qhub member --org <org-id> list
+
+  # Add a member
+  qhub member --org <org-id> add --user <user-id> --role admin
+
+  # Update a member's role
+  qhub member --org <org-id> update <user-id> --role viewer
+
+  # Remove a member
+  qhub member --org <org-id> remove <user-id>`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if memberOrgID == "" {
 			return fmt.Errorf("--org is required")
@@ -28,8 +40,9 @@ func memberPath(parts ...string) string {
 }
 
 var memberListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List organization members",
+	Use:     "list",
+	Short:   "List all members of an organization",
+	Example: "  qhub member --org <org-id> list",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var result any
 		if err := apiGet(memberPath(), &result); err != nil {
@@ -42,7 +55,9 @@ var memberListCmd = &cobra.Command{
 
 var memberAddCmd = &cobra.Command{
 	Use:   "add",
-	Short: "Add a member to the organization",
+	Short: "Add a new member to the organization",
+	Example: `  qhub member --org <org-id> add --user <user-id>
+  qhub member --org <org-id> add --user <user-id> --role admin`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		userID, _ := cmd.Flags().GetString("user")
 		role, _ := cmd.Flags().GetString("role")
@@ -62,9 +77,10 @@ var memberAddCmd = &cobra.Command{
 }
 
 var memberUpdateCmd = &cobra.Command{
-	Use:   "update <user-id>",
-	Short: "Update member role",
-	Args:  cobra.ExactArgs(1),
+	Use:     "update <user-id>",
+	Short:   "Update a member's role in the organization",
+	Example: "  qhub member --org <org-id> update <user-id> --role admin",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		role, _ := cmd.Flags().GetString("role")
 		if role == "" {
@@ -82,9 +98,10 @@ var memberUpdateCmd = &cobra.Command{
 }
 
 var memberRemoveCmd = &cobra.Command{
-	Use:   "remove <user-id>",
-	Short: "Remove a member from the organization",
-	Args:  cobra.ExactArgs(1),
+	Use:     "remove <user-id>",
+	Short:   "Remove a member from the organization",
+	Example: "  qhub member --org <org-id> remove <user-id>",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if err := apiDelete(memberPath(args[0])); err != nil {
 			return err

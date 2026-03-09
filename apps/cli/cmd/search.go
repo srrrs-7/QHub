@@ -8,13 +8,24 @@ import (
 
 var searchCmd = &cobra.Command{
 	Use:   "search",
-	Short: "Semantic search across prompts",
+	Short: "Semantic search across prompts using embeddings",
+	Long:  "Search prompts by semantic similarity using vector embeddings. Also check embedding service health.",
+	Example: `  # Search for prompts similar to a query
+  qhub search semantic "customer support greeting" --org <org-id>
+
+  # Search with minimum similarity threshold
+  qhub search semantic "error handling" --org <org-id> --min-score 0.7 --limit 5
+
+  # Check embedding service status
+  qhub search status`,
 }
 
 var searchSemanticCmd = &cobra.Command{
 	Use:   "semantic <query>",
-	Short: "Search prompts by semantic similarity",
-	Args:  cobra.ExactArgs(1),
+	Short: "Search prompts by semantic similarity to a query",
+	Example: `  qhub search semantic "customer support greeting" --org <org-id>
+  qhub search semantic "error handling" --org <org-id> --min-score 0.7 --limit 5`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		orgID, _ := cmd.Flags().GetString("org")
 		limit, _ := cmd.Flags().GetInt("limit")
@@ -41,8 +52,9 @@ var searchSemanticCmd = &cobra.Command{
 }
 
 var searchStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Check embedding service status",
+	Use:     "status",
+	Short:   "Check embedding service health and availability",
+	Example: "  qhub search status",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var result any
 		if err := apiGet("/api/v1/search/embedding-status", &result); err != nil {

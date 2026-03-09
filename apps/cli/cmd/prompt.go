@@ -27,7 +27,11 @@ var promptListCmd = &cobra.Command{
 		if err := apiGet("/api/v1/projects/"+promptProjectID+"/prompts", &prompts); err != nil {
 			return err
 		}
-		printJSON(prompts)
+		if outputFmt == "table" {
+			printPromptTable(prompts)
+		} else {
+			printJSON(prompts)
+		}
 		return nil
 	},
 }
@@ -41,7 +45,11 @@ var promptGetCmd = &cobra.Command{
 		if err := apiGet("/api/v1/projects/"+promptProjectID+"/prompts/"+args[0], &prompt); err != nil {
 			return err
 		}
-		printJSON(prompt)
+		if outputFmt == "table" {
+			printPromptTable(prompt)
+		} else {
+			printJSON(prompt)
+		}
 		return nil
 	},
 }
@@ -67,7 +75,45 @@ var promptCreateCmd = &cobra.Command{
 		if err := apiPost("/api/v1/projects/"+promptProjectID+"/prompts", body, &result); err != nil {
 			return err
 		}
-		printJSON(result)
+		printSuccess("Created prompt '" + slug + "'")
+		if outputFmt == "table" {
+			printPromptTable(result)
+		} else {
+			printJSON(result)
+		}
+		return nil
+	},
+}
+
+var promptUpdateCmd = &cobra.Command{
+	Use:   "update <slug>",
+	Short: "Update a prompt",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		body := map[string]string{}
+
+		if cmd.Flags().Changed("name") {
+			name, _ := cmd.Flags().GetString("name")
+			body["name"] = name
+		}
+		if cmd.Flags().Changed("description") {
+			desc, _ := cmd.Flags().GetString("description")
+			body["description"] = desc
+		}
+
+		if len(body) == 0 {
+			return fmt.Errorf("at least one of --name or --description must be provided")
+		}
+
+		var result any
+		if err := apiPut("/api/v1/projects/"+promptProjectID+"/prompts/"+args[0], body, &result); err != nil {
+			return err
+		}
+		if outputFmt == "table" {
+			printPromptTable(result)
+		} else {
+			printJSON(result)
+		}
 		return nil
 	},
 }
@@ -76,10 +122,13 @@ func init() {
 	rootCmd.AddCommand(promptCmd)
 	promptCmd.PersistentFlags().StringVar(&promptProjectID, "project", "", "Project ID (required)")
 
-	promptCmd.AddCommand(promptListCmd, promptGetCmd, promptCreateCmd)
+	promptCmd.AddCommand(promptListCmd, promptGetCmd, promptCreateCmd, promptUpdateCmd)
 
 	promptCreateCmd.Flags().String("name", "", "Prompt name (required)")
 	promptCreateCmd.Flags().String("slug", "", "Prompt slug (required)")
 	promptCreateCmd.Flags().String("type", "system", "Prompt type: system, user, combined")
 	promptCreateCmd.Flags().String("description", "", "Prompt description")
+
+	promptUpdateCmd.Flags().String("name", "", "Prompt name")
+	promptUpdateCmd.Flags().String("description", "", "Prompt description")
 }
