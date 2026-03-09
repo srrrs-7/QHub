@@ -50,7 +50,8 @@ services:
 
   # Hugging Face Text Embeddings Inference (CPU)
   embedding:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+    platform: linux/amd64
     command: --model-id BAAI/bge-m3
     volumes:
       - embedding-data:/data
