@@ -1,6 +1,15 @@
 package main
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"api/src/infra/rds/consulting_repository"
 	"api/src/infra/rds/executionlog_repository"
 	"api/src/infra/rds/organization_repository"
@@ -20,30 +29,17 @@ import (
 	"api/src/routes/organizations"
 	"api/src/routes/projects"
 	"api/src/routes/prompts"
-	"api/src/routes/search"
 	"api/src/routes/tags"
 	"api/src/routes/tasks"
 	"api/src/routes/users"
 	"api/src/services/batchservice"
 	"api/src/services/diffservice"
-	"api/src/services/embeddingservice"
 	"api/src/services/lintservice"
-	"api/src/services/ragservice"
-	"context"
-	"database/sql"
-	"encoding/json"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 	"utils/cache"
 	"utils/db"
 	dbq "utils/db/db"
-	"utils/embedding"
 	"utils/env"
 	"utils/logger"
-	"utils/ollama"
 )
 
 func init() {
@@ -137,35 +133,6 @@ func initHandlers(q dbq.Querier, conn *sql.DB, cacheClient *cache.Client) routes
 	industryRepo := consulting_repository.NewIndustryConfigRepository(q)
 	tagRepo := tag_repository.NewTagRepository(q)
 
-	// Embedding service (optional: enabled when EMBEDDING_URL is set)
-	var embClient *embedding.Client
-	embURL := env.GetStringOrDefault("EMBEDDING_URL", "")
-	if embURL != "" {
-		embClient = embedding.NewClient(embURL)
-		logger.Info("Embedding service enabled", "url", embURL)
-	} else {
-		logger.Info("Embedding service disabled (set EMBEDDING_URL to enable)")
-	}
-	embSvc := embeddingservice.NewEmbeddingService(embClient, versionRepo)
-
-	// Ollama client (optional: enabled when OLLAMA_URI is set)
-	var ollamaClient *ollama.Client
-	ollamaURI := env.GetStringOrDefault("OLLAMA_URI", "")
-	if ollamaURI != "" {
-		ollamaClient = ollama.NewClient(ollamaURI)
-		logger.Info("Ollama client enabled", "url", ollamaURI)
-	} else {
-		logger.Info("Ollama client disabled (set OLLAMA_URI to enable)")
-	}
-
-	// RAG service (optional: enabled when both embedding and Ollama are configured)
-	ragSvc := ragservice.NewRAGService(embSvc, ollamaClient, q)
-	if ragSvc.Available() {
-		logger.Info("RAG service enabled")
-	} else {
-		logger.Info("RAG service disabled (requires EMBEDDING_URL and OLLAMA_URI)")
-	}
-
 	batchSvc := batchservice.NewBatchService(q)
 
 	return routes.Handlers{
@@ -173,16 +140,15 @@ func initHandlers(q dbq.Querier, conn *sql.DB, cacheClient *cache.Client) routes
 		Task:         tasks.NewTaskHandler(taskRepo),
 		Organization: organizations.NewOrganizationHandler(orgRepo),
 		Project:      projects.NewProjectHandler(projectRepo),
-		Prompt:       prompts.NewPromptHandler(promptRepo, versionRepo, diffSvc, lintSvc, embSvc),
+		Prompt:       prompts.NewPromptHandler(promptRepo, versionRepo, diffSvc, lintSvc),
 		Log:          logs.NewLogHandler(logRepo, evalRepo),
 		Evaluation:   evaluations.NewEvaluationHandler(evalRepo),
-		Consulting:   consulting.NewConsultingHandler(sessionRepo, messageRepo, industryRepo, ragSvc),
+		Consulting:   consulting.NewConsultingHandler(sessionRepo, messageRepo, industryRepo),
 		Tag:          tags.NewTagHandler(tagRepo),
 		Industry:     industries.NewIndustryHandler(industryRepo, q),
 		Analytics:    analytics.NewAnalyticsHandler(q),
 		ApiKey:       apikeys.NewApiKeyHandler(q),
 		Member:       members.NewMemberHandler(q),
-		Search:       search.NewSearchHandler(embSvc, q),
 		User:         users.NewUserHandler(q),
 		Admin:        admin.NewAdminHandler(batchSvc),
 	}

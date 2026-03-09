@@ -21,7 +21,6 @@ routes/
   prompts/            # PromptHandler + version management
   consulting/         # ConsultingHandler + SSE streaming (sse.go, stream.go)
   analytics/          # AnalyticsHandler: project, prompt, version, trend endpoints
-  search/             # SearchHandler: semantic search + embedding status
   apikeys/            # ApiKeyHandler: org-scoped API key management (SHA-256 hashing)
   members/            # MemberHandler: org membership CRUD + role management
 domain/
@@ -33,8 +32,6 @@ domain/
 services/
   diffservice/        # Semantic diff between prompt versions (optional Redis cache)
   lintservice/        # Prompt quality linting (score 0-100, custom rules)
-  ragservice/         # RAG pipeline: embed → search → context → Ollama stream + citations
-  embeddingservice/   # Vector embedding generation + storage (TEI backend)
   intentservice/      # Rule-based intent classification for consulting chat (EN/JP)
   actionservice/      # Extract/execute actions from chat responses (create versions)
   statsservice/       # Welch's t-test for A/B version comparison
@@ -52,12 +49,10 @@ infra/rds/
 
 ```
 db.Querier → NewXxxRepository(q) → NewXxxHandler(repo) → routes.Handlers → NewRouter(h)
-embedding.Client → EmbeddingService → PromptHandler, SearchHandler, RAGService
-ollama.Client → RAGService → ConsultingHandler
 db.Querier → NewAnalyticsHandler(q), NewApiKeyHandler(q), NewMemberHandler(q)
 ```
 
-All wiring happens in `initHandlers()`. Handlers receive domain interfaces, not concrete types. RAG and embedding services are optional (enabled by `EMBEDDING_URL` and `OLLAMA_URI` env vars).
+All wiring happens in `initHandlers()`. Handlers receive domain interfaces, not concrete types.
 
 ## Middleware Chain
 
@@ -109,14 +104,13 @@ Use `requtil.Decode[T](r)` for JSON body decoding with validation and sanitizati
 /api/v1/projects/{project_id}/prompts, .../prompts/{prompt_slug}
 /api/v1/prompts/{prompt_id}/versions, .../versions/{version}
 /api/v1/consulting/sessions/{session_id}/stream  (SSE)
-/api/v1/search/semantic, /api/v1/search/embedding-status
 /api/v1/projects/{project_id}/analytics
 /api/v1/prompts/{prompt_id}/analytics, .../trend
 ```
 
 ### SSE Streaming (consulting)
 
-`stream.go` streams session messages via Server-Sent Events. When RAG is enabled (`?rag=true&query=...&org_id=...`), generates AI responses using the RAG pipeline and streams chunks as `event: chunk` SSE events. Uses `sse.go` SSEWriter utility for event formatting and keepalive pings.
+`stream.go` streams session messages via Server-Sent Events. Uses `sse.go` SSEWriter utility for event formatting.
 
 ## Commands
 

@@ -47,31 +47,3 @@ WHERE id = $1;
 UPDATE prompt_versions
 SET status = 'archived'
 WHERE prompt_id = $1 AND status = 'production';
-
--- name: UpdatePromptVersionEmbedding :exec
-UPDATE prompt_versions
-SET embedding = $2
-WHERE id = $1;
-
--- name: SearchPromptVersionsByEmbedding :many
-SELECT
-    pv.id,
-    pv.prompt_id,
-    pv.version_number,
-    pv.status,
-    pv.content,
-    pv.variables,
-    pv.change_description,
-    pv.author_id,
-    pv.published_at,
-    pv.created_at,
-    p.name AS prompt_name,
-    p.slug AS prompt_slug,
-    cosine_similarity(pv.embedding, $1::real[]) AS similarity
-FROM prompt_versions pv
-JOIN prompts p ON pv.prompt_id = p.id
-JOIN projects pr ON p.project_id = pr.id
-WHERE pv.embedding IS NOT NULL
-  AND pr.organization_id = $2
-ORDER BY cosine_similarity(pv.embedding, $1::real[]) DESC
-LIMIT $3;

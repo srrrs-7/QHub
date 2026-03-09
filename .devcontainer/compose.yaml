@@ -48,21 +48,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Hugging Face Text Embeddings Inference (CPU)
-  embedding:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
-    platform: linux/amd64
-    command: --model-id BAAI/bge-m3
-    volumes:
-      - embedding-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 30
-      start_period: 120s
-
 volumes:
   pg-data:
   cache-data:
-  embedding-data:

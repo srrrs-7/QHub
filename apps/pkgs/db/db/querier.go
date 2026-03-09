@@ -94,7 +94,6 @@ type Querier interface {
 	RemoveOrganizationMember(ctx context.Context, arg RemoveOrganizationMemberParams) error
 	RemovePromptTag(ctx context.Context, arg RemovePromptTagParams) error
 	RevokeApiKey(ctx context.Context, arg RevokeApiKeyParams) (ApiKey, error)
-	SearchPromptVersionsByEmbedding(ctx context.Context, arg SearchPromptVersionsByEmbeddingParams) ([]SearchPromptVersionsByEmbeddingRow, error)
 	UpdateApiKeyLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateConsultingSessionStatus(ctx context.Context, arg UpdateConsultingSessionStatusParams) (ConsultingSession, error)
 	UpdateEvaluation(ctx context.Context, arg UpdateEvaluationParams) (Evaluation, error)
@@ -105,7 +104,6 @@ type Querier interface {
 	UpdatePrompt(ctx context.Context, arg UpdatePromptParams) (Prompt, error)
 	UpdatePromptLatestVersion(ctx context.Context, arg UpdatePromptLatestVersionParams) (Prompt, error)
 	UpdatePromptProductionVersion(ctx context.Context, arg UpdatePromptProductionVersionParams) (Prompt, error)
-	UpdatePromptVersionEmbedding(ctx context.Context, arg UpdatePromptVersionEmbeddingParams) error
 	UpdatePromptVersionLintResult(ctx context.Context, arg UpdatePromptVersionLintResultParams) error
 	UpdatePromptVersionSemanticDiff(ctx context.Context, arg UpdatePromptVersionSemanticDiffParams) error
 	UpdatePromptVersionStatus(ctx context.Context, arg UpdatePromptVersionStatusParams) (PromptVersion, error)

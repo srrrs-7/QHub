@@ -20,8 +20,8 @@ type PromptRepository interface {
 }
 
 // VersionRepository defines persistence operations for prompt versions.
-// It is also used by service-layer packages (diffservice, lintservice,
-// embeddingservice) to keep services decoupled from the DB layer.
+// It is also used by service-layer packages (diffservice, lintservice)
+// to keep services decoupled from the DB layer.
 type VersionRepository interface {
 	FindByPromptAndNumber(ctx context.Context, promptID PromptID, number int) (PromptVersion, error)
 	FindAllByPrompt(ctx context.Context, promptID PromptID) ([]PromptVersion, error)
@@ -32,5 +32,4 @@ type VersionRepository interface {
 	ArchiveProduction(ctx context.Context, promptID PromptID) error
 	UpdateLintResult(ctx context.Context, id PromptVersionID, result json.RawMessage) error
 	UpdateSemanticDiff(ctx context.Context, id PromptVersionID, diff json.RawMessage) error
-	UpdateEmbedding(ctx context.Context, id PromptVersionID, embedding []float32) error
 }

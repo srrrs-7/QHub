@@ -164,7 +164,6 @@ type PromptVersion struct {
 	AuthorID          uuid.UUID             `json:"author_id"`
 	PublishedAt       sql.NullTime          `json:"published_at"`
 	CreatedAt         time.Time             `json:"created_at"`
-	Embedding         []float32             `json:"embedding"`
 }
 
 type Tag struct {

@@ -36,7 +36,6 @@
   "postCreateCommand": "chmod +x .devcontainer/firewall.sh .devcontainer/setup.sh && .devcontainer/setup.sh",
   "forwardPorts": [
     3000, // frontend dev server
-    8080, // backend server
-    8081 // text embeddings inference
+    8080 // backend server
   ]
 }

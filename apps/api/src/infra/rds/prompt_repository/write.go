@@ -157,13 +157,3 @@ func (r *VersionRepository) UpdateSemanticDiff(ctx context.Context, id prompt.Pr
 		},
 	})
 }
-
-func (r *VersionRepository) UpdateEmbedding(ctx context.Context, id prompt.PromptVersionID, emb []float32) error {
-	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
-	defer cancel()
-
-	return r.q.UpdatePromptVersionEmbedding(ctx, db.UpdatePromptVersionEmbeddingParams{
-		ID:        id.UUID(),
-		Embedding: emb,
-	})
-}

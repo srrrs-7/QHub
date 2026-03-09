@@ -53,12 +53,3 @@ func (s *SSEWriter) WriteError(err error) error {
 	return s.WriteEvent("error", string(data))
 }
 
-// Ping writes an SSE comment (`:ping`) to keep the connection alive.
-func (s *SSEWriter) Ping() error {
-	_, err := fmt.Fprint(s.w, ":ping\n\n")
-	if err != nil {
-		return err
-	}
-	s.flusher.Flush()
-	return nil
-}

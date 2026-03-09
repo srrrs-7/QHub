@@ -8,6 +8,27 @@ import (
 	"github.com/google/uuid"
 )
 
+func (r *OrganizationRepository) FindAll(ctx context.Context) ([]organization.Organization, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	orgs, err := r.q.ListAllOrganizations(ctx)
+	if err != nil {
+		return nil, repoerr.Handle(err, "OrganizationRepository", "")
+	}
+
+	result := make([]organization.Organization, 0, len(orgs))
+	for _, o := range orgs {
+		result = append(result, organization.NewOrganization(
+			organization.OrganizationIDFromUUID(o.ID),
+			organization.OrganizationName(o.Name),
+			organization.OrganizationSlug(o.Slug),
+			organization.Plan(o.Plan),
+		))
+	}
+	return result, nil
+}
+
 func (r *OrganizationRepository) FindByID(ctx context.Context, id organization.OrganizationID) (organization.Organization, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()

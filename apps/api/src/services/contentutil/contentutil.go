@@ -1,7 +1,7 @@
 // Package contentutil provides shared utilities for extracting and
 // analysing prompt content stored as JSON.
 //
-// Multiple service packages (diffservice, lintservice, embeddingservice)
+// Multiple service packages (diffservice, lintservice)
 // need to pull plain-text from the JSONB "content" column and detect
 // {{variable}} placeholders. This package centralises that logic so
 // it is defined once and tested once.

@@ -9,7 +9,7 @@ QHub — a prompt/answer version management system with consulting, execution lo
 ## Development Commands
 
 ```bash
-# Services (devcontainer starts db, cache, queue, embedding automatically)
+# Services (devcontainer starts db, cache, queue automatically)
 make run-api                  # API on :8080
 make run-web                  # Web on :3000 (run make templ-gen first)
 make run-all                  # Migrate + API + Web
@@ -38,11 +38,6 @@ make sqlc-gen                 # Regenerate Go from SQL queries
 make templ-gen                # Generate Go from .templ templates
 make templ-watch              # Watch mode for development
 
-# Ollama (host machine)
-make ollama-health            # Check connectivity
-make ollama-models            # List models
-make ollama-embed TEXT="hello" # Generate embedding
-
 # Terraform
 make tf-fmt                   # Format .tf files
 ```
@@ -54,7 +49,7 @@ make tf-fmt                   # Format .tf files
 ```
 routes/    → HTTP handlers (depend on domain interfaces only)
 domain/    → Value objects, entities, repository interfaces (no external deps)
-services/  → Cross-cutting business logic (diff, lint, RAG, embeddings) using db.Querier directly
+services/  → Cross-cutting business logic (diff, lint) using db.Querier directly
 infra/     → Repository implementations (sqlc + PostgreSQL)
 ```
 
@@ -65,9 +60,7 @@ Middleware chain (in `routes.go`): `RequestID → RealIP → Recoverer → Logge
 DI wiring in `cmd/main.go`:
 ```
 db.Querier → New*Repository(q) → New*Handler(repo) → routes.Handlers → NewRouter(h)
-db.Querier → New*Service(q)   → Handler (for diff/lint/RAG/embedding)
-embedding.Client → EmbeddingService → PromptHandler, SearchHandler, RAGService
-ollama.Client → RAGService → ConsultingHandler
+db.Querier → New*Service(q)   → Handler (for diff/lint)
 ```
 
 ### Domain Entities
@@ -89,15 +82,13 @@ Services handle complex business logic that doesn't fit in repositories:
 
 - **`services/diffservice/`**: Semantic diff between prompt versions (length, variables, tone, specificity analysis + LCS-based text diff). Optional Redis caching (24h TTL).
 - **`services/lintservice/`**: Prompt linting (excessive-length, output-format, variable-check, vague-instructions, missing-constraints, prompt-injection-risk; score 0-100). Supports custom regex rules via `LintWithCustomRules`.
-- **`services/ragservice/`**: RAG pipeline — embed query, search similar prompt versions, build context, stream LLM response via Ollama. Includes intent classification and citation extraction.
-- **`services/embeddingservice/`**: Generate and store vector embeddings for prompt versions (TEI backend); enables semantic search.
 - **`services/intentservice/`**: Rule-based intent classifier for consulting chat (EN/JP). 7 intent types: improve, compare, explain, create, compliance, best_practice, general.
 - **`services/actionservice/`**: Extract and execute actions from consulting chat responses (e.g., create prompt versions from code blocks).
 - **`services/statsservice/`**: Welch's t-test for A/B comparing prompt version metrics (latency, tokens, scores). Pure Go implementation (no external stats deps).
 - **`services/batchservice/`**: Monthly metric aggregation across organizations for admin dashboard.
 - **`services/contentutil/`**: Shared text extraction from JSONB content and `{{variable}}` placeholder detection.
 
-Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go`. RAG and embedding services are optional (enabled by `OLLAMA_URI` and `EMBEDDING_URL` env vars). Diff service optionally uses Redis cache (`cache.Client`, nil-safe — nil client is no-op).
+Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go`. Diff service optionally uses Redis cache (`cache.Client`, nil-safe — nil client is no-op).
 
 ### API Routes (`/api/v1`, Bearer auth)
 
@@ -128,8 +119,6 @@ Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go
 /consulting/sessions/{session_id}                GET
 /consulting/sessions/{session_id}/messages       GET POST
 /consulting/sessions/{session_id}/stream         GET (SSE)
-/search/semantic                                 POST
-/search/embedding-status                         GET
 /analytics/projects/{project_id}                 GET
 /analytics/prompts/{prompt_id}                   GET
 /analytics/prompts/{prompt_id}/versions/{v}      GET
@@ -201,7 +190,7 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 | Directory | Module Name | Description |
 |-----------|-------------|-------------|
 | `apps/api` | `api` | Backend API (chi, port 8080) |
-| `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/`, `ollama/`, `embedding/`, `cache/` |
+| `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/`, `ollama/`, `cache/` |
 | `apps/web` | `web` | templ + HTMX frontend (M3 design, port 3000) |
 | `apps/cli` | `cli` | `qhub` CLI (cobra, JSON/table output) |
 | `apps/sdk` | `sdk` | Go SDK module |
@@ -222,8 +211,7 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 
 ### Infrastructure
 
-Devcontainer includes: PostgreSQL 18, Redis, ElasticMQ, Text Embeddings Inference (TEI with `BAAI/bge-m3`).
-Host Ollama accessible via `host.docker.internal:11434` (`OLLAMA_URI` env var).
+Devcontainer includes: PostgreSQL 18, Redis, ElasticMQ.
 
 ### Web Frontend Architecture (apps/web)
 

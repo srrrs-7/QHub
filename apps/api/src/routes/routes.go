@@ -13,7 +13,6 @@ import (
 	"api/src/routes/organizations"
 	"api/src/routes/projects"
 	"api/src/routes/prompts"
-	"api/src/routes/search"
 	"api/src/routes/tags"
 	"api/src/routes/tasks"
 	"api/src/routes/users"
@@ -39,7 +38,6 @@ type Handlers struct {
 	Analytics    *analytics.AnalyticsHandler
 	ApiKey       *apikeys.ApiKeyHandler
 	Member       *members.MemberHandler
-	Search       *search.SearchHandler
 	User         *users.UserHandler
 	Admin        *admin.AdminHandler
 }
@@ -70,6 +68,7 @@ func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 
 			// Organizations
 			r.Route("/organizations", func(r chi.Router) {
+				r.Get("/", h.Organization.List())
 				r.Post("/", h.Organization.Post())
 				r.Get("/{org_slug}", h.Organization.Get())
 				r.Put("/{org_slug}", h.Organization.Put())
@@ -199,10 +198,6 @@ func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 				r.Post("/", h.User.Post())
 				r.Get("/{id}", h.User.Get())
 			})
-
-			// Semantic Search
-			r.Post("/search/semantic", h.Search.SemanticSearch())
-			r.Get("/search/embedding-status", h.Search.EmbeddingStatus())
 
 			// Admin
 			r.Route("/admin", func(r chi.Router) {

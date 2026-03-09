@@ -5,6 +5,7 @@ import "context"
 // OrganizationRepository defines persistence operations for organizations.
 // Implementations live in the infra layer (dependency inversion).
 type OrganizationRepository interface {
+	FindAll(ctx context.Context) ([]Organization, error)
 	FindByID(ctx context.Context, id OrganizationID) (Organization, error)
 	FindBySlug(ctx context.Context, slug OrganizationSlug) (Organization, error)
 	FindAllByUserID(ctx context.Context, userID UserID) ([]Organization, error)

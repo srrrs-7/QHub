@@ -43,10 +43,6 @@ Type-safe environment variable loading with `GetEnv(key, defaultValue)` and type
 
 HTTP client for the Ollama inference API (`ollama.Client`). Supports streaming (`Chat`) and synchronous (`ChatSync`) chat completions, plus health checks. Configured via `OLLAMA_URI` env var. Reports `Available() == false` when unconfigured.
 
-### embedding/ - TEI Embedding Client
-
-HTTP client for the Hugging Face Text Embeddings Inference (TEI) API (`embedding.Client`). Methods: `Embed(texts)` for batch, `EmbedOne(text)` for single text, `Health()` for readiness. Configured via `EMBEDDING_URL` env var.
-
 ### cache/ - Redis Cache Client
 
 Wraps `go-redis/v9`. Nil-safe design: `nil` client is a no-op (cache is fully optional). `New(url)` returns `*Client`; methods: `Get()`, `Set()`, `Delete()`, `Available()`. Used by DiffService for caching diff results (24h TTL).
