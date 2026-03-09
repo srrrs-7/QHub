@@ -27,3 +27,6 @@ services:
   embedding:
     ports:
       - 8081:80
+    # ARM64 hosts (Apple Silicon, AWS Graviton, etc.) must override the image and platform:
+    # image: ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-1.8
+    # platform: linux/arm64
