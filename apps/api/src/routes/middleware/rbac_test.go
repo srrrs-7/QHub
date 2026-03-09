@@ -60,12 +60,13 @@ func TestRequireRole(t *testing.T) {
 	}
 
 	type args struct {
-		minRole   string
-		orgID     string // chi URL param "org_id"
-		userIDHdr string // X-User-ID header
-		apiKeyOrg *uuid.UUID
-		member    db.OrganizationMember
-		memberErr error
+		minRole    string
+		orgID      string // chi URL param "org_id"
+		userIDHdr  string // X-User-ID header
+		apiKeyOrg  *uuid.UUID
+		member     db.OrganizationMember
+		memberErr  error
+		devBypass  bool // sets DEV_BYPASS_RBAC=true for the test
 	}
 	type expected struct {
 		statusCode int
@@ -79,6 +80,16 @@ func TestRequireRole(t *testing.T) {
 		expected expected
 	}{
 		// 正常系 (Happy Path)
+		{
+			testName: "DEV_BYPASS_RBAC skips all checks and injects owner role",
+			args: args{
+				minRole:   RoleOwner,
+				orgID:     orgID.String(),
+				userIDHdr: "", // no user identity — would normally 401
+				devBypass: true,
+			},
+			expected: expected{statusCode: http.StatusOK, nextCalled: true},
+		},
 		{
 			testName: "owner accessing owner-required route passes",
 			args: args{
@@ -285,6 +296,10 @@ func TestRequireRole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			if tt.args.devBypass {
+				t.Setenv("DEV_BYPASS_RBAC", "true")
+			}
+
 			nextCalled := false
 			nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true

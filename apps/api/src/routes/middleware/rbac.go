@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"utils/db/db"
 	"utils/logger"
 
@@ -59,6 +60,14 @@ func RoleLevel(role string) int {
 func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// DEV_BYPASS_RBAC=true skips all role checks (development only).
+			// Set this when running the API locally without JWT/Cognito.
+			if os.Getenv("DEV_BYPASS_RBAC") == "true" {
+				ctx := context.WithValue(r.Context(), memberRoleKey, RoleOwner)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
 			// 1. Check if API key auth already established org-level access
 			if _, ok := GetApiKeyOrgID(r.Context()); ok {
 				next.ServeHTTP(w, r)

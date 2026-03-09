@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -17,10 +18,14 @@ type APIClient struct {
 }
 
 func NewAPIClient(baseURL string) *APIClient {
+	token := os.Getenv("API_AUTH_TOKEN")
+	if token == "" {
+		token = "dev-token"
+	}
 	return &APIClient{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
-		authToken:  "dev-token",
+		authToken:  token,
 	}
 }
 
