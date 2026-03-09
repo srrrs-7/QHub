@@ -31,34 +31,36 @@ templ LogList(logs []client.ExecutionLog) {
 			<div class="empty-state__desc">Logs will appear here when prompts are executed via the API.</div>
 		</div>
 	} else {
-		<table class="data-table">
-			<thead>
-				<tr>
-					<th>Status</th>
-					<th>Model</th>
-					<th>Duration</th>
-					<th>Tokens</th>
-					<th>Created</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, l := range logs {
-					<tr class="clickable" hx-get={ "/logs/" + l.ID } hx-target=".content-area" hx-push-url="true">
-						<td>
-							@LogStatusBadge(l.Status)
-						</td>
-						<td>{ l.Model }</td>
-						<td>{ fmt.Sprintf("%dms", l.LatencyMs) }</td>
-						<td>{ fmt.Sprintf("%d", l.TotalTokens) }</td>
-						<td class="text-muted">{ l.CreatedAt }</td>
-						<td>
-							<span class="material-symbols-outlined" style="font-size: 18px; color: var(--md-sys-color-on-surface-variant);">chevron_right</span>
-						</td>
+		<div class="data-table-container">
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Status</th>
+						<th>Model</th>
+						<th>Duration</th>
+						<th>Tokens</th>
+						<th>Created</th>
+						<th></th>
 					</tr>
-				}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					for _, l := range logs {
+						<tr class="clickable" hx-get={ "/logs/" + l.ID } hx-target=".content-area" hx-push-url="true">
+							<td>
+								@LogStatusBadge(l.Status)
+							</td>
+							<td>{ l.Model }</td>
+							<td>{ fmt.Sprintf("%dms", l.LatencyMs) }</td>
+							<td>{ fmt.Sprintf("%d", l.TotalTokens) }</td>
+							<td class="text-muted">{ l.CreatedAt }</td>
+							<td>
+								<span class="material-symbols-outlined" style="font-size: 18px; color: var(--md-sys-color-on-surface-variant);">chevron_right</span>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 	}
 }
 
@@ -169,33 +171,35 @@ templ EvaluationsList(evals []client.Evaluation) {
 			<div class="empty-state__desc">No evaluations have been recorded for this log.</div>
 		</div>
 	} else {
-		<table class="data-table">
-			<thead>
-				<tr>
-					<th>Evaluator</th>
-					<th>Overall</th>
-					<th>Accuracy</th>
-					<th>Relevance</th>
-					<th>Fluency</th>
-					<th>Safety</th>
-					<th>Feedback</th>
-					<th>Created</th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, e := range evals {
+		<div class="data-table-container">
+			<table class="data-table">
+				<thead>
 					<tr>
-						<td><span class="type-badge">{ e.EvaluatorType }</span></td>
-						<td>{ e.DisplayScore() }</td>
-						<td>{ displayOptionalScore(e.AccuracyScore) }</td>
-						<td>{ displayOptionalScore(e.RelevanceScore) }</td>
-						<td>{ displayOptionalScore(e.FluencyScore) }</td>
-						<td>{ displayOptionalScore(e.SafetyScore) }</td>
-						<td>{ e.Feedback }</td>
-						<td class="text-muted">{ e.CreatedAt }</td>
+						<th>Evaluator</th>
+						<th>Overall</th>
+						<th>Accuracy</th>
+						<th>Relevance</th>
+						<th>Fluency</th>
+						<th>Safety</th>
+						<th>Feedback</th>
+						<th>Created</th>
 					</tr>
-				}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					for _, e := range evals {
+						<tr>
+							<td><span class="type-badge">{ e.EvaluatorType }</span></td>
+							<td>{ e.DisplayScore() }</td>
+							<td>{ displayOptionalScore(e.AccuracyScore) }</td>
+							<td>{ displayOptionalScore(e.RelevanceScore) }</td>
+							<td>{ displayOptionalScore(e.FluencyScore) }</td>
+							<td>{ displayOptionalScore(e.SafetyScore) }</td>
+							<td>{ e.Feedback }</td>
+							<td class="text-muted">{ e.CreatedAt }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 	}
 }

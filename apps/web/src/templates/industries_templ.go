@@ -294,7 +294,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<table class=\"data-table\"><thead><tr><th>Period</th><th>Avg Quality</th><th>Avg Latency (ms)</th><th>Avg Cost/Req</th><th>Executions</th><th>P50 Quality</th><th>P90 Quality</th></tr></thead> <tbody>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<div class=\"data-table-container\"><table class=\"data-table\"><thead><tr><th>Period</th><th>Avg Quality</th><th>Avg Latency (ms)</th><th>Avg Cost/Req</th><th>Executions</th><th>P50 Quality</th><th>P90 Quality</th></tr></thead> <tbody>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -306,7 +306,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(b.Period)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 136, Col: 21}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 137, Col: 22}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -319,7 +319,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(b.AvgQualityScore)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 137, Col: 30}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 138, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -332,7 +332,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(b.AvgLatencyMs)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 138, Col: 27}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 139, Col: 28}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -345,7 +345,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var18 string
 					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(b.AvgCostPerRequest)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 139, Col: 32}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 140, Col: 33}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -358,7 +358,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", b.TotalExecutions))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 140, Col: 49}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 141, Col: 50}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 					if templ_7745c5c3_Err != nil {
@@ -371,7 +371,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var20 string
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(b.P50Quality)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 141, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 142, Col: 26}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -384,7 +384,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(b.P90Quality)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 142, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 143, Col: 26}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -395,7 +395,7 @@ func IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []c
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</tbody></table>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</tbody></table></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -463,7 +463,7 @@ func ComplianceResultPartial(result *client.ComplianceResult) templ.Component {
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(v.Rule)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 166, Col: 26}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 168, Col: 26}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -476,7 +476,7 @@ func ComplianceResultPartial(result *client.ComplianceResult) templ.Component {
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(v.Message)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 166, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/industries.templ`, Line: 168, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {

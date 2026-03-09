@@ -118,32 +118,34 @@ templ IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []
 				<div class="empty-state__desc">Benchmarks will appear once configured for this industry.</div>
 			</div>
 		} else {
-			<table class="data-table">
-				<thead>
-					<tr>
-						<th>Period</th>
-						<th>Avg Quality</th>
-						<th>Avg Latency (ms)</th>
-						<th>Avg Cost/Req</th>
-						<th>Executions</th>
-						<th>P50 Quality</th>
-						<th>P90 Quality</th>
-					</tr>
-				</thead>
-				<tbody>
-					for _, b := range benchmarks {
+			<div class="data-table-container">
+				<table class="data-table">
+					<thead>
 						<tr>
-							<td>{ b.Period }</td>
-							<td>{ b.AvgQualityScore }</td>
-							<td>{ b.AvgLatencyMs }</td>
-							<td>{ b.AvgCostPerRequest }</td>
-							<td>{ fmt.Sprintf("%d", b.TotalExecutions) }</td>
-							<td>{ b.P50Quality }</td>
-							<td>{ b.P90Quality }</td>
+							<th>Period</th>
+							<th>Avg Quality</th>
+							<th>Avg Latency (ms)</th>
+							<th>Avg Cost/Req</th>
+							<th>Executions</th>
+							<th>P50 Quality</th>
+							<th>P90 Quality</th>
 						</tr>
-					}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						for _, b := range benchmarks {
+							<tr>
+								<td>{ b.Period }</td>
+								<td>{ b.AvgQualityScore }</td>
+								<td>{ b.AvgLatencyMs }</td>
+								<td>{ b.AvgCostPerRequest }</td>
+								<td>{ fmt.Sprintf("%d", b.TotalExecutions) }</td>
+								<td>{ b.P50Quality }</td>
+								<td>{ b.P90Quality }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 		}
 	}
 }

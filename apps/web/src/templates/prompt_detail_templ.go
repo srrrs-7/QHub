@@ -1282,14 +1282,14 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if len(comp.Metrics) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<table class=\"data-table\"><thead><tr><th>Metric</th><th>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<div class=\"data-table-container\"><table class=\"data-table\"><thead><tr><th>Metric</th><th>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var66 string
 			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("v%d Mean", comp.VersionA))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 430, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 431, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 			if templ_7745c5c3_Err != nil {
@@ -1302,7 +1302,7 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 			var templ_7745c5c3_Var67 string
 			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("v%d Mean", comp.VersionB))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 431, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 432, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 			if templ_7745c5c3_Err != nil {
@@ -1320,7 +1320,7 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 				var templ_7745c5c3_Var68 string
 				templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(m.MetricName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 440, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 441, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 				if templ_7745c5c3_Err != nil {
@@ -1333,7 +1333,7 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 				var templ_7745c5c3_Var69 string
 				templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.2f", m.VersionA.Mean))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 441, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 442, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 				if templ_7745c5c3_Err != nil {
@@ -1346,7 +1346,7 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 				var templ_7745c5c3_Var70 string
 				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.2f", m.VersionB.Mean))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 442, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 443, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 				if templ_7745c5c3_Err != nil {
@@ -1359,7 +1359,7 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 				var templ_7745c5c3_Var71 string
 				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.4f", m.PValue))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 443, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 444, Col: 43}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 				if templ_7745c5c3_Err != nil {
@@ -1393,7 +1393,7 @@ func VersionCompareCard(comp *client.VersionComparison) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</tbody></table>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</tbody></table></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1440,7 +1440,7 @@ func compareWinnerBadge(winner string) templ.Component {
 			var templ_7745c5c3_Var73 string
 			templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(winner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 468, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 470, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 			if templ_7745c5c3_Err != nil {
@@ -1458,7 +1458,7 @@ func compareWinnerBadge(winner string) templ.Component {
 			var templ_7745c5c3_Var74 string
 			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(winner)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 470, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 472, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 			if templ_7745c5c3_Err != nil {
@@ -1501,7 +1501,7 @@ func PromptHeaderUpdated(prompt *client.Prompt) templ.Component {
 		var templ_7745c5c3_Var76 string
 		templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(prompt.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 476, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 478, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 		if templ_7745c5c3_Err != nil {
@@ -1519,7 +1519,7 @@ func PromptHeaderUpdated(prompt *client.Prompt) templ.Component {
 			var templ_7745c5c3_Var77 string
 			templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(prompt.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 485, Col: 100}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/prompt_detail.templ`, Line: 487, Col: 100}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 			if templ_7745c5c3_Err != nil {

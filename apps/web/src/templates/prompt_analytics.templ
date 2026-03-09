@@ -76,40 +76,42 @@ templ PromptAnalyticsPartial(data PromptAnalyticsData) {
 				<div class="empty-state__desc">Execute some prompts to see analytics here.</div>
 			</div>
 		} else {
-			<table class="data-table">
-				<thead>
-					<tr>
-						<th>VERSION</th>
-						<th>EXECUTIONS</th>
-						<th>AVG TOKENS</th>
-						<th>AVG LATENCY</th>
-						<th>COST</th>
-						<th>SUCCESS</th>
-						<th>ERROR</th>
-						<th>SUCCESS RATE</th>
-					</tr>
-				</thead>
-				<tbody>
-					for _, v := range data.Versions {
+			<div class="data-table-container">
+				<table class="data-table">
+					<thead>
 						<tr>
-							<td>
-								<strong>v{ fmt.Sprintf("%d", v.VersionNumber) }</strong>
-							</td>
-							<td>{ fmt.Sprintf("%d", v.TotalExecutions) }</td>
-							<td>{ fmt.Sprintf("%d", v.AvgTokens) }</td>
-							<td>{ fmt.Sprintf("%dms", v.AvgLatencyMs) }</td>
-							<td>{ v.TotalCost }</td>
-							<td>{ fmt.Sprintf("%d", v.SuccessCount) }</td>
-							<td>{ fmt.Sprintf("%d", v.ErrorCount) }</td>
-							<td>
-								<span style={ successRateClass(successRate(v.SuccessCount, v.ErrorCount)) }>
-									{ fmt.Sprintf("%.1f%%", successRate(v.SuccessCount, v.ErrorCount)) }
-								</span>
-							</td>
+							<th>VERSION</th>
+							<th>EXECUTIONS</th>
+							<th>AVG TOKENS</th>
+							<th>AVG LATENCY</th>
+							<th>COST</th>
+							<th>SUCCESS</th>
+							<th>ERROR</th>
+							<th>SUCCESS RATE</th>
 						</tr>
-					}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						for _, v := range data.Versions {
+							<tr>
+								<td>
+									<strong>v{ fmt.Sprintf("%d", v.VersionNumber) }</strong>
+								</td>
+								<td>{ fmt.Sprintf("%d", v.TotalExecutions) }</td>
+								<td>{ fmt.Sprintf("%d", v.AvgTokens) }</td>
+								<td>{ fmt.Sprintf("%dms", v.AvgLatencyMs) }</td>
+								<td>{ v.TotalCost }</td>
+								<td>{ fmt.Sprintf("%d", v.SuccessCount) }</td>
+								<td>{ fmt.Sprintf("%d", v.ErrorCount) }</td>
+								<td>
+									<span style={ successRateClass(successRate(v.SuccessCount, v.ErrorCount)) }>
+										{ fmt.Sprintf("%.1f%%", successRate(v.SuccessCount, v.ErrorCount)) }
+									</span>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 		}
 	</div>
 	<!-- Daily Trend -->

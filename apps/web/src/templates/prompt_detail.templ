@@ -423,38 +423,40 @@ templ VersionCompareCard(comp *client.VersionComparison) {
 			@compareWinnerBadge(comp.OverallWinner)
 		</div>
 		if len(comp.Metrics) > 0 {
-			<table class="data-table">
-				<thead>
-					<tr>
-						<th>Metric</th>
-						<th>{ fmt.Sprintf("v%d Mean", comp.VersionA) }</th>
-						<th>{ fmt.Sprintf("v%d Mean", comp.VersionB) }</th>
-						<th>P-Value</th>
-						<th>Significant</th>
-						<th>Winner</th>
-					</tr>
-				</thead>
-				<tbody>
-					for _, m := range comp.Metrics {
+			<div class="data-table-container">
+				<table class="data-table">
+					<thead>
 						<tr>
-							<td><span class="type-badge">{ m.MetricName }</span></td>
-							<td>{ fmt.Sprintf("%.2f", m.VersionA.Mean) }</td>
-							<td>{ fmt.Sprintf("%.2f", m.VersionB.Mean) }</td>
-							<td>{ fmt.Sprintf("%.4f", m.PValue) }</td>
-							<td>
-								if m.IsSignificant {
-									<span class="material-symbols-outlined" style="color: var(--md-sys-color-success); font-size: 18px;">check_circle</span>
-								} else {
-									<span class="material-symbols-outlined" style="color: var(--md-sys-color-on-surface-variant); font-size: 18px;">remove_circle_outline</span>
-								}
-							</td>
-							<td>
-								@compareWinnerBadge(m.Winner)
-							</td>
+							<th>Metric</th>
+							<th>{ fmt.Sprintf("v%d Mean", comp.VersionA) }</th>
+							<th>{ fmt.Sprintf("v%d Mean", comp.VersionB) }</th>
+							<th>P-Value</th>
+							<th>Significant</th>
+							<th>Winner</th>
 						</tr>
-					}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						for _, m := range comp.Metrics {
+							<tr>
+								<td><span class="type-badge">{ m.MetricName }</span></td>
+								<td>{ fmt.Sprintf("%.2f", m.VersionA.Mean) }</td>
+								<td>{ fmt.Sprintf("%.2f", m.VersionB.Mean) }</td>
+								<td>{ fmt.Sprintf("%.4f", m.PValue) }</td>
+								<td>
+									if m.IsSignificant {
+										<span class="material-symbols-outlined" style="color: var(--md-sys-color-success); font-size: 18px;">check_circle</span>
+									} else {
+										<span class="material-symbols-outlined" style="color: var(--md-sys-color-on-surface-variant); font-size: 18px;">remove_circle_outline</span>
+									}
+								</td>
+								<td>
+									@compareWinnerBadge(m.Winner)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 		} else {
 			<div style="font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-on-surface-variant);">
 				No metric data available for comparison. Execute both versions to generate comparison data.

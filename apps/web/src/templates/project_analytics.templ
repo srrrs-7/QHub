@@ -93,32 +93,34 @@ templ ProjectAnalyticsPartial(data ProjectAnalyticsData) {
 				<div class="empty-state__desc">Execute some prompts in this project to see analytics.</div>
 			</div>
 		} else {
-			<table class="data-table">
-				<thead>
-					<tr>
-						<th>PROMPT</th>
-						<th>EXECUTIONS</th>
-						<th>AVG TOKENS</th>
-						<th>AVG LATENCY</th>
-						<th>COST</th>
-					</tr>
-				</thead>
-				<tbody>
-					for _, p := range data.Prompts {
-						<tr class="clickable" onclick={ goToPromptAnalytics(p.PromptID) }>
-							<td>
-								<a href={ templ.SafeURL("/analytics/prompts/" + p.PromptID) } style="color: var(--md-sys-color-primary); text-decoration: none;">
-									{ p.PromptName }
-								</a>
-							</td>
-							<td>{ fmt.Sprintf("%d", p.TotalExecutions) }</td>
-							<td>{ fmt.Sprintf("%d", p.AvgTokens) }</td>
-							<td>{ fmt.Sprintf("%dms", p.AvgLatencyMs) }</td>
-							<td>{ p.TotalCost }</td>
+			<div class="data-table-container">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>PROMPT</th>
+							<th>EXECUTIONS</th>
+							<th>AVG TOKENS</th>
+							<th>AVG LATENCY</th>
+							<th>COST</th>
 						</tr>
-					}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						for _, p := range data.Prompts {
+							<tr class="clickable" onclick={ goToPromptAnalytics(p.PromptID) }>
+								<td>
+									<a href={ templ.SafeURL("/analytics/prompts/" + p.PromptID) } style="color: var(--md-sys-color-primary); text-decoration: none;">
+										{ p.PromptName }
+									</a>
+								</td>
+								<td>{ fmt.Sprintf("%d", p.TotalExecutions) }</td>
+								<td>{ fmt.Sprintf("%d", p.AvgTokens) }</td>
+								<td>{ fmt.Sprintf("%dms", p.AvgLatencyMs) }</td>
+								<td>{ p.TotalCost }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 		}
 	</div>
 }

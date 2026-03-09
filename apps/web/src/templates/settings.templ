@@ -170,57 +170,59 @@ templ MemberList(orgID string, members []client.Member) {
 			<div class="empty-state__desc">Add members to your organization to collaborate.</div>
 		</div>
 	} else {
-		<table class="data-table">
-			<thead>
-				<tr>
-					<th>User ID</th>
-					<th>Role</th>
-					<th>Joined</th>
-					<th>Actions</th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, m := range members {
+		<div class="data-table-container">
+			<table class="data-table">
+				<thead>
 					<tr>
-						<td style="font-family: monospace; font-size: 0.8rem;">{ m.UserID }</td>
-						<td>
-							<span class="status-badge" style={ memberRoleBadgeClass(m.Role) }>
-								{ m.Role }
-							</span>
-						</td>
-						<td class="text-muted">{ m.JoinedAt }</td>
-						<td>
-							<div class="flex gap-8 items-center">
-								if m.Role != "owner" {
-									<form
-										hx-put={ "/partials/orgs/" + orgID + "/members/" + m.UserID }
-										hx-target="#member-list"
-										hx-swap="innerHTML"
-										style="display: inline-flex; gap: 4px; align-items: center;"
-									>
-										<select name="role" style="padding: 4px 8px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.75rem;">
-											<option value="admin" selected?={ m.Role == "admin" }>Admin</option>
-											<option value="member" selected?={ m.Role == "member" }>Member</option>
-											<option value="viewer" selected?={ m.Role == "viewer" }>Viewer</option>
-										</select>
-										<button type="submit" class="btn btn--tonal btn--small">Update</button>
-									</form>
-									<button
-										class="btn btn--danger btn--small"
-										hx-delete={ "/partials/orgs/" + orgID + "/members/" + m.UserID }
-										hx-target="#member-list"
-										hx-swap="innerHTML"
-										hx-confirm={ "Remove member '" + m.UserID + "' from this organization?" }
-									>
-										Remove
-									</button>
-								}
-							</div>
-						</td>
+						<th>User ID</th>
+						<th>Role</th>
+						<th>Joined</th>
+						<th>Actions</th>
 					</tr>
-				}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					for _, m := range members {
+						<tr>
+							<td style="font-family: monospace; font-size: 0.8rem;">{ m.UserID }</td>
+							<td>
+								<span class="status-badge" style={ memberRoleBadgeClass(m.Role) }>
+									{ m.Role }
+								</span>
+							</td>
+							<td class="text-muted">{ m.JoinedAt }</td>
+							<td>
+								<div class="flex gap-8 items-center">
+									if m.Role != "owner" {
+										<form
+											hx-put={ "/partials/orgs/" + orgID + "/members/" + m.UserID }
+											hx-target="#member-list"
+											hx-swap="innerHTML"
+											style="display: inline-flex; gap: 4px; align-items: center;"
+										>
+											<select name="role" style="padding: 4px 8px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; font-size: 0.75rem;">
+												<option value="admin" selected?={ m.Role == "admin" }>Admin</option>
+												<option value="member" selected?={ m.Role == "member" }>Member</option>
+												<option value="viewer" selected?={ m.Role == "viewer" }>Viewer</option>
+											</select>
+											<button type="submit" class="btn btn--tonal btn--small">Update</button>
+										</form>
+										<button
+											class="btn btn--danger btn--small"
+											hx-delete={ "/partials/orgs/" + orgID + "/members/" + m.UserID }
+											hx-target="#member-list"
+											hx-swap="innerHTML"
+											hx-confirm={ "Remove member '" + m.UserID + "' from this organization?" }
+										>
+											Remove
+										</button>
+									}
+								</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 	}
 }
 
@@ -232,48 +234,50 @@ templ APIKeyList(orgID string, keys []client.APIKey) {
 			<div class="empty-state__desc">Create API keys to integrate with your applications.</div>
 		</div>
 	} else {
-		<table class="data-table">
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Key Prefix</th>
-					<th>Created</th>
-					<th>Last Used</th>
-					<th>Actions</th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, k := range keys {
+		<div class="data-table-container">
+			<table class="data-table">
+				<thead>
 					<tr>
-						<td>{ k.Name }</td>
-						<td style="font-family: monospace;">{ k.KeyPrefix }...</td>
-						<td class="text-muted">{ k.CreatedAt }</td>
-						<td class="text-muted">
-							if k.LastUsedAt != nil {
-								{ *k.LastUsedAt }
-							} else {
-								Never
-							}
-						</td>
-						<td>
-							if k.RevokedAt == nil {
-								<button
-									class="btn btn--danger btn--small"
-									hx-delete={ "/partials/orgs/" + orgID + "/api-keys/" + k.ID }
-									hx-target="#apikey-list"
-									hx-swap="innerHTML"
-									hx-confirm={ "Revoke API key '" + k.Name + "'? This cannot be undone." }
-								>
-									Revoke
-								</button>
-							} else {
-								<span class="status-badge status-badge--archived">Revoked</span>
-							}
-						</td>
+						<th>Name</th>
+						<th>Key Prefix</th>
+						<th>Created</th>
+						<th>Last Used</th>
+						<th>Actions</th>
 					</tr>
-				}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					for _, k := range keys {
+						<tr>
+							<td>{ k.Name }</td>
+							<td style="font-family: monospace;">{ k.KeyPrefix }...</td>
+							<td class="text-muted">{ k.CreatedAt }</td>
+							<td class="text-muted">
+								if k.LastUsedAt != nil {
+									{ *k.LastUsedAt }
+								} else {
+									Never
+								}
+							</td>
+							<td>
+								if k.RevokedAt == nil {
+									<button
+										class="btn btn--danger btn--small"
+										hx-delete={ "/partials/orgs/" + orgID + "/api-keys/" + k.ID }
+										hx-target="#apikey-list"
+										hx-swap="innerHTML"
+										hx-confirm={ "Revoke API key '" + k.Name + "'? This cannot be undone." }
+									>
+										Revoke
+									</button>
+								} else {
+									<span class="status-badge status-badge--archived">Revoked</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 	}
 }
 
