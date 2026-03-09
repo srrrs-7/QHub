@@ -57,13 +57,21 @@ templ OrganizationList(orgs []client.Organization) {
 			<div class="empty-state__desc">Create your first organization to get started.</div>
 		</div>
 	} else {
-		<div class="card-grid">
+		<div class="repo-list">
 			for _, org := range orgs {
-				<a class="card card--clickable" href={ templ.SafeURL("/organizations/" + org.Slug) }>
-					<div class="prompt-card__name">{ org.Name }</div>
-					<div class="prompt-card__meta">
-						<span class="type-badge">{ org.Plan }</span>
-						<span class="prompt-card__version">{ org.Slug }</span>
+				<a class="repo-item" href={ templ.SafeURL("/organizations/" + org.Slug) }>
+					<div class="repo-item__icon">
+						<span class="material-symbols-outlined">corporate_fare</span>
+					</div>
+					<div class="repo-item__body">
+						<div class="repo-item__name">{ org.Name }</div>
+						<div class="repo-item__attrs">
+							<span class="type-badge">{ org.Plan }</span>
+						</div>
+					</div>
+					<div class="repo-item__meta">
+						<code style="font-size: 12px; color: var(--fg-muted);">{ org.Slug }</code>
+						<span class="material-symbols-outlined" style="font-size: 18px; color: var(--fg-muted);">chevron_right</span>
 					</div>
 				</a>
 			}
@@ -103,16 +111,24 @@ templ OrganizationDetailPage(page PageData, org *client.Organization, projects [
 					<div class="empty-state__desc">Create a project to start managing prompts.</div>
 				</div>
 			} else {
-				<div class="card-grid">
+				<div class="repo-list">
 					for _, p := range projects {
 						<a
-							class="card card--clickable"
+							class="repo-item"
 							href={ templ.SafeURL("/orgs/" + org.Slug + "/projects/" + p.Slug + "/prompts") }
 						>
-							<div class="prompt-card__name">{ p.Name }</div>
-							if p.Description != "" {
-								<div class="prompt-card__desc">{ p.Description }</div>
-							}
+							<div class="repo-item__icon">
+								<span class="material-symbols-outlined">folder</span>
+							</div>
+							<div class="repo-item__body">
+								<div class="repo-item__name">{ p.Name }</div>
+								if p.Description != "" {
+									<div class="repo-item__desc">{ p.Description }</div>
+								}
+							</div>
+							<div class="repo-item__meta">
+								<span class="material-symbols-outlined" style="font-size: 18px; color: var(--fg-muted);">chevron_right</span>
+							</div>
 						</a>
 					}
 				</div>

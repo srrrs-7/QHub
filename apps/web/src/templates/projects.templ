@@ -64,34 +64,35 @@ templ ProjectList(page PageData, org *client.Organization, projects []client.Pro
 			<div class="empty-state__desc">Create your first project to start managing prompts.</div>
 		</div>
 	} else {
-		<div class="card-grid">
+		<div class="repo-list">
 			for _, p := range projects {
-				<div class="card" style="position: relative;">
+				<div class="repo-item" style="cursor: default;">
+					<div class="repo-item__icon">
+						<span class="material-symbols-outlined">folder</span>
+					</div>
 					<a
-						class="card--clickable"
+						class="repo-item__body"
 						href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + p.Slug + "/prompts") }
-						style="display: block; text-decoration: none; color: inherit;"
+						style="text-decoration: none; color: inherit; flex: 1;"
 					>
-						<div class="prompt-card__name">{ p.Name }</div>
+						<div class="repo-item__name">{ p.Name }</div>
 						if p.Description != "" {
-							<div class="prompt-card__desc">{ p.Description }</div>
+							<div class="repo-item__desc">{ p.Description }</div>
 						}
 					</a>
-					<div class="flex gap-8 mt-16" style="justify-content: flex-end;">
+					<div class="repo-item__meta">
 						<button
-							class="btn btn--outlined btn--small"
+							class="btn btn--text btn--small"
 							onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('edit-project-%s').showModal()", p.ID)} }
 						>
 							<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
-							Edit
 						</button>
 						<button
-							class="btn btn--outlined btn--small"
-							style="color: var(--md-sys-color-error); border-color: var(--md-sys-color-error);"
+							class="btn btn--text btn--small"
+							style="color: var(--danger);"
 							onclick={ templ.ComponentScript{Call: fmt.Sprintf("document.getElementById('delete-project-%s').showModal()", p.ID)} }
 						>
 							<span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-							Delete
 						</button>
 					</div>
 				</div>

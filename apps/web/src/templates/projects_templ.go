@@ -134,32 +134,32 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"card-grid\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"repo-list\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, p := range projects {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"card\" style=\"position: relative;\"><a class=\"card--clickable\" href=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"repo-item\" style=\"cursor: default;\"><div class=\"repo-item__icon\"><span class=\"material-symbols-outlined\">folder</span></div><a class=\"repo-item__body\" href=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 templ.SafeURL
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + p.Slug + "/prompts"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 72, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 75, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" style=\"display: block; text-decoration: none; color: inherit;\"><div class=\"prompt-card__name\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" style=\"text-decoration: none; color: inherit; flex: 1;\"><div class=\"repo-item__name\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 75, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 78, Col: 43}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -170,14 +170,14 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 					return templ_7745c5c3_Err
 				}
 				if p.Description != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"prompt-card__desc\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"repo-item__desc\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.Description)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 77, Col: 53}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 80, Col: 51}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
@@ -188,7 +188,7 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</a><div class=\"flex gap-8 mt-16\" style=\"justify-content: flex-end;\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</a><div class=\"repo-item__meta\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -196,7 +196,7 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button class=\"btn btn--outlined btn--small\" onclick=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button class=\"btn btn--text btn--small\" onclick=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -205,7 +205,7 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"><span class=\"material-symbols-outlined\" style=\"font-size: 16px;\">edit</span> Edit</button> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"><span class=\"material-symbols-outlined\" style=\"font-size: 16px;\">edit</span></button> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -213,7 +213,7 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button class=\"btn btn--outlined btn--small\" style=\"color: var(--md-sys-color-error); border-color: var(--md-sys-color-error);\" onclick=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button class=\"btn btn--text btn--small\" style=\"color: var(--danger);\" onclick=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -222,7 +222,7 @@ func ProjectList(page PageData, org *client.Organization, projects []client.Proj
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"><span class=\"material-symbols-outlined\" style=\"font-size: 16px;\">delete</span> Delete</button></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"><span class=\"material-symbols-outlined\" style=\"font-size: 16px;\">delete</span></button></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -264,7 +264,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("edit-project-" + p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 104, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 105, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -277,7 +277,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs("/partials/orgs/" + org.ID + "/projects/" + p.Slug)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 107, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 108, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -290,7 +290,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("edit-name-" + p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 113, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 114, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -303,7 +303,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs("edit-name-" + p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 114, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 115, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -316,7 +316,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 114, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 115, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -329,7 +329,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("edit-desc-" + p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 117, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 118, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -342,7 +342,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("edit-desc-" + p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 118, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 119, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -355,7 +355,7 @@ func ProjectEditDialog(org *client.Organization, p client.Project) templ.Compone
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 118, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 119, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -397,7 +397,7 @@ func ProjectDeleteDialog(org *client.Organization, p client.Project) templ.Compo
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs("delete-project-" + p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 129, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 130, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
@@ -410,7 +410,7 @@ func ProjectDeleteDialog(org *client.Organization, p client.Project) templ.Compo
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 132, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 133, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
@@ -423,7 +423,7 @@ func ProjectDeleteDialog(org *client.Organization, p client.Project) templ.Compo
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("/partials/orgs/" + org.ID + "/projects/" + p.Slug)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 138, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/projects.templ`, Line: 139, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {

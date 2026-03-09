@@ -71,24 +71,28 @@ templ PromptList(page PageData, prompts []client.Prompt) {
 			<div class="empty-state__desc">Create your first prompt to start versioning.</div>
 		</div>
 	} else {
-		<div class="card-grid">
+		<div class="repo-list">
 			for _, p := range prompts {
 				<a
-					class="card card--clickable"
+					class="repo-item"
 					href={ templ.SafeURL("/orgs/" + page.OrgSlug + "/projects/" + page.ProjectSlug + "/prompts/" + p.Slug) }
 				>
-					<div class="prompt-card">
-						<div class="prompt-card__info">
-							<div class="prompt-card__name">{ p.Name }</div>
-							if p.Description != "" {
-								<div class="prompt-card__desc">{ p.Description }</div>
-							}
-							<div class="prompt-card__meta">
-								<span class="type-badge">{ p.PromptType }</span>
-								@StatusBadge(p.StatusLabel())
-								<span class="prompt-card__version">{ fmt.Sprintf("v%d", p.LatestVersion) }</span>
-							</div>
+					<div class="repo-item__icon">
+						<span class="material-symbols-outlined">edit_note</span>
+					</div>
+					<div class="repo-item__body">
+						<div class="repo-item__name">{ p.Name }</div>
+						if p.Description != "" {
+							<div class="repo-item__desc">{ p.Description }</div>
+						}
+						<div class="repo-item__attrs">
+							<span class="type-badge">{ p.PromptType }</span>
+							@StatusBadge(p.StatusLabel())
 						</div>
+					</div>
+					<div class="repo-item__meta">
+						<code style="font-size: 12px; color: var(--fg-muted);">{ fmt.Sprintf("v%d", p.LatestVersion) }</code>
+						<span class="material-symbols-outlined" style="font-size: 18px; color: var(--fg-muted);">chevron_right</span>
 					</div>
 				</a>
 			}
