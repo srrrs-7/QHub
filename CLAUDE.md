@@ -139,6 +139,71 @@ Log ingestion routes (`POST /logs`, `POST /logs/batch`) support combined auth: B
 
 **Auth distinction**: API keys (`X-API-Key` header) and Bearer tokens (`Authorization: Bearer`) are different auth mechanisms. SDK constructors like `NewClient(bearerToken, ...)` do not transparently accept API keys — callers must use the correct auth path.
 
+### Structured Logging (5W1H Schema)
+
+Every log entry follows a unified 5W1H schema implemented in `apps/pkgs/logger/` and `middleware/logger.go`.
+
+**JSON shape** (one entry per HTTP request, msg = `"http.request"`):
+```json
+{
+  "time": "2026-03-09T15:56:51Z", "level": "INFO", "msg": "http.request",
+  "who":   { "user_id": "uuid", "org_id": "uuid", "auth": "bearer|apikey|bypass", "ip": "…" },
+  "what":  { "action": "POST /organizations/{org_id}/projects" },
+  "when":  { "duration_ms": 42 },
+  "where": { "layer": "http", "component": "Logger" },
+  "why":   { "outcome": "success|client_error|server_error", "status": 201 },
+  "how":   { "method": "POST", "path": "/api/v1/…", "route": "/api/v1/…/{org_id}/…",
+             "request_id": "…", "user_agent": "…", "query": "" }
+}
+```
+
+**`what.action`** uses the chi route *pattern* (e.g. `/organizations/{org_id}/projects`), not the actual URL, to keep cardinality safe for dashboards and alert rules.
+
+**Log level** is determined by HTTP status: 2xx/3xx → `INFO`, 4xx → `WARN`, 5xx → `ERROR`. This lets alerting pipelines filter on `level` without parsing `why.outcome`.
+
+**`RequestLog` pointer pattern** — the mechanism that populates WHO fields across the middleware chain without restructuring it:
+
+```
+Logger middleware
+  └─ creates *RequestLog, stores in context
+      └─ BearerAuth  → sets rl.AuthMethod = "bearer"
+      └─ ApiKeyAuth  → sets rl.AuthMethod = "apikey", rl.OrgID = "…"
+      └─ RequireRole → sets rl.OrgID (on org_id parse), rl.UserID (on userID parse),
+                        even when the request is ultimately rejected (401/403)
+  └─ after next.ServeHTTP returns, reads all WHO fields from the same pointer
+```
+
+The key property: `*RequestLog` is a **mutable pointer** stored in context. Every downstream `context.WithValue` call creates a new `*http.Request` but shares the same pointer, so mutations by any middleware are visible to the Logger after `next.ServeHTTP` returns. No mutex needed — one pointer per request.
+
+**Non-HTTP log calls** (errors, startup, lifecycle) use `slog.Group` with the same 5W1H field names:
+```go
+// msg format: <domain>.<event>
+logger.Error("rbac.membership_lookup_failed",
+    slog.Group("who",   slog.String("user_id", …), slog.String("org_id", …)),
+    slog.Group("where", slog.String("layer", "middleware"), slog.String("component", "RequireRole")),
+    slog.Group("why",   slog.String("outcome", "error"), slog.String("error", err.Error())),
+    slog.Group("how",   slog.String("request_id", rl.RequestID)),
+)
+```
+
+**Event naming convention** — dot-separated `<domain>.<event>`:
+
+| Domain | Events |
+|--------|--------|
+| `http` | `http.request` |
+| `server` | `server.start`, `server.shutdown`, `server.exit`, `server.listen_failed`, `server.shutdown_failed` |
+| `db` | `db.connect_failed`, `db.close_failed`, `db.config_missing` |
+| `cache` | `cache.enabled`, `cache.disabled` |
+| `auth` | `auth.token_validation_failed`, `auth.apikey_lookup_failed`, `auth.apikey_last_used_update_failed` |
+| `rbac` | `rbac.membership_lookup_failed`, `rbac.bypass_enabled` |
+| `health` | `health.check_failed` |
+
+**Rules when adding new log calls:**
+- Always use `slog.Group(dimension, slog.String(key, val), …)` — never bare key-value pairs
+- Include `where.layer` + `where.component` so the log is traceable without reading code
+- Include `how.request_id` on every in-request error log (read from `logger.RequestLogFrom(r.Context()).RequestID`)
+- Use `logger.Warn` (not `Error`) for best-effort background tasks (e.g. `UpdateApiKeyLastUsed`)
+
 ### Known Pitfalls (from post-commit analysis)
 
 These patterns have caused real bugs; avoid them:
@@ -232,15 +297,18 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 
 Devcontainer includes: PostgreSQL 18, Redis, ElasticMQ.
 
-**Local dev environment variables** (set in `devcontainer.json` override or `.env`):
-```
-DEV_BYPASS_RBAC=true    # Skip JWT/Cognito auth for BFF→API calls in dev
-API_AUTH_TOKEN=dev-token # Web client auth token (falls back to "dev-token")
-```
+**Local dev environment variables** — automatically injected by the Makefile targets:
+
+| Variable | Value | Where set |
+|----------|-------|-----------|
+| `DEV_BYPASS_RBAC=true` | Skips JWT/Cognito identity checks in `RequireRole` | `make run-api`, `make run-all` |
+| `API_AUTH_TOKEN=dev-token` | Bearer token the web BFF sends to the API | `make run-web`, `make run-all` |
+
+These are also set in `compose.override.yaml` for Docker-based dev. You do **not** need to set them manually when using `make run-*`.
 
 **`DEV_BYPASS_RBAC` requirements** — when this flag is active, the middleware must:
 1. Log a startup warning: `"DEV_BYPASS_RBAC is enabled — all RBAC checks are skipped"`
-2. Inject **both** a synthetic role (`RoleOwner`) AND a fixed synthetic `userID` into context — omitting `userID` causes zero-UUID in downstream handlers that call `GetUserID(ctx)`
+2. Inject **both** a synthetic role (`RoleOwner`) AND a fixed synthetic `userID` (`devBypassUserID`) into context — omitting `userID` causes zero-UUID in downstream handlers that call `GetUserID(ctx)`
 
 ### Web Frontend Architecture (apps/web)
 
