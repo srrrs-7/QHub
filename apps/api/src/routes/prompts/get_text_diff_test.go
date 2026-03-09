@@ -54,7 +54,7 @@ func TestGetTextDiffHandler(t *testing.T) {
 
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
-				diffSvc := diffservice.NewDiffService(vRepo)
+				diffSvc := diffservice.NewDiffService(vRepo, nil)
 				handler := NewPromptHandler(pRepo, vRepo, diffSvc, nil, nil).GetTextDiff()
 
 				url := "/prompts/" + promptID + "/versions/" + tt.version + "/text-diff"
@@ -132,7 +132,7 @@ func TestGetTextDiffHandler(t *testing.T) {
 
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
-				diffSvc := diffservice.NewDiffService(vRepo)
+				diffSvc := diffservice.NewDiffService(vRepo, nil)
 				handler := NewPromptHandler(pRepo, vRepo, diffSvc, nil, nil).GetTextDiff()
 
 				url := "/prompts/" + promptID + "/versions/" + tt.version + "/text-diff"
@@ -181,7 +181,7 @@ func TestGetTextDiffHandler(t *testing.T) {
 
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
-				diffSvc := diffservice.NewDiffService(vRepo)
+				diffSvc := diffservice.NewDiffService(vRepo, nil)
 				handler := NewPromptHandler(pRepo, vRepo, diffSvc, nil, nil).GetTextDiff()
 
 				url := "/prompts/" + tt.promptID + "/versions/" + tt.version + "/text-diff"

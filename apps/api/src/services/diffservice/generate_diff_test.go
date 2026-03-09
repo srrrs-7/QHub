@@ -106,7 +106,7 @@ func makeVersion(promptID uuid.UUID, number int, content string) prompt.PromptVe
 
 func TestNewDiffService(t *testing.T) {
 	repo := newMockVersionRepo()
-	svc := NewDiffService(repo)
+	svc := NewDiffService(repo, nil)
 
 	if svc == nil {
 		t.Fatal("expected non-nil DiffService")
@@ -333,7 +333,7 @@ func TestGenerateDiff(t *testing.T) {
 				repo.addVersion(makeVersion(promptID, tt.args.toVersion, tt.args.toContent))
 			}
 
-			svc := NewDiffService(repo)
+			svc := NewDiffService(repo, nil)
 			got, err := svc.GenerateDiff(context.Background(), promptID, tt.args.fromVersion, tt.args.toVersion)
 
 			if tt.expected.wantErr {
@@ -620,7 +620,7 @@ func TestGenerateTextDiff(t *testing.T) {
 				repo.addVersion(makeVersion(promptID, tt.args.toVersion, tt.args.toContent))
 			}
 
-			svc := NewDiffService(repo)
+			svc := NewDiffService(repo, nil)
 			got, err := svc.GenerateTextDiff(context.Background(), promptID, tt.args.fromVersion, tt.args.toVersion)
 
 			if tt.expected.wantErr {
@@ -691,7 +691,7 @@ func TestGenerateDiffSemanticDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "x"))
 		repo.addVersion(makeVersion(promptID, 2, string(largeContent)))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -717,7 +717,7 @@ func TestGenerateDiffSemanticDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "x"))
 		repo.addVersion(makeVersion(promptID, 2, string(medContent)))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -739,7 +739,7 @@ func TestGenerateDiffSemanticDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "Hello {{name}} and {{age}}"))
 		repo.addVersion(makeVersion(promptID, 2, "Hello {{name}} and {{email}}"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -767,7 +767,7 @@ func TestGenerateDiffSemanticDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, ""))
 		repo.addVersion(makeVersion(promptID, 2, "some content"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -783,7 +783,7 @@ func TestGenerateDiffSemanticDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "short"))
 		repo.addVersion(makeVersion(promptID, 2, "much longer content here"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -799,7 +799,7 @@ func TestGenerateDiffSemanticDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "much longer content here"))
 		repo.addVersion(makeVersion(promptID, 2, "short"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -821,7 +821,7 @@ func TestGenerateTextDiffLineDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "same"))
 		repo.addVersion(makeVersion(promptID, 2, "same"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateTextDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -844,7 +844,7 @@ func TestGenerateTextDiffLineDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "line1"))
 		repo.addVersion(makeVersion(promptID, 2, "line1\nadded"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateTextDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -867,7 +867,7 @@ func TestGenerateTextDiffLineDetails(t *testing.T) {
 		repo.addVersion(makeVersion(promptID, 1, "line1\nremoved"))
 		repo.addVersion(makeVersion(promptID, 2, "line1"))
 
-		svc := NewDiffService(repo)
+		svc := NewDiffService(repo, nil)
 		got, err := svc.GenerateTextDiff(context.Background(), promptID, 1, 2)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

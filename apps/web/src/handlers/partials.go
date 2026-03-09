@@ -372,6 +372,38 @@ func (h *PartialHandler) Search() http.HandlerFunc {
 	}
 }
 
+// --- Lint ---
+
+func (h *PartialHandler) GetLint() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		version := chi.URLParam(r, "version")
+
+		result, err := h.api.GetLintResult(r.Context(), promptID, version)
+		if err != nil {
+			renderSnackbar(w, r, "Error loading lint: "+err.Error(), true)
+			return
+		}
+		render(w, r, templates.LintResultCard(result))
+	}
+}
+
+// --- Text Diff ---
+
+func (h *PartialHandler) GetTextDiff() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		version := chi.URLParam(r, "version")
+
+		result, err := h.api.GetTextDiff(r.Context(), promptID, version)
+		if err != nil {
+			renderSnackbar(w, r, "Error loading diff: "+err.Error(), true)
+			return
+		}
+		render(w, r, templates.TextDiffCard(result))
+	}
+}
+
 func renderSnackbar(w http.ResponseWriter, _ *http.Request, msg string, isError bool) {
 	cls := "snackbar--success"
 	if isError {

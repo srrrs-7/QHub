@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"api/src/services/embeddingservice"
+	"api/src/services/intentservice"
 	"utils/db/db"
 	"utils/logger"
 	"utils/ollama"
@@ -121,8 +122,9 @@ func (s *RAGService) GenerateResponse(ctx context.Context, sessionID uuid.UUID, 
 		"results_filtered", len(items),
 	)
 
-	// Step 4: Build system prompt with context
-	systemPrompt := BuildSystemPrompt(items)
+	// Step 4: Classify user intent and build system prompt with context
+	intent := intentservice.Classify(userMessage)
+	systemPrompt := BuildSystemPrompt(items, &intent)
 
 	// Step 5: Send to Ollama for streaming generation
 	chatReq := ollama.ChatRequest{
@@ -156,13 +158,20 @@ func (s *RAGService) GenerateResponse(ctx context.Context, sessionID uuid.UUID, 
 	return out, nil
 }
 
-// BuildSystemPrompt constructs a system prompt incorporating retrieved context items.
+// BuildSystemPrompt constructs a system prompt incorporating retrieved context items
+// and an optional classified intent. When intent is non-nil and not "general",
+// it adds an intent hint to guide the LLM response.
 // Exported for testability.
-func BuildSystemPrompt(items []contextItem) string {
+func BuildSystemPrompt(items []contextItem, intent *intentservice.Intent) string {
 	var sb strings.Builder
 	sb.WriteString("You are a helpful AI consulting assistant for QHub, a prompt management platform. ")
 	sb.WriteString("Use the following relevant prompt examples from the user's organization to inform your response. ")
 	sb.WriteString("Reference specific prompts when relevant.\n\n")
+
+	if intent != nil && intent.Type != intentservice.IntentGeneral {
+		sb.WriteString(fmt.Sprintf("## User Intent: %s (confidence: %.0f%%)\n", intent.Type, intent.Confidence*100))
+		sb.WriteString("Tailor your response to address this specific intent.\n\n")
+	}
 
 	if len(items) == 0 {
 		sb.WriteString("No relevant prompt examples were found. Provide a helpful general response.\n")

@@ -225,6 +225,37 @@ func (c *APIClient) ListBenchmarks(ctx context.Context, slug string) ([]Benchmar
 	return benchmarks, c.do(ctx, http.MethodGet, "/api/v1/industries/"+slug+"/benchmarks", nil, &benchmarks)
 }
 
+// --- Analytics ---
+
+func (c *APIClient) GetPromptAnalytics(ctx context.Context, promptID string) ([]PromptAnalytics, error) {
+	var result []PromptAnalytics
+	return result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/analytics", nil, &result)
+}
+
+func (c *APIClient) GetDailyTrend(ctx context.Context, promptID string) ([]DailyTrend, error) {
+	var result []DailyTrend
+	return result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/trend", nil, &result)
+}
+
+// --- Diff ---
+
+func (c *APIClient) GetSemanticDiff(ctx context.Context, promptID, v1, v2 string) (*SemanticDiff, error) {
+	var result SemanticDiff
+	return &result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/semantic-diff/"+v1+"/"+v2, nil, &result)
+}
+
+func (c *APIClient) GetTextDiff(ctx context.Context, promptID, version string) (*TextDiffResult, error) {
+	var result TextDiffResult
+	return &result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/versions/"+version+"/text-diff", nil, &result)
+}
+
+// --- Lint ---
+
+func (c *APIClient) GetLintResult(ctx context.Context, promptID, version string) (*LintResult, error) {
+	var result LintResult
+	return &result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/versions/"+version+"/lint", nil, &result)
+}
+
 // --- Search ---
 
 func (c *APIClient) SemanticSearch(ctx context.Context, body map[string]any) (*SearchResponse, error) {

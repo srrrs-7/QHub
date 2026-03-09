@@ -68,6 +68,8 @@ func NewRouter(apiClient *client.APIClient) http.Handler {
 		r.Post("/prompts/{prompt_id}/versions", partials.CreateVersion())
 		r.Get("/prompts/{prompt_id}/versions/{version}", partials.GetVersionDetail())
 		r.Put("/prompts/{prompt_id}/versions/{version}/status", partials.UpdateVersionStatus())
+		r.Get("/prompts/{prompt_id}/versions/{version}/lint", partials.GetLint())
+		r.Get("/prompts/{prompt_id}/versions/{version}/text-diff", partials.GetTextDiff())
 
 		// Organizations
 		r.Post("/organizations", partials.CreateOrganization())

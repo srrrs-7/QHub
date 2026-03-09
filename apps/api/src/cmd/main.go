@@ -22,6 +22,7 @@ import (
 	"api/src/routes/search"
 	"api/src/routes/tags"
 	"api/src/routes/tasks"
+	"api/src/routes/users"
 	"api/src/services/diffservice"
 	"api/src/services/embeddingservice"
 	"api/src/services/lintservice"
@@ -34,6 +35,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"utils/cache"
 	"utils/db"
 	dbq "utils/db/db"
 	"utils/embedding"
@@ -66,11 +68,24 @@ func main() {
 		}
 	}()
 
+	// Redis cache (optional: enabled when REDIS_URL is set)
+	var cacheClient *cache.Client
+	redisURL := env.GetStringOrDefault("REDIS_URL", "")
+	if redisURL != "" {
+		cacheClient = cache.New(redisURL)
+		if cacheClient != nil && cacheClient.Available() {
+			logger.Info("Redis cache enabled", "url", redisURL)
+			defer cacheClient.Close()
+		}
+	} else {
+		logger.Info("Redis cache disabled (set REDIS_URL to enable)")
+	}
+
 	// DI: Querier → Repository → Handler
 	q := dbq.New(dbConn)
-	h := initHandlers(q, dbConn)
+	h := initHandlers(q, dbConn, cacheClient)
 
-	r := routes.NewRouter(h)
+	r := routes.NewRouter(h, q)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
@@ -105,13 +120,13 @@ func main() {
 	logger.Info("Server exited gracefully")
 }
 
-func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
+func initHandlers(q dbq.Querier, conn *sql.DB, cacheClient *cache.Client) routes.Handlers {
 	taskRepo := task_repository.NewTaskRepository(q)
 	orgRepo := organization_repository.NewOrganizationRepository(q)
 	projectRepo := project_repository.NewProjectRepository(q)
 	promptRepo := prompt_repository.NewPromptRepository(q)
 	versionRepo := prompt_repository.NewVersionRepository(q)
-	diffSvc := diffservice.NewDiffService(versionRepo)
+	diffSvc := diffservice.NewDiffService(versionRepo, cacheClient)
 	lintSvc := lintservice.NewLintService(versionRepo)
 	logRepo := executionlog_repository.NewLogRepository(q)
 	evalRepo := executionlog_repository.NewEvaluationRepository(q)
@@ -150,7 +165,7 @@ func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
 	}
 
 	return routes.Handlers{
-		Health:       healthHandler(conn),
+		Health:       healthHandler(conn, cacheClient),
 		Task:         tasks.NewTaskHandler(taskRepo),
 		Organization: organizations.NewOrganizationHandler(orgRepo),
 		Project:      projects.NewProjectHandler(projectRepo),
@@ -164,37 +179,44 @@ func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
 		ApiKey:       apikeys.NewApiKeyHandler(q),
 		Member:       members.NewMemberHandler(q),
 		Search:       search.NewSearchHandler(embSvc, q),
+		User:         users.NewUserHandler(q),
 	}
 }
 
-func healthHandler(conn *sql.DB) http.HandlerFunc {
+func healthHandler(conn *sql.DB, cacheClient *cache.Client) http.HandlerFunc {
 	type healthResponse struct {
 		Status   string `json:"status"`
 		Database string `json:"database"`
+		Cache    string `json:"cache,omitempty"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 
-		dbStatus := "ok"
+		resp := healthResponse{Status: "ok"}
+
+		resp.Database = "ok"
 		if err := conn.PingContext(ctx); err != nil {
 			logger.Error("health check failed", "error", err)
-			dbStatus = "unhealthy"
+			resp.Status = "unhealthy"
+			resp.Database = "unhealthy"
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(healthResponse{
-				Status:   "unhealthy",
-				Database: dbStatus,
-			})
+			json.NewEncoder(w).Encode(resp)
 			return
+		}
+
+		if cacheClient != nil && cacheClient.Available() {
+			if err := cacheClient.Ping(ctx); err != nil {
+				resp.Cache = "unhealthy"
+			} else {
+				resp.Cache = "ok"
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(healthResponse{
-			Status:   "ok",
-			Database: dbStatus,
-		})
+		json.NewEncoder(w).Encode(resp)
 	}
 }

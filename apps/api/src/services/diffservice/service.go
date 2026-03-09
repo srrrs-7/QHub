@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"api/src/domain/apperror"
 	"api/src/domain/intelligence"
@@ -18,16 +19,22 @@ import (
 	"api/src/services/contentutil"
 
 	"github.com/google/uuid"
+	"utils/cache"
 )
+
+// diffCacheTTL is the duration that computed diffs are cached.
+const diffCacheTTL = 24 * time.Hour
 
 // DiffService generates semantic diffs between prompt versions.
 type DiffService struct {
 	versionRepo prompt.VersionRepository
+	cache       *cache.Client
 }
 
-// NewDiffService creates a new DiffService with the given version repository.
-func NewDiffService(versionRepo prompt.VersionRepository) *DiffService {
-	return &DiffService{versionRepo: versionRepo}
+// NewDiffService creates a new DiffService with the given version repository
+// and an optional cache client. If cache is nil, diffs are computed every time.
+func NewDiffService(versionRepo prompt.VersionRepository, cache *cache.Client) *DiffService {
+	return &DiffService{versionRepo: versionRepo, cache: cache}
 }
 
 // toneKeywords maps tone categories to their indicator words.
@@ -38,9 +45,25 @@ var toneKeywords = map[string][]string{
 	"friendly": {"feel free", "no worries", "happy to", "glad", "welcome"},
 }
 
+// diffCacheKey returns the cache key for a semantic diff between two versions.
+func diffCacheKey(promptID uuid.UUID, fromVersion, toVersion int) string {
+	return fmt.Sprintf("diff:%s:v%d:v%d", promptID.String(), fromVersion, toVersion)
+}
+
 // GenerateDiff computes a rule-based semantic diff between two prompt versions
-// and stores the result in the database.
+// and stores the result in the database. Results are cached when a cache client
+// is configured.
 func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, fromVersion, toVersion int) (*intelligence.SemanticDiff, error) {
+	// Try cache first
+	cacheKey := diffCacheKey(promptID, fromVersion, toVersion)
+	if s.cache.Available() {
+		var cached intelligence.SemanticDiff
+		found, err := s.cache.Get(ctx, cacheKey, &cached)
+		if err == nil && found {
+			return &cached, nil
+		}
+	}
+
 	pid := prompt.PromptIDFromUUID(promptID)
 
 	fromV, err := s.versionRepo.FindByPromptAndNumber(ctx, pid, fromVersion)
@@ -71,6 +94,11 @@ func (s *DiffService) GenerateDiff(ctx context.Context, promptID uuid.UUID, from
 
 	if err := s.versionRepo.UpdateSemanticDiff(ctx, toV.ID, diffJSON); err != nil {
 		return nil, apperror.NewDatabaseError(fmt.Errorf("failed to store semantic diff: %w", err), "SemanticDiff")
+	}
+
+	// Cache the result (best-effort; errors are ignored)
+	if s.cache.Available() {
+		_ = s.cache.Set(ctx, cacheKey, diff, diffCacheTTL)
 	}
 
 	return diff, nil

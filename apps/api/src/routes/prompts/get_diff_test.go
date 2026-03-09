@@ -41,7 +41,7 @@ func TestGetDiffHandler(t *testing.T) {
 
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
-				diffSvc := diffservice.NewDiffService(vRepo)
+				diffSvc := diffservice.NewDiffService(vRepo, nil)
 				handler := NewPromptHandler(pRepo, vRepo, diffSvc, nil, nil).GetDiff()
 
 				req := httptest.NewRequest(http.MethodGet, "/prompts/"+promptID+"/semantic-diff/"+tt.v1+"/"+tt.v2, nil)
@@ -99,7 +99,7 @@ func TestGetDiffHandler(t *testing.T) {
 
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
-				diffSvc := diffservice.NewDiffService(vRepo)
+				diffSvc := diffservice.NewDiffService(vRepo, nil)
 				handler := NewPromptHandler(pRepo, vRepo, diffSvc, nil, nil).GetDiff()
 
 				req := httptest.NewRequest(http.MethodGet, "/prompts/"+promptID+"/semantic-diff/"+tt.v1+"/"+tt.v2, nil)
@@ -144,7 +144,7 @@ func TestGetDiffHandler(t *testing.T) {
 
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
-				diffSvc := diffservice.NewDiffService(vRepo)
+				diffSvc := diffservice.NewDiffService(vRepo, nil)
 				handler := NewPromptHandler(pRepo, vRepo, diffSvc, nil, nil).GetDiff()
 
 				req := httptest.NewRequest(http.MethodGet, "/prompts/"+tt.promptID+"/semantic-diff/"+tt.v1+"/"+tt.v2, nil)

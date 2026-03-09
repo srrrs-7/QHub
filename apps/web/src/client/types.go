@@ -228,6 +228,80 @@ type SearchResult struct {
 	CreatedAt         string          `json:"created_at"`
 }
 
+// --- Analytics ---
+
+type PromptAnalytics struct {
+	VersionNumber   int32  `json:"version_number"`
+	TotalExecutions int64  `json:"total_executions"`
+	AvgTokens       int32  `json:"avg_tokens"`
+	AvgLatencyMs    int32  `json:"avg_latency_ms"`
+	TotalCost       string `json:"total_cost"`
+	SuccessCount    int64  `json:"success_count"`
+	ErrorCount      int64  `json:"error_count"`
+}
+
+type DailyTrend struct {
+	Day             string `json:"day"`
+	TotalExecutions int64  `json:"total_executions"`
+	AvgTokens       int32  `json:"avg_tokens"`
+	AvgLatencyMs    int32  `json:"avg_latency_ms"`
+	TotalCost       string `json:"total_cost"`
+}
+
+// --- Diff ---
+
+type SemanticDiff struct {
+	Summary     string       `json:"summary"`
+	Changes     []DiffChange `json:"changes"`
+	ToneShift   string       `json:"tone_shift,omitempty"`
+	Specificity float64      `json:"specificity_change"`
+}
+
+type DiffChange struct {
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Impact      string `json:"impact"`
+}
+
+type TextDiffResult struct {
+	FromVersion int            `json:"from_version"`
+	ToVersion   int            `json:"to_version"`
+	Hunks       []TextDiffHunk `json:"hunks"`
+	Stats       TextDiffStats  `json:"stats"`
+}
+
+type TextDiffHunk struct {
+	Lines []TextDiffLine `json:"lines"`
+}
+
+type TextDiffLine struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+	OldLine int    `json:"old_line,omitempty"`
+	NewLine int    `json:"new_line,omitempty"`
+}
+
+type TextDiffStats struct {
+	Added   int `json:"added"`
+	Removed int `json:"removed"`
+	Equal   int `json:"equal"`
+}
+
+// --- Lint ---
+
+type LintResult struct {
+	Score  int         `json:"score"`
+	Issues []LintIssue `json:"issues"`
+	Passed []string    `json:"passed"`
+}
+
+type LintIssue struct {
+	Rule       string `json:"rule"`
+	Severity   string `json:"severity"`
+	Message    string `json:"message"`
+	Suggestion string `json:"suggestion,omitempty"`
+}
+
 // --- Benchmark ---
 
 type Benchmark struct {

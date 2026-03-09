@@ -3,7 +3,6 @@ package routes
 import (
 	"api/src/routes/analytics"
 	"api/src/routes/apikeys"
-	"api/src/routes/search"
 	"api/src/routes/consulting"
 	"api/src/routes/evaluations"
 	"api/src/routes/industries"
@@ -13,12 +12,15 @@ import (
 	"api/src/routes/organizations"
 	"api/src/routes/projects"
 	"api/src/routes/prompts"
+	"api/src/routes/search"
 	"api/src/routes/tags"
 	"api/src/routes/tasks"
+	"api/src/routes/users"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	dbq "utils/db/db"
 )
 
 type Handlers struct {
@@ -36,9 +38,10 @@ type Handlers struct {
 	ApiKey       *apikeys.ApiKeyHandler
 	Member       *members.MemberHandler
 	Search       *search.SearchHandler
+	User         *users.UserHandler
 }
 
-func NewRouter(h Handlers) http.Handler {
+func NewRouter(h Handlers, q dbq.Querier) http.Handler {
 	r := chi.NewRouter()
 
 	// ミドルウェア
@@ -55,6 +58,9 @@ func NewRouter(h Handlers) http.Handler {
 		r.Route("/v1", func(r chi.Router) {
 			// Bearer認証を適用
 			r.Use(mw.BearerAuth(validateToken))
+
+			// テナントコンテキスト
+			r.Use(mw.TenantContext())
 
 			// レート制限
 			r.Use(mw.RateLimit(mw.DefaultRateLimiterConfig()))
@@ -74,22 +80,13 @@ func NewRouter(h Handlers) http.Handler {
 				r.Put("/{id}", h.Task.Put())
 			})
 
-			// Projects (nested under org)
-			// TODO: Wire RBAC middleware when BearerAuth provides user identity (JWT/Cognito).
-			// Example usage with RequireRole:
-			//   r.Route("/organizations/{org_id}/projects", func(r chi.Router) {
-			//       r.With(mw.RequireRole(q, mw.RoleViewer)).Get("/", h.Project.List())
-			//       r.With(mw.RequireRole(q, mw.RoleMember)).Post("/", h.Project.Post())
-			//       r.With(mw.RequireRole(q, mw.RoleViewer)).Get("/{project_slug}", h.Project.Get())
-			//       r.With(mw.RequireRole(q, mw.RoleMember)).Put("/{project_slug}", h.Project.Put())
-			//       r.With(mw.RequireRole(q, mw.RoleAdmin)).Delete("/{project_slug}", h.Project.Delete())
-			//   })
+			// Projects (nested under org) - RBAC enforced
 			r.Route("/organizations/{org_id}/projects", func(r chi.Router) {
-				r.Get("/", h.Project.List())
-				r.Post("/", h.Project.Post())
-				r.Get("/{project_slug}", h.Project.Get())
-				r.Put("/{project_slug}", h.Project.Put())
-				r.Delete("/{project_slug}", h.Project.Delete())
+				r.With(mw.RequireRole(q, mw.RoleViewer)).Get("/", h.Project.List())
+				r.With(mw.RequireRole(q, mw.RoleMember)).Post("/", h.Project.Post())
+				r.With(mw.RequireRole(q, mw.RoleViewer)).Get("/{project_slug}", h.Project.Get())
+				r.With(mw.RequireRole(q, mw.RoleMember)).Put("/{project_slug}", h.Project.Put())
+				r.With(mw.RequireRole(q, mw.RoleAdmin)).Delete("/{project_slug}", h.Project.Delete())
 			})
 
 			// Prompts (nested under project)
@@ -172,19 +169,25 @@ func NewRouter(h Handlers) http.Handler {
 				r.Post("/{slug}/compliance-check", h.Industry.ComplianceCheck())
 			})
 
-			// API Keys (nested under org)
+			// API Keys (nested under org) - RBAC enforced
 			r.Route("/organizations/{org_id}/api-keys", func(r chi.Router) {
-				r.Post("/", h.ApiKey.Post())
-				r.Get("/", h.ApiKey.List())
-				r.Delete("/{id}", h.ApiKey.Delete())
+				r.With(mw.RequireRole(q, mw.RoleAdmin)).Post("/", h.ApiKey.Post())
+				r.With(mw.RequireRole(q, mw.RoleMember)).Get("/", h.ApiKey.List())
+				r.With(mw.RequireRole(q, mw.RoleAdmin)).Delete("/{id}", h.ApiKey.Delete())
 			})
 
-			// Members (nested under org)
+			// Members (nested under org) - RBAC enforced
 			r.Route("/organizations/{org_id}/members", func(r chi.Router) {
-				r.Post("/", h.Member.Post())
-				r.Get("/", h.Member.List())
-				r.Delete("/{user_id}", h.Member.Delete())
-				r.Put("/{user_id}", h.Member.Put())
+				r.With(mw.RequireRole(q, mw.RoleAdmin)).Post("/", h.Member.Post())
+				r.With(mw.RequireRole(q, mw.RoleMember)).Get("/", h.Member.List())
+				r.With(mw.RequireRole(q, mw.RoleOwner)).Delete("/{user_id}", h.Member.Delete())
+				r.With(mw.RequireRole(q, mw.RoleAdmin)).Put("/{user_id}", h.Member.Put())
+			})
+
+			// Users
+			r.Route("/users", func(r chi.Router) {
+				r.Post("/", h.User.Post())
+				r.Get("/{id}", h.User.Get())
 			})
 
 			// Semantic Search

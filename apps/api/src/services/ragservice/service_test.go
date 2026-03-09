@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"api/src/services/embeddingservice"
+	"api/src/services/intentservice"
 	"utils/embedding"
 	"utils/ollama"
 
@@ -303,7 +304,7 @@ func TestBuildSystemPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := BuildSystemPrompt(tt.args.items)
+			got := BuildSystemPrompt(tt.args.items, nil)
 
 			for _, want := range tt.expected.contains {
 				if !strings.Contains(got, want) {
@@ -439,7 +440,7 @@ func TestBuildSystemPrompt_NumberingFormat(t *testing.T) {
 			}
 		}
 
-		got := BuildSystemPrompt(items)
+		got := BuildSystemPrompt(items, nil)
 
 		// Check that "### " headers appear 5 times
 		headerCount := strings.Count(got, "### ")
@@ -712,7 +713,7 @@ func TestBuildSystemPrompt_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			got := BuildSystemPrompt(tt.args.items)
+			got := BuildSystemPrompt(tt.args.items, nil)
 
 			for _, want := range tt.expected.contains {
 				if !strings.Contains(got, want) {
@@ -720,6 +721,56 @@ func TestBuildSystemPrompt_EdgeCases(t *testing.T) {
 				}
 			}
 			for _, notwant := range tt.expected.notContains {
+				if strings.Contains(got, notwant) {
+					t.Errorf("prompt should NOT contain %q, got:\n%s", notwant, got)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildSystemPrompt_WithIntent(t *testing.T) {
+	items := []contextItem{
+		{PromptName: "Test Prompt", PromptSlug: "test", VersionNumber: 1, Content: "Hello"},
+	}
+
+	tests := []struct {
+		testName    string
+		intent      *intentservice.Intent
+		contains    []string
+		notContains []string
+	}{
+		{
+			testName:    "nil intent omits intent section",
+			intent:      nil,
+			notContains: []string{"User Intent"},
+		},
+		{
+			testName:    "general intent omits intent section",
+			intent:      &intentservice.Intent{Type: intentservice.IntentGeneral, Confidence: 0.5},
+			notContains: []string{"User Intent"},
+		},
+		{
+			testName: "improve intent adds intent section",
+			intent:   &intentservice.Intent{Type: intentservice.IntentImprove, Confidence: 0.8},
+			contains: []string{"User Intent: improve", "80%"},
+		},
+		{
+			testName: "compliance intent adds intent section",
+			intent:   &intentservice.Intent{Type: intentservice.IntentCompliance, Confidence: 0.8},
+			contains: []string{"User Intent: compliance"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			got := BuildSystemPrompt(items, tt.intent)
+			for _, want := range tt.contains {
+				if !strings.Contains(got, want) {
+					t.Errorf("prompt should contain %q, got:\n%s", want, got)
+				}
+			}
+			for _, notwant := range tt.notContains {
 				if strings.Contains(got, notwant) {
 					t.Errorf("prompt should NOT contain %q, got:\n%s", notwant, got)
 				}

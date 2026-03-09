@@ -5,6 +5,16 @@ import (
 	"web/src/client"
 )
 
+func lintScoreClass(score int) string {
+	if score >= 80 {
+		return "status-badge--production"
+	}
+	if score >= 60 {
+		return "status-badge--draft"
+	}
+	return "status-badge--error"
+}
+
 templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Prompt, versions []client.PromptVersion, activeVersion *client.PromptVersion) {
 	@Layout(page) {
 		<div class="breadcrumb">
@@ -161,4 +171,113 @@ templ VersionDetail(page PageData, prompt *client.Prompt, v client.PromptVersion
 		</div>
 	}
 	<div class="prompt-content">{ v.ContentString() }</div>
+	<!-- Lint & Diff Actions -->
+	<div class="flex gap-8 mt-16 mb-16">
+		<button
+			class="btn btn--outlined"
+			hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/lint" }
+			hx-target="#lint-result"
+			hx-swap="innerHTML"
+		>
+			<span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">fact_check</span>
+			Run Lint
+		</button>
+		if v.VersionNumber > 1 {
+			<button
+				class="btn btn--outlined"
+				hx-get={ "/partials/prompts/" + v.PromptID + "/versions/" + fmt.Sprintf("%d", v.VersionNumber) + "/text-diff" }
+				hx-target="#diff-result"
+				hx-swap="innerHTML"
+			>
+				<span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">difference</span>
+				Show Diff
+			</button>
+		}
+	</div>
+	<div id="lint-result"></div>
+	<div id="diff-result"></div>
+}
+
+templ LintResultCard(lint *client.LintResult) {
+	<div class="card mb-24" style="padding: 24px;">
+		<div class="flex items-center gap-8 mb-16">
+			<h2 style="font: var(--md-sys-typescale-title-large); flex: 1;">Lint Result</h2>
+			<span class={ "status-badge", lintScoreClass(lint.Score) } style="padding: 4px 12px; border-radius: 8px;">
+				{ fmt.Sprintf("Score: %d/100", lint.Score) }
+			</span>
+		</div>
+		if len(lint.Issues) == 0 {
+			<div style="font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-primary);">
+				<span class="material-symbols-outlined" style="vertical-align: middle;">check_circle</span>
+				No issues found
+			</div>
+		} else {
+			for _, issue := range lint.Issues {
+				<div class="flex items-center gap-8 mb-8" style="font: var(--md-sys-typescale-body-medium);">
+					@lintSeverityIcon(issue.Severity)
+					<span class="type-badge">{ issue.Rule }</span>
+					<span>{ issue.Message }</span>
+				</div>
+				if issue.Suggestion != "" {
+					<div style="font: var(--md-sys-typescale-body-small); color: var(--md-sys-color-on-surface-variant); margin-left: 32px; margin-bottom: 8px;">
+						{ issue.Suggestion }
+					</div>
+				}
+			}
+		}
+		if len(lint.Passed) > 0 {
+			<div class="mt-16">
+				<span style="font: var(--md-sys-typescale-label-medium); color: var(--md-sys-color-on-surface-variant);">Passed rules:</span>
+				<div class="chip-list mt-8">
+					for _, rule := range lint.Passed {
+						<span class="chip">{ rule }</span>
+					}
+				</div>
+			</div>
+		}
+	</div>
+}
+
+templ lintSeverityIcon(severity string) {
+	if severity == "error" {
+		<span class="material-symbols-outlined" style="color: var(--md-sys-color-error); font-size: 18px;">error</span>
+	} else if severity == "warning" {
+		<span class="material-symbols-outlined" style="color: #f59e0b; font-size: 18px;">warning</span>
+	} else {
+		<span class="material-symbols-outlined" style="color: var(--md-sys-color-primary); font-size: 18px;">info</span>
+	}
+}
+
+templ TextDiffCard(diff *client.TextDiffResult) {
+	<div class="card mb-24" style="padding: 24px;">
+		<div class="flex items-center gap-8 mb-16">
+			<h2 style="font: var(--md-sys-typescale-title-large); flex: 1;">
+				{ fmt.Sprintf("Text Diff (v%d → v%d)", diff.FromVersion, diff.ToVersion) }
+			</h2>
+			<span style="font: var(--md-sys-typescale-label-medium); color: var(--md-sys-color-on-surface-variant);">
+				<span style="color: #166534;">+{ fmt.Sprintf("%d", diff.Stats.Added) }</span>
+				{ " " }
+				<span style="color: #991b1b;">-{ fmt.Sprintf("%d", diff.Stats.Removed) }</span>
+			</span>
+		</div>
+		<div style="font-family: monospace; font-size: 0.85rem; line-height: 1.6; overflow-x: auto;">
+			for _, hunk := range diff.Hunks {
+				for _, line := range hunk.Lines {
+					if line.Type == "added" {
+						<div style="background: #dcfce7; color: #166534; padding: 0 8px;">
+							{ "+ " + line.Content }
+						</div>
+					} else if line.Type == "removed" {
+						<div style="background: #fce7e7; color: #991b1b; padding: 0 8px;">
+							{ "- " + line.Content }
+						</div>
+					} else {
+						<div style="padding: 0 8px; color: var(--md-sys-color-on-surface-variant);">
+							{ "  " + line.Content }
+						</div>
+					}
+				}
+			}
+		</div>
+	</div>
 }
