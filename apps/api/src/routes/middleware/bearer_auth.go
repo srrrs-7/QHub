@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"utils/logger"
@@ -19,7 +20,9 @@ const (
 // TokenValidator is a function type for validating bearer tokens
 type TokenValidator func(token string) (bool, error)
 
-// BearerAuth returns a middleware that validates Bearer tokens
+// BearerAuth returns a middleware that validates Bearer tokens.
+// On success it stores the token in context and marks auth_method = "bearer"
+// in the per-request RequestLog for the HTTP Logger to include in who.auth.
 func BearerAuth(validate TokenValidator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +46,20 @@ func BearerAuth(validate TokenValidator) func(http.Handler) http.Handler {
 
 			valid, err := validate(token)
 			if err != nil {
-				logger.Error("token validation error", "error", err)
+				rl := logger.RequestLogFrom(r.Context())
+				logger.Error("auth.token_validation_failed",
+					slog.Group("where",
+						slog.String("layer", "middleware"),
+						slog.String("component", "BearerAuth"),
+					),
+					slog.Group("why",
+						slog.String("outcome", "error"),
+						slog.String("error", err.Error()),
+					),
+					slog.Group("how",
+						slog.String("request_id", rl.RequestID),
+					),
+				)
 				unauthorized(w, "token validation failed")
 				return
 			}
@@ -52,6 +68,9 @@ func BearerAuth(validate TokenValidator) func(http.Handler) http.Handler {
 				unauthorized(w, "invalid token")
 				return
 			}
+
+			// Mark auth method in RequestLog for the HTTP Logger's who.auth field.
+			logger.RequestLogFrom(r.Context()).AuthMethod = "bearer"
 
 			// Store token in context for downstream handlers
 			ctx := context.WithValue(r.Context(), bearerTokenKey, token)

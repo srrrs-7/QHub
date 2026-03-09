@@ -60,13 +60,13 @@ func TestRequireRole(t *testing.T) {
 	}
 
 	type args struct {
-		minRole    string
-		orgID      string // chi URL param "org_id"
-		userIDHdr  string // X-User-ID header
-		apiKeyOrg  *uuid.UUID
-		member     db.OrganizationMember
-		memberErr  error
-		devBypass  bool // sets DEV_BYPASS_RBAC=true for the test
+		minRole   string
+		orgID     string // chi URL param "org_id"
+		userIDHdr string // X-User-ID header
+		apiKeyOrg *uuid.UUID
+		member    db.OrganizationMember
+		memberErr error
+		devBypass bool // sets DEV_BYPASS_RBAC=true for the test
 	}
 	type expected struct {
 		statusCode int

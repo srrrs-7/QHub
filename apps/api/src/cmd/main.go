@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -51,18 +52,27 @@ func main() {
 
 	dbAuth := env.GetStringOrDefault("DB_URI", "")
 	if dbAuth == "" {
-		logger.Error("DB_URI environment variable is not set")
+		logger.Error("db.config_missing",
+			slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+			slog.Group("why", slog.String("outcome", "error"), slog.String("error", "DB_URI environment variable is not set")),
+		)
 		os.Exit(1)
 	}
 
 	dbConn, err := db.Connect(dbAuth)
 	if err != nil {
-		logger.Error("Failed to connect to database", "error", err)
+		logger.Error("db.connect_failed",
+			slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+			slog.Group("why", slog.String("outcome", "error"), slog.String("error", err.Error())),
+		)
 		os.Exit(1)
 	}
 	defer func() {
 		if err := dbConn.Close(); err != nil {
-			logger.Error("Failed to close database connection", "error", err)
+			logger.Error("db.close_failed",
+				slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+				slog.Group("why", slog.String("outcome", "error"), slog.String("error", err.Error())),
+			)
 		}
 	}()
 
@@ -72,11 +82,18 @@ func main() {
 	if redisURL != "" {
 		cacheClient = cache.New(redisURL)
 		if cacheClient != nil && cacheClient.Available() {
-			logger.Info("Redis cache enabled", "url", redisURL)
+			logger.Info("cache.enabled",
+				slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+				slog.Group("why", slog.String("outcome", "success")),
+				slog.Group("how", slog.String("url", redisURL)),
+			)
 			defer cacheClient.Close()
 		}
 	} else {
-		logger.Info("Redis cache disabled (set REDIS_URL to enable)")
+		logger.Info("cache.disabled",
+			slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+			slog.Group("why", slog.String("outcome", "success")),
+		)
 	}
 
 	// DI: Querier → Repository → Handler
@@ -94,9 +111,17 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("Starting server", "port", port)
+		logger.Info("server.start",
+			slog.Group("what", slog.String("port", port)),
+			slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+			slog.Group("why", slog.String("outcome", "success")),
+		)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("Server failed to start", "error", err)
+			logger.Error("server.listen_failed",
+				slog.Group("what", slog.String("port", port)),
+				slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+				slog.Group("why", slog.String("outcome", "error"), slog.String("error", err.Error())),
+			)
 			os.Exit(1)
 		}
 	}()
@@ -105,17 +130,26 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info("Shutting down server...")
+	logger.Info("server.shutdown",
+		slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+		slog.Group("why", slog.String("outcome", "success")),
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("Server forced to shutdown", "error", err)
+		logger.Error("server.shutdown_failed",
+			slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+			slog.Group("why", slog.String("outcome", "error"), slog.String("error", err.Error())),
+		)
 		os.Exit(1)
 	}
 
-	logger.Info("Server exited gracefully")
+	logger.Info("server.exit",
+		slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+		slog.Group("why", slog.String("outcome", "success")),
+	)
 }
 
 func initHandlers(q dbq.Querier, conn *sql.DB, cacheClient *cache.Client) routes.Handlers {
@@ -169,7 +203,10 @@ func healthHandler(conn *sql.DB, cacheClient *cache.Client) http.HandlerFunc {
 
 		resp.Database = "ok"
 		if err := conn.PingContext(ctx); err != nil {
-			logger.Error("health check failed", "error", err)
+			logger.Error("health.check_failed",
+				slog.Group("where", slog.String("layer", "handler"), slog.String("component", "healthHandler")),
+				slog.Group("why", slog.String("outcome", "error"), slog.String("error", err.Error())),
+			)
 			resp.Status = "unhealthy"
 			resp.Database = "unhealthy"
 			w.Header().Set("Content-Type", "application/json")

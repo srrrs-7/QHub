@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"utils/db/db"
@@ -48,21 +49,25 @@ func RoleLevel(role string) int {
 // the specified minimum role in the organization.
 //
 // The middleware resolves identity in this order:
-//  1. If ApiKeyAuth set an org_id in context, the request is treated as having
+//  1. If DEV_BYPASS_RBAC=true, all checks are skipped (development only).
+//  2. If ApiKeyAuth set an org_id in context, the request is treated as having
 //     org-level access and the role check is bypassed.
-//  2. Otherwise, the user_id is read from the X-User-ID header (temporary until
+//  3. Otherwise, the user_id is read from the X-User-ID header (temporary until
 //     JWT/Cognito integration provides identity via BearerAuth).
 //
 // The org_id is extracted from the chi URL parameter "org_id".
 //
 // On success, the member's role and user ID are stored in the request context
-// for downstream handlers (accessible via GetMemberRole and GetUserID).
+// for downstream handlers (accessible via GetMemberRole and GetUserID), and the
+// WHO fields in the per-request RequestLog are populated for the HTTP Logger.
 func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// DEV_BYPASS_RBAC=true skips all role checks (development only).
 			// Set this when running the API locally without JWT/Cognito.
 			if os.Getenv("DEV_BYPASS_RBAC") == "true" {
+				rl := logger.RequestLogFrom(r.Context())
+				rl.AuthMethod = "bypass"
 				ctx := context.WithValue(r.Context(), memberRoleKey, RoleOwner)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
@@ -101,7 +106,24 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 					writeRBACError(w, http.StatusForbidden, "not a member of this organization")
 					return
 				}
-				logger.Error("RBAC membership lookup failed", "error", err)
+				rl := logger.RequestLogFrom(r.Context())
+				logger.Error("rbac.membership_lookup_failed",
+					slog.Group("who",
+						slog.String("user_id", userIDStr),
+						slog.String("org_id", orgIDStr),
+					),
+					slog.Group("where",
+						slog.String("layer", "middleware"),
+						slog.String("component", "RequireRole"),
+					),
+					slog.Group("why",
+						slog.String("outcome", "error"),
+						slog.String("error", err.Error()),
+					),
+					slog.Group("how",
+						slog.String("request_id", rl.RequestID),
+					),
+				)
 				writeRBACError(w, http.StatusInternalServerError, "internal server error")
 				return
 			}
@@ -112,7 +134,12 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// 6. Store role and user ID in context for downstream use
+			// 6. Populate WHO fields in RequestLog for the HTTP Logger.
+			rl := logger.RequestLogFrom(r.Context())
+			rl.UserID = userID.String()
+			rl.OrgID = orgID.String()
+
+			// 7. Store role and user ID in context for downstream use
 			ctx := context.WithValue(r.Context(), memberRoleKey, member.Role)
 			ctx = context.WithValue(ctx, userIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
