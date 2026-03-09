@@ -16,10 +16,57 @@ templ LogsPage(page PageData, logs []client.ExecutionLog) {
 	@Layout(page) {
 		<div class="page-header">
 			<h1 class="page-header__title">Execution Logs</h1>
+			<div class="page-header__actions">
+				<button class="btn btn--filled" onclick="document.getElementById('new-log-dialog').showModal()">
+					<span class="material-symbols-outlined">add</span>
+					New Log
+				</button>
+			</div>
 		</div>
 		<div id="log-list">
 			@LogList(logs)
 		</div>
+		<dialog id="new-log-dialog" style="max-width: 500px; width: 100%;">
+			<form
+				method="dialog"
+				hx-post="/partials/logs"
+				hx-target="#log-list"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Execution Log</h2>
+				<div class="form-field">
+					<label for="log-model">Model</label>
+					<input type="text" id="log-model" name="model" placeholder="e.g. gpt-4o" required/>
+				</div>
+				<div class="form-field">
+					<label for="log-status">Status</label>
+					<select id="log-status" name="status" required>
+						<option value="success">success</option>
+						<option value="error">error</option>
+					</select>
+				</div>
+				<div class="form-field">
+					<label for="log-latency">Latency (ms)</label>
+					<input type="number" id="log-latency" name="latency_ms" min="0" value="0"/>
+				</div>
+				<div class="form-field">
+					<label for="log-tokens">Total Tokens</label>
+					<input type="number" id="log-tokens" name="total_tokens" min="0" value="0"/>
+				</div>
+				<div class="form-field">
+					<label for="log-input">Input</label>
+					<textarea id="log-input" name="input" placeholder='{"text": "..."}'></textarea>
+				</div>
+				<div class="form-field">
+					<label for="log-output">Output</label>
+					<textarea id="log-output" name="output" placeholder='{"text": "..."}'></textarea>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create Log</button>
+				</div>
+			</form>
+		</dialog>
 	}
 }
 
@@ -112,8 +159,9 @@ templ LogDetailPage(page PageData, log *client.ExecutionLog, evals []client.Eval
 			</button>
 		</div>
 		<div id="evaluations-list">
-			@EvaluationsList(evals)
+			@EvaluationsList(log.ID, evals)
 		</div>
+		<div id="eval-edit-area"></div>
 		<!-- New Evaluation Dialog -->
 		<dialog id="new-eval-dialog" style="max-width: 500px; width: 100%;">
 			<form
@@ -163,7 +211,7 @@ templ LogDetailPage(page PageData, log *client.ExecutionLog, evals []client.Eval
 	}
 }
 
-templ EvaluationsList(evals []client.Evaluation) {
+templ EvaluationsList(logID string, evals []client.Evaluation) {
 	if len(evals) == 0 {
 		<div class="empty-state">
 			<span class="material-symbols-outlined">grade</span>
@@ -183,6 +231,7 @@ templ EvaluationsList(evals []client.Evaluation) {
 						<th>Safety</th>
 						<th>Feedback</th>
 						<th>Created</th>
+						<th></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -196,10 +245,76 @@ templ EvaluationsList(evals []client.Evaluation) {
 							<td>{ displayOptionalScore(e.SafetyScore) }</td>
 							<td>{ e.Feedback }</td>
 							<td class="text-muted">{ e.CreatedAt }</td>
+							<td>
+								<button
+									class="btn btn--text btn--small"
+									hx-get={ "/partials/evaluations/" + e.ID + "/edit?log_id=" + logID }
+									hx-target="#eval-edit-area"
+									hx-swap="innerHTML"
+								>
+									<span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+								</button>
+							</td>
 						</tr>
 					}
 				</tbody>
 			</table>
 		</div>
 	}
+}
+
+templ EvaluationEditForm(logID string, e client.Evaluation) {
+	<div class="card mb-16" style="padding: 24px;" id="eval-edit-form">
+		<div class="flex items-center justify-between mb-16">
+			<h3 style="font: var(--md-sys-typescale-title-medium);">Edit Evaluation</h3>
+			<button
+				class="btn btn--text btn--small"
+				hx-get="/partials/noop"
+				hx-target="#eval-edit-area"
+				hx-swap="innerHTML"
+			>
+				<span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+			</button>
+		</div>
+		<form
+			hx-put={ "/partials/evaluations/" + e.ID + "?log_id=" + logID }
+			hx-target="#evaluations-list"
+			hx-swap="innerHTML"
+		>
+			<div class="form-field">
+				<label>Overall Score (0-100)</label>
+				<input type="number" name="overall_score" min="0" max="100" value={ e.DisplayScore() }/>
+			</div>
+			<div class="form-field">
+				<label>Accuracy Score (0-100)</label>
+				<input type="number" name="accuracy_score" min="0" max="100" value={ displayOptionalScore(e.AccuracyScore) }/>
+			</div>
+			<div class="form-field">
+				<label>Relevance Score (0-100)</label>
+				<input type="number" name="relevance_score" min="0" max="100" value={ displayOptionalScore(e.RelevanceScore) }/>
+			</div>
+			<div class="form-field">
+				<label>Fluency Score (0-100)</label>
+				<input type="number" name="fluency_score" min="0" max="100" value={ displayOptionalScore(e.FluencyScore) }/>
+			</div>
+			<div class="form-field">
+				<label>Safety Score (0-100)</label>
+				<input type="number" name="safety_score" min="0" max="100" value={ displayOptionalScore(e.SafetyScore) }/>
+			</div>
+			<div class="form-field">
+				<label>Feedback</label>
+				<textarea name="feedback">{ e.Feedback }</textarea>
+			</div>
+			<div class="form-field">
+				<label>Evaluator Type</label>
+				<select name="evaluator_type" required>
+					<option value="human" selected?={ e.EvaluatorType == "human" }>Human</option>
+					<option value="automated" selected?={ e.EvaluatorType == "automated" }>Automated</option>
+				</select>
+			</div>
+			<div class="flex gap-8 justify-end">
+				<button type="submit" class="btn btn--filled">Save Changes</button>
+			</div>
+		</form>
+	</div>
 }

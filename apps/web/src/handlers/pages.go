@@ -123,8 +123,17 @@ func (h *PageHandler) PromptDetail() http.HandlerFunc {
 			activeVersion = &versions[0]
 		}
 
+		promptTags, err := h.api.ListPromptTags(r.Context(), prompt.ID)
+		if err != nil {
+			promptTags = []client.Tag{}
+		}
+		allTags, err := h.api.ListTags(r.Context())
+		if err != nil {
+			allTags = []client.Tag{}
+		}
+
 		page := templates.PageData{OrgSlug: orgSlug, ProjectSlug: projectSlug, ActiveNav: "prompts"}
-		render(w, r, templates.PromptDetailPage(page, project, prompt, versions, activeVersion))
+		render(w, r, templates.PromptDetailPage(page, project, prompt, versions, activeVersion, promptTags, allTags))
 	}
 }
 

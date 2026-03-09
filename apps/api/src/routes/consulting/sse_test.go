@@ -450,4 +450,3 @@ func TestSSEWriter_WriteMessage_Error(t *testing.T) {
 		}
 	})
 }
-

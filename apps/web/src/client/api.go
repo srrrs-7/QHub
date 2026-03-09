@@ -377,9 +377,41 @@ func (c *APIClient) CompareVersions(ctx context.Context, promptID, v1, v2 string
 	return &result, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/versions/"+v1+"/"+v2+"/compare", nil, &result)
 }
 
-// --- Evaluations (create) ---
+// --- Evaluations (create/get/update) ---
 
 func (c *APIClient) CreateEvaluation(ctx context.Context, logID string, body map[string]any) (*Evaluation, error) {
 	var eval Evaluation
 	return &eval, c.do(ctx, http.MethodPost, "/api/v1/logs/"+logID+"/evaluations", body, &eval)
+}
+
+func (c *APIClient) GetEvaluation(ctx context.Context, id string) (*Evaluation, error) {
+	var eval Evaluation
+	return &eval, c.do(ctx, http.MethodGet, "/api/v1/evaluations/"+id, nil, &eval)
+}
+
+func (c *APIClient) UpdateEvaluation(ctx context.Context, id string, body map[string]any) (*Evaluation, error) {
+	var eval Evaluation
+	return &eval, c.do(ctx, http.MethodPut, "/api/v1/evaluations/"+id, body, &eval)
+}
+
+// --- Prompt Tags ---
+
+func (c *APIClient) ListPromptTags(ctx context.Context, promptID string) ([]Tag, error) {
+	var tags []Tag
+	return tags, c.do(ctx, http.MethodGet, "/api/v1/prompts/"+promptID+"/tags", nil, &tags)
+}
+
+func (c *APIClient) AddPromptTag(ctx context.Context, promptID, tagID string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/prompts/"+promptID+"/tags", map[string]string{"tag_id": tagID}, nil)
+}
+
+func (c *APIClient) RemovePromptTag(ctx context.Context, promptID, tagID string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/prompts/"+promptID+"/tags/"+tagID, nil, nil)
+}
+
+// --- Logs (create) ---
+
+func (c *APIClient) CreateLog(ctx context.Context, body map[string]any) (*ExecutionLog, error) {
+	var l ExecutionLog
+	return &l, c.do(ctx, http.MethodPost, "/api/v1/logs", body, &l)
 }

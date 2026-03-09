@@ -37,7 +37,7 @@ templ ProjectsPage(page PageData, org *client.Organization, projects []client.Pr
 				</div>
 				<div class="form-field">
 					<label for="slug">Slug</label>
-					<input type="text" id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"/>
+					<input type="text" id="slug" name="slug" required pattern="[a-z0-9][-a-z0-9]*[a-z0-9]"/>
 				</div>
 				<div class="form-field">
 					<label for="description">Description</label>

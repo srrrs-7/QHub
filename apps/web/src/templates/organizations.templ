@@ -30,7 +30,7 @@ templ OrganizationsPage(page PageData, orgs []client.Organization) {
 				</div>
 				<div class="form-field">
 					<label for="slug">Slug</label>
-					<input type="text" id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"/>
+					<input type="text" id="slug" name="slug" required pattern="[a-z0-9][-a-z0-9]*[a-z0-9]"/>
 				</div>
 				<div class="form-field">
 					<label for="plan">Plan</label>
@@ -132,7 +132,7 @@ templ OrganizationDetailPage(page PageData, org *client.Organization, projects [
 				</div>
 				<div class="form-field">
 					<label for="proj-slug">Slug</label>
-					<input type="text" id="proj-slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"/>
+					<input type="text" id="proj-slug" name="slug" required pattern="[a-z0-9][-a-z0-9]*[a-z0-9]"/>
 				</div>
 				<div class="form-field">
 					<label for="proj-desc">Description</label>

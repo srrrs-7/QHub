@@ -86,6 +86,18 @@ func NewRouter(apiClient client.Client) http.Handler {
 
 		// Evaluations
 		r.Post("/logs/{log_id}/evaluations", partials.CreateEvaluation())
+		r.Get("/evaluations/{id}/edit", partials.GetEvaluationEditForm())
+		r.Put("/evaluations/{id}", partials.UpdateEvaluation())
+
+		// Prompt Tags
+		r.Post("/prompts/{prompt_id}/tags", partials.AddPromptTag())
+		r.Delete("/prompts/{prompt_id}/tags/{tag_id}", partials.RemovePromptTag())
+
+		// Logs
+		r.Post("/logs", partials.CreateLog())
+
+		// Noop (cancel helper for inline forms)
+		r.Get("/noop", partials.Noop())
 
 		// Consulting
 		r.Post("/consulting/sessions", partials.CreateConsultingSession())

@@ -319,6 +319,64 @@ func (h *PartialHandler) GetSemanticDiff() http.HandlerFunc {
 	}
 }
 
+// --- Prompt Tags ---
+
+func (h *PartialHandler) AddPromptTag() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		tagID := r.FormValue("tag_id")
+		if tagID == "" {
+			renderSnackbar(w, r, "Tag is required", true)
+			return
+		}
+
+		if err := h.api.AddPromptTag(r.Context(), promptID, tagID); err != nil {
+			renderSnackbar(w, r, "Error adding tag: "+err.Error(), true)
+			return
+		}
+
+		promptTags, err := h.api.ListPromptTags(r.Context(), promptID)
+		if err != nil {
+			promptTags = []client.Tag{}
+		}
+		allTags, err := h.api.ListTags(r.Context())
+		if err != nil {
+			allTags = []client.Tag{}
+		}
+
+		render(w, r, templates.PromptTagsSection(promptID, promptTags, allTags))
+	}
+}
+
+func (h *PartialHandler) RemovePromptTag() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		promptID := chi.URLParam(r, "prompt_id")
+		tagID := chi.URLParam(r, "tag_id")
+
+		if err := h.api.RemovePromptTag(r.Context(), promptID, tagID); err != nil {
+			renderSnackbar(w, r, "Error removing tag: "+err.Error(), true)
+			return
+		}
+
+		promptTags, err := h.api.ListPromptTags(r.Context(), promptID)
+		if err != nil {
+			promptTags = []client.Tag{}
+		}
+		allTags, err := h.api.ListTags(r.Context())
+		if err != nil {
+			allTags = []client.Tag{}
+		}
+
+		render(w, r, templates.PromptTagsSection(promptID, promptTags, allTags))
+	}
+}
+
 // --- Evaluations ---
 
 func (h *PartialHandler) CreateEvaluation() http.HandlerFunc {
@@ -363,7 +421,129 @@ func (h *PartialHandler) CreateEvaluation() http.HandlerFunc {
 			evals = []client.Evaluation{}
 		}
 
-		render(w, r, templates.EvaluationsList(evals))
+		render(w, r, templates.EvaluationsList(logID, evals))
+	}
+}
+
+// GetEvaluationEditForm returns a pre-populated edit form for an evaluation.
+func (h *PartialHandler) GetEvaluationEditForm() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		logID := r.URL.Query().Get("log_id")
+
+		eval, err := h.api.GetEvaluation(r.Context(), id)
+		if err != nil {
+			renderSnackbar(w, r, "Error loading evaluation: "+err.Error(), true)
+			return
+		}
+
+		render(w, r, templates.EvaluationEditForm(logID, *eval))
+	}
+}
+
+// UpdateEvaluation handles HTMX PUT to update an evaluation.
+func (h *PartialHandler) UpdateEvaluation() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		logID := r.URL.Query().Get("log_id")
+
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]any{}
+		if v := r.FormValue("overall_score"); v != "" {
+			body["overall_score"] = v
+		}
+		if v := r.FormValue("accuracy_score"); v != "" {
+			body["accuracy_score"] = v
+		}
+		if v := r.FormValue("relevance_score"); v != "" {
+			body["relevance_score"] = v
+		}
+		if v := r.FormValue("fluency_score"); v != "" {
+			body["fluency_score"] = v
+		}
+		if v := r.FormValue("safety_score"); v != "" {
+			body["safety_score"] = v
+		}
+		if v := r.FormValue("feedback"); v != "" {
+			body["feedback"] = v
+		}
+		if v := r.FormValue("evaluator_type"); v != "" {
+			body["evaluator_type"] = v
+		}
+
+		if _, err := h.api.UpdateEvaluation(r.Context(), id, body); err != nil {
+			renderSnackbar(w, r, "Error updating evaluation: "+err.Error(), true)
+			return
+		}
+
+		evals, err := h.api.ListLogEvaluations(r.Context(), logID)
+		if err != nil {
+			evals = []client.Evaluation{}
+		}
+
+		render(w, r, templates.EvaluationsList(logID, evals))
+	}
+}
+
+// --- Log Creation ---
+
+func (h *PartialHandler) CreateLog() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		body := map[string]any{
+			"model":       r.FormValue("model"),
+			"provider":    r.FormValue("provider"),
+			"status":      r.FormValue("status"),
+			"environment": r.FormValue("environment"),
+		}
+		if v := r.FormValue("prompt_id"); v != "" {
+			body["prompt_id"] = v
+		}
+		if v := r.FormValue("version_number"); v != "" {
+			body["version_number"] = v
+		}
+		if v := r.FormValue("input_tokens"); v != "" {
+			body["input_tokens"] = v
+		}
+		if v := r.FormValue("output_tokens"); v != "" {
+			body["output_tokens"] = v
+		}
+		if v := r.FormValue("latency_ms"); v != "" {
+			body["latency_ms"] = v
+		}
+		if v := r.FormValue("request_body"); v != "" {
+			body["request_body"] = v
+		}
+		if v := r.FormValue("response_body"); v != "" {
+			body["response_body"] = v
+		}
+
+		if _, err := h.api.CreateLog(r.Context(), body); err != nil {
+			renderSnackbar(w, r, fmt.Sprintf("Error creating log: %s", err.Error()), true)
+			return
+		}
+
+		logs, err := h.api.ListLogs(r.Context())
+		if err != nil {
+			logs = []client.ExecutionLog{}
+		}
+
+		render(w, r, templates.LogList(logs))
+	}
+}
+
+// Noop returns empty HTML — used for clearing HTMX targets (e.g., edit form cancel).
+func (h *PartialHandler) Noop() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	}
 }
 

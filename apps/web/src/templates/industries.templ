@@ -33,7 +33,7 @@ templ IndustriesPage(page PageData, industries []client.Industry) {
 				</div>
 				<div class="form-field">
 					<label for="ind-slug">Slug</label>
-					<input type="text" id="ind-slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"/>
+					<input type="text" id="ind-slug" name="slug" required pattern="[a-z0-9][-a-z0-9]*[a-z0-9]"/>
 				</div>
 				<div class="form-field">
 					<label for="ind-desc">Description</label>

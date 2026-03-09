@@ -52,4 +52,3 @@ func (s *SSEWriter) WriteError(err error) error {
 	data, _ := json.Marshal(map[string]string{"error": err.Error()})
 	return s.WriteEvent("error", string(data))
 }
-

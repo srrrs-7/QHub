@@ -22,7 +22,7 @@ func lintScoreClass(score int) string {
 	return "status-badge--error"
 }
 
-templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Prompt, versions []client.PromptVersion, activeVersion *client.PromptVersion) {
+templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Prompt, versions []client.PromptVersion, activeVersion *client.PromptVersion, promptTags []client.Tag, allTags []client.Tag) {
 	@Layout(page) {
 		<div class="breadcrumb">
 			<a href="/">Home</a>
@@ -52,6 +52,9 @@ templ PromptDetailPage(page PageData, project *client.Project, prompt *client.Pr
 				if prompt.Description != "" {
 					<p class="prompt-card__desc mb-16" id="prompt-description">{ prompt.Description }</p>
 				}
+				<div id="prompt-tags-section">
+					@PromptTagsSection(prompt.ID, promptTags, allTags)
+				</div>
 				<hr class="divider"/>
 				<div class="flex items-center justify-between mb-8">
 					<span style="font: var(--md-sys-typescale-label-large)">Version History</span>
@@ -486,4 +489,61 @@ templ PromptHeaderUpdated(prompt *client.Prompt) {
 	if prompt.Description != "" {
 		<p class="prompt-card__desc mb-16" id="prompt-description" hx-swap-oob="true">{ prompt.Description }</p>
 	}
+}
+
+func availableTags(all []client.Tag, current []client.Tag) []client.Tag {
+	assigned := make(map[string]bool, len(current))
+	for _, t := range current {
+		assigned[t.ID] = true
+	}
+	var result []client.Tag
+	for _, t := range all {
+		if !assigned[t.ID] {
+			result = append(result, t)
+		}
+	}
+	return result
+}
+
+templ PromptTagsSection(promptID string, promptTags []client.Tag, allTags []client.Tag) {
+	<div class="mb-16">
+		<span style="font: var(--md-sys-typescale-label-large); display: block; margin-bottom: 8px;">Tags</span>
+		<div class="chip-list mb-8">
+			for _, t := range promptTags {
+				<span class="chip chip--removable">
+					{ t.Name }
+					<button
+						class="chip__remove"
+						hx-delete={ "/partials/prompts/" + promptID + "/tags/" + t.ID }
+						hx-target="#prompt-tags-section"
+						hx-swap="innerHTML"
+						title="Remove tag"
+					>
+						<span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+					</button>
+				</span>
+			}
+			if len(promptTags) == 0 {
+				<span style="font: var(--md-sys-typescale-body-small); color: var(--md-sys-color-on-surface-variant);">No tags assigned</span>
+			}
+		</div>
+		if len(availableTags(allTags, promptTags)) > 0 {
+			<form
+				hx-post={ "/partials/prompts/" + promptID + "/tags" }
+				hx-target="#prompt-tags-section"
+				hx-swap="innerHTML"
+				class="flex gap-8 items-center"
+			>
+				<select name="tag_id" style="flex: 1; padding: 6px 10px; border: 1px solid var(--md-sys-color-outline); border-radius: var(--md-sys-shape-corner-extra-small); background: transparent; font: var(--md-sys-typescale-body-medium);">
+					for _, t := range availableTags(allTags, promptTags) {
+						<option value={ t.ID }>{ t.Name }</option>
+					}
+				</select>
+				<button type="submit" class="btn btn--tonal" style="padding: 6px 12px; font-size: 0.75rem;">
+					<span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+					Add
+				</button>
+			</form>
+		}
+	</div>
 }

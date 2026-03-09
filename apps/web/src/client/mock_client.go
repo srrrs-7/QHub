@@ -38,6 +38,8 @@ type MockClient struct {
 	// Evaluations
 	ListEvaluationsFn  func(ctx context.Context) ([]Evaluation, error)
 	CreateEvaluationFn func(ctx context.Context, logID string, body map[string]any) (*Evaluation, error)
+	GetEvaluationFn    func(ctx context.Context, id string) (*Evaluation, error)
+	UpdateEvaluationFn func(ctx context.Context, id string, body map[string]any) (*Evaluation, error)
 
 	// Consulting
 	ListConsultingSessionsFn  func(ctx context.Context) ([]ConsultingSession, error)
@@ -48,9 +50,12 @@ type MockClient struct {
 	CloseSessionFn            func(ctx context.Context, sessionID string) (*ConsultingSession, error)
 
 	// Tags
-	ListTagsFn  func(ctx context.Context) ([]Tag, error)
-	CreateTagFn func(ctx context.Context, body map[string]string) (*Tag, error)
-	DeleteTagFn func(ctx context.Context, name string) error
+	ListTagsFn        func(ctx context.Context) ([]Tag, error)
+	CreateTagFn       func(ctx context.Context, body map[string]string) (*Tag, error)
+	DeleteTagFn       func(ctx context.Context, name string) error
+	ListPromptTagsFn  func(ctx context.Context, promptID string) ([]Tag, error)
+	AddPromptTagFn    func(ctx context.Context, promptID, tagID string) error
+	RemovePromptTagFn func(ctx context.Context, promptID, tagID string) error
 
 	// Industries
 	ListIndustriesFn  func(ctx context.Context) ([]Industry, error)
@@ -90,6 +95,9 @@ type MockClient struct {
 
 	// Embedding Status
 	GetEmbeddingStatusFn func(ctx context.Context) (map[string]string, error)
+
+	// Logs (create)
+	CreateLogFn func(ctx context.Context, body map[string]any) (*ExecutionLog, error)
 }
 
 var _ Client = (*MockClient)(nil)
@@ -248,6 +256,20 @@ func (m *MockClient) CreateEvaluation(ctx context.Context, logID string, body ma
 	return &Evaluation{ID: "eval-new", ExecutionLogID: logID, EvaluatorType: "human"}, nil
 }
 
+func (m *MockClient) GetEvaluation(ctx context.Context, id string) (*Evaluation, error) {
+	if m.GetEvaluationFn != nil {
+		return m.GetEvaluationFn(ctx, id)
+	}
+	return &Evaluation{ID: id, EvaluatorType: "human"}, nil
+}
+
+func (m *MockClient) UpdateEvaluation(ctx context.Context, id string, body map[string]any) (*Evaluation, error) {
+	if m.UpdateEvaluationFn != nil {
+		return m.UpdateEvaluationFn(ctx, id, body)
+	}
+	return &Evaluation{ID: id, EvaluatorType: "human"}, nil
+}
+
 func (m *MockClient) ListConsultingSessions(ctx context.Context) ([]ConsultingSession, error) {
 	if m.ListConsultingSessionsFn != nil {
 		return m.ListConsultingSessionsFn(ctx)
@@ -307,6 +329,27 @@ func (m *MockClient) CreateTag(ctx context.Context, body map[string]string) (*Ta
 func (m *MockClient) DeleteTag(ctx context.Context, name string) error {
 	if m.DeleteTagFn != nil {
 		return m.DeleteTagFn(ctx, name)
+	}
+	return nil
+}
+
+func (m *MockClient) ListPromptTags(ctx context.Context, promptID string) ([]Tag, error) {
+	if m.ListPromptTagsFn != nil {
+		return m.ListPromptTagsFn(ctx, promptID)
+	}
+	return []Tag{}, nil
+}
+
+func (m *MockClient) AddPromptTag(ctx context.Context, promptID, tagID string) error {
+	if m.AddPromptTagFn != nil {
+		return m.AddPromptTagFn(ctx, promptID, tagID)
+	}
+	return nil
+}
+
+func (m *MockClient) RemovePromptTag(ctx context.Context, promptID, tagID string) error {
+	if m.RemovePromptTagFn != nil {
+		return m.RemovePromptTagFn(ctx, promptID, tagID)
 	}
 	return nil
 }
@@ -473,6 +516,13 @@ func (m *MockClient) GetEmbeddingStatus(ctx context.Context) (map[string]string,
 	return map[string]string{"status": "healthy"}, nil
 }
 
+func (m *MockClient) CreateLog(ctx context.Context, body map[string]any) (*ExecutionLog, error) {
+	if m.CreateLogFn != nil {
+		return m.CreateLogFn(ctx, body)
+	}
+	return &ExecutionLog{ID: "log-new", Status: "success"}, nil
+}
+
 // NewMockClientWithError returns a MockClient where all calls return the given error.
 func NewMockClientWithError(err error) *MockClient {
 	return &MockClient{
@@ -536,7 +586,13 @@ func NewMockClientWithError(err error) *MockClient {
 			return nil, err
 		},
 		ListBenchmarksFn:   func(_ context.Context, _ string) ([]Benchmark, error) { return nil, err },
-		CreateEvaluationFn: func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
+		CreateEvaluationFn:  func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
+		GetEvaluationFn:     func(_ context.Context, _ string) (*Evaluation, error) { return nil, err },
+		UpdateEvaluationFn:  func(_ context.Context, _ string, _ map[string]any) (*Evaluation, error) { return nil, err },
+		ListPromptTagsFn:    func(_ context.Context, _ string) ([]Tag, error) { return nil, err },
+		AddPromptTagFn:      func(_ context.Context, _, _ string) error { return err },
+		RemovePromptTagFn:   func(_ context.Context, _, _ string) error { return err },
+		CreateLogFn:         func(_ context.Context, _ map[string]any) (*ExecutionLog, error) { return nil, err },
 		UpdateOrganizationFn: func(_ context.Context, _ string, _ map[string]string) (*Organization, error) {
 			return nil, err
 		},

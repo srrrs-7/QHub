@@ -38,6 +38,8 @@ type Client interface {
 	// Evaluations
 	ListEvaluations(ctx context.Context) ([]Evaluation, error)
 	CreateEvaluation(ctx context.Context, logID string, body map[string]any) (*Evaluation, error)
+	GetEvaluation(ctx context.Context, id string) (*Evaluation, error)
+	UpdateEvaluation(ctx context.Context, id string, body map[string]any) (*Evaluation, error)
 
 	// Consulting
 	ListConsultingSessions(ctx context.Context) ([]ConsultingSession, error)
@@ -51,6 +53,9 @@ type Client interface {
 	ListTags(ctx context.Context) ([]Tag, error)
 	CreateTag(ctx context.Context, body map[string]string) (*Tag, error)
 	DeleteTag(ctx context.Context, name string) error
+	ListPromptTags(ctx context.Context, promptID string) ([]Tag, error)
+	AddPromptTag(ctx context.Context, promptID, tagID string) error
+	RemovePromptTag(ctx context.Context, promptID, tagID string) error
 
 	// Industries
 	ListIndustries(ctx context.Context) ([]Industry, error)
@@ -84,6 +89,9 @@ type Client interface {
 
 	// Version Comparison
 	CompareVersions(ctx context.Context, promptID, v1, v2 string) (*VersionComparison, error)
+
+	// Logs (create)
+	CreateLog(ctx context.Context, body map[string]any) (*ExecutionLog, error)
 
 	// Search
 	SemanticSearch(ctx context.Context, body map[string]any) (*SearchResponse, error)
