@@ -238,12 +238,12 @@ func TestStripAPIPrefix(t *testing.T) {
 
 func TestLogger_RequestLogPropagation(t *testing.T) {
 	tests := []struct {
-		testName    string
-		downstream  http.HandlerFunc // simulates auth+RBAC middleware
-		wantStatus  int
-		wantUserID  string
-		wantOrgID   string
-		wantAuth    string
+		testName   string
+		downstream http.HandlerFunc // simulates auth+RBAC middleware
+		wantStatus int
+		wantUserID string
+		wantOrgID  string
+		wantAuth   string
 	}{
 		// 正常系 — success path: all WHO fields set
 		{
