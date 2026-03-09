@@ -96,6 +96,14 @@ func main() {
 		)
 	}
 
+	// Warn loudly when RBAC is bypassed — makes it impossible to miss in logs.
+	if os.Getenv("DEV_BYPASS_RBAC") == "true" {
+		logger.Warn("rbac.bypass_enabled",
+			slog.Group("where", slog.String("layer", "startup"), slog.String("component", "main")),
+			slog.Group("why", slog.String("outcome", "warning"), slog.String("detail", "DEV_BYPASS_RBAC is enabled — all RBAC checks are skipped")),
+		)
+	}
+
 	// DI: Querier → Repository → Handler
 	q := dbq.New(dbConn)
 	h := initHandlers(q, dbConn, cacheClient)

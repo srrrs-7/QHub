@@ -137,6 +137,23 @@ Services receive `db.Querier` or domain interfaces and are wired in `cmd/main.go
 
 Log ingestion routes (`POST /logs`, `POST /logs/batch`) support combined auth: Bearer token or API key (`middleware/combined_auth.go`).
 
+**Auth distinction**: API keys (`X-API-Key` header) and Bearer tokens (`Authorization: Bearer`) are different auth mechanisms. SDK constructors like `NewClient(bearerToken, ...)` do not transparently accept API keys — callers must use the correct auth path.
+
+### Known Pitfalls (from post-commit analysis)
+
+These patterns have caused real bugs; avoid them:
+
+| Pattern | Problem | Correct Approach |
+|---------|---------|-----------------|
+| `"/api/v1/tags?name=" + name` | Breaks on `&`, `=`, `#` in values | `url.Values{"name": {name}}.Encode()` |
+| `strconv.Atoi` error not wrapped | Returns 500 on bad path param | Wrap in `apperror.NewBadRequestError(...)` → 400 |
+| `data, _ := json.Marshal(x)` | Discards error, violates project convention | Always handle `json.Marshal` errors |
+| `tt.field = value` inside test loop | Races under `t.Parallel()` | Use local variable, don't mutate `tt` |
+| `if status != http.StatusOK` | Accepts wrong 5xx errors silently | Assert exact code: `cmp.Diff(http.StatusBadRequest, status)` |
+| SSE headers before data fetch | Status always 200 even on errors | Fetch data first, then write headers |
+| `os.Setenv` + `t.Parallel()` | Data race on global state | Use `t.Setenv` (no-parallel safe) |
+| Committing `*.test` / `coverage.out` | Bloats repo, not source files | Add to `.gitignore` |
+
 ### Error Handling
 
 Standard Go `(value, error)` returns. Domain errors implement `AppError` interface (`domain/apperror/`):
@@ -191,11 +208,13 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 |-----------|-------------|-------------|
 | `apps/api` | `api` | Backend API (chi, port 8080) |
 | `apps/pkgs` | `utils` | Shared: `db/`, `env/`, `logger/`, `testutil/`, `ollama/`, `cache/` |
-| `apps/web` | `web` | templ + HTMX frontend (M3 design, port 3000) |
+| `apps/web` | `web` | templ + HTMX frontend (GitHub Primer design, port 3000) |
 | `apps/cli` | `cli` | `qhub` CLI (cobra, JSON/table output) |
 | `apps/sdk` | `sdk` | Go SDK module |
 | `apps/sdk-python` | `qhub-sdk` | Python SDK (httpx + Pydantic v2, pip installable) |
 | `apps/sdk-typescript` | `@qhub/sdk` | TypeScript SDK (native fetch, zero runtime deps) |
+
+**SDK notes**: Go SDK requires a fully-qualified module path (e.g., `github.com/<org>/qhub/sdk`) to be `go get`-able externally. Python SDK dependencies are httpx + Pydantic v2 (not zero-dependency despite older docs).
 
 `apps/iac/` — Terraform AWS infrastructure (VPC, ECS, Aurora, Cognito, CloudFront, WAF)
 
@@ -213,6 +232,16 @@ Go workspace `apps/go.work` manages five Go modules, plus SDK packages:
 
 Devcontainer includes: PostgreSQL 18, Redis, ElasticMQ.
 
+**Local dev environment variables** (set in `devcontainer.json` override or `.env`):
+```
+DEV_BYPASS_RBAC=true    # Skip JWT/Cognito auth for BFF→API calls in dev
+API_AUTH_TOKEN=dev-token # Web client auth token (falls back to "dev-token")
+```
+
+**`DEV_BYPASS_RBAC` requirements** — when this flag is active, the middleware must:
+1. Log a startup warning: `"DEV_BYPASS_RBAC is enabled — all RBAC checks are skipped"`
+2. Inject **both** a synthetic role (`RoleOwner`) AND a fixed synthetic `userID` into context — omitting `userID` causes zero-UUID in downstream handlers that call `GetUserID(ctx)`
+
 ### Web Frontend Architecture (apps/web)
 
 templ + HTMX server-rendered frontend. Two handler types:
@@ -220,6 +249,13 @@ templ + HTMX server-rendered frontend. Two handler types:
 - **PartialHandler**: HTMX partial responses (33 handlers). Returns HTML fragments for dynamic updates.
 
 Both depend on `client.Client` interface (not concrete `*APIClient`), enabling mock-based E2E testing.
+
+**Critical HTMX swap rules**:
+- Partial response `id` must cover the exact same DOM subtree as the full-page element with that `id`. Returning a narrower subtree silently drops elements (e.g., status badges lost after prompt edit).
+- `hx-vals` JSON must use `templ.JSONString(...)`, never string concatenation — injection risk if values are ever non-literal.
+- CDN scripts (`unpkg.com`) must include SRI hashes or be vendored into `static/`.
+
+**Template helper functions** (e.g., `lintScoreClass`, `contentLines`, `availableTags` in `.templ` files) compile to regular Go and must have `_test.go` coverage with all 6 TDD categories.
 
 **Testing pattern** (no DB required):
 ```go
@@ -249,6 +285,8 @@ Detailed standards in `.claude/rules/`: `architecture.md`, `go-patterns.md`, `te
 ### TDD Mandatory (Red → Green → Refactor → Commit)
 
 Coverage: ≥80% overall, ≥80% per function, 100% critical paths. Never write production code without writing the test first.
+
+**All list (`FindAll`) repository methods require pagination parameters** before being wired to production routers. Unbounded queries are a performance time-bomb.
 
 ### Required Test Categories (all 6 for every function)
 

@@ -23,6 +23,10 @@ const (
 	RoleViewer = "viewer"
 )
 
+// devBypassUserID is the fixed synthetic user ID injected when DEV_BYPASS_RBAC=true.
+// Using a well-known UUID makes it easy to identify in logs and DB records.
+var devBypassUserID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
 const (
 	// memberRoleKey is the context key for the authenticated member's role.
 	memberRoleKey contextKey = 20
@@ -68,7 +72,9 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 			if os.Getenv("DEV_BYPASS_RBAC") == "true" {
 				rl := logger.RequestLogFrom(r.Context())
 				rl.AuthMethod = "bypass"
+				rl.UserID = devBypassUserID.String()
 				ctx := context.WithValue(r.Context(), memberRoleKey, RoleOwner)
+				ctx = context.WithValue(ctx, userIDKey, devBypassUserID)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}

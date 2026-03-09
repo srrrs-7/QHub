@@ -357,6 +357,37 @@ func TestRequireRole(t *testing.T) {
 	}
 }
 
+func TestDevBypassInjectsSyntheticUserID(t *testing.T) {
+	t.Setenv("DEV_BYPASS_RBAC", "true")
+
+	var capturedUserID uuid.UUID
+	var capturedOk bool
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedUserID, capturedOk = GetUserID(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mock := &mockQuerier{}
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("org_id", uuid.New().String())
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+	RequireRole(mock, RoleMember)(next).ServeHTTP(w, req)
+
+	if diff := cmp.Diff(http.StatusOK, w.Result().StatusCode); diff != "" {
+		t.Errorf("status code mismatch (-want +got):\n%s", diff)
+	}
+	if !capturedOk {
+		t.Fatal("expected GetUserID to return ok=true, got false")
+	}
+	if diff := cmp.Diff(devBypassUserID, capturedUserID); diff != "" {
+		t.Errorf("userID mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestRoleLevel(t *testing.T) {
 	type args struct {
 		role string

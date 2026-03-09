@@ -60,6 +60,8 @@ go tool cover -html=coverage.out
 - Commit after each green phase
 - Test behavior, not implementation
 - Cover all 6 test categories
+- Assert the **exact** expected HTTP status code (not just "not 200")
+- Test new template helper functions (`lintScoreClass`, `availableTags`, etc.) in `helpers_test.go`
 
 ### DON'T ❌
 
@@ -70,6 +72,10 @@ go tool cover -html=coverage.out
 - Test implementation details
 - Skip edge cases (empty, nil, boundaries)
 - Commit with < 80% coverage
+- Use weak assertions like `if status != http.StatusOK` — always assert the exact expected code
+- Mutate the loop variable `tt` inside table-driven test body (use local vars instead)
+- Use `os.Setenv` with `t.Parallel()` — use `t.Setenv` which prevents parallel execution
+- Commit `*.test` binaries or `coverage.out` profiles (build artifacts, not source)
 
 ## Table-Driven Test Pattern
 
@@ -126,6 +132,18 @@ func TestNewTaskTitle(t *testing.T) {
 }
 ```
 
+## Coverage Gaps to Always Check
+
+When writing tests for a new handler or route, verify the following are covered:
+
+| Area | Common Gap |
+|---|---|
+| SSE `Stream()` handlers | session-not-found, flusher-not-supported, message-fetch-error, client-disconnect |
+| List endpoints (e.g., `GetCompare`) | may exist in router but have no test file |
+| Template helper functions | `lintScoreClass`, `contentLines`, `availableTags` — live in `.templ` files but are testable Go funcs |
+| New templ components | `LintResultCard`, `TextDiffCard`, etc. — must be exercised by at least one partial handler test |
+| `FindAll` repository methods | Must test both empty result (no rows) and populated result |
+
 ## Pre-commit Coverage Check
 
 ```bash
@@ -144,5 +162,9 @@ fi
 - [ ] All 6 test categories covered
 - [ ] All new functions have tests
 - [ ] Coverage didn't decrease
+- [ ] No weak status code assertions (`!= 200`) — exact codes asserted
+- [ ] No loop variable mutation (`tt.field = value` inside loop body)
+- [ ] No build artifacts committed (`*.test`, `coverage.out`)
+- [ ] Template helper functions in new `.templ` files have corresponding `_test.go`
 
 Remember: **Test First, Code Second, Refactor Third** 🔴🟢🔵
