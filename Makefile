@@ -31,13 +31,17 @@ firewall:
 	sudo .devcontainer/firewall.sh
 
 # Run API server (port 8080)
+# DEV_BYPASS_RBAC skips JWT/Cognito identity checks so the local BFF can call
+# RBAC-protected routes without a real user session.
 run-api:
-	cd ${API_MOD}/src && go run ./cmd
+	cd ${API_MOD}/src && DEV_BYPASS_RBAC=true go run ./cmd
 
 # Run Web server (port 3000)
 # Requires: make templ-gen (run once after templ file changes)
+# API_AUTH_TOKEN is the Bearer token sent by the BFF to the API (any non-empty
+# value works locally because BearerAuth accepts all tokens in dev mode).
 run-web:
-	cd ${WEB_MOD}/src && go run ./cmd
+	cd ${WEB_MOD}/src && API_AUTH_TOKEN=dev-token go run ./cmd
 
 # Build CLI binary
 build-cli:
@@ -56,9 +60,9 @@ run-migrate:
 # Run all services (migrate -> api -> web in background)
 run-all: run-migrate
 	@echo "Starting API server..."
-	cd ${API_MOD}/src && go run ./cmd &
+	cd ${API_MOD}/src && DEV_BYPASS_RBAC=true go run ./cmd &
 	@echo "Starting Web server..."
-	cd ${WEB_MOD}/src && go run ./cmd
+	cd ${WEB_MOD}/src && API_AUTH_TOKEN=dev-token go run ./cmd
 
 ###############
 # Claude Code #
