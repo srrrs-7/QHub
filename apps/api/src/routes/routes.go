@@ -142,9 +142,10 @@ func NewRouter(h Handlers) http.Handler {
 			})
 
 			// Consulting Messages
-			r.Route("/consulting/sessions/{session_id}/messages", func(r chi.Router) {
-				r.Get("/", h.Consulting.ListMessages())
-				r.Post("/", h.Consulting.PostMessage())
+			r.Route("/consulting/sessions/{session_id}", func(r chi.Router) {
+				r.Get("/messages", h.Consulting.ListMessages())
+				r.Post("/messages", h.Consulting.PostMessage())
+				r.Get("/stream", h.Consulting.Stream())
 			})
 
 			// Tags
