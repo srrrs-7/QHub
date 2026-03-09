@@ -1,0 +1,166 @@
+package templates
+
+import (
+	"fmt"
+	"web/src/client"
+)
+
+templ IndustriesPage(page PageData, industries []client.Industry) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Industries</h1>
+			<div class="page-header__actions">
+				<button class="btn btn--filled" onclick="document.getElementById('new-industry-dialog').showModal()">
+					<span class="material-symbols-outlined">add</span>
+					New Industry
+				</button>
+			</div>
+		</div>
+		<div id="industry-list">
+			@IndustryList(industries)
+		</div>
+		<dialog id="new-industry-dialog">
+			<form
+				method="dialog"
+				hx-post="/partials/industries"
+				hx-target="#industry-list"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Industry</h2>
+				<div class="form-field">
+					<label for="ind-name">Name</label>
+					<input type="text" id="ind-name" name="name" required/>
+				</div>
+				<div class="form-field">
+					<label for="ind-slug">Slug</label>
+					<input type="text" id="ind-slug" name="slug" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"/>
+				</div>
+				<div class="form-field">
+					<label for="ind-desc">Description</label>
+					<textarea id="ind-desc" name="description"></textarea>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}
+
+templ IndustryList(industries []client.Industry) {
+	if len(industries) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">factory</span>
+			<div class="empty-state__title">No industries configured</div>
+			<div class="empty-state__desc">Add industry configurations for compliance checks and benchmarks.</div>
+		</div>
+	} else {
+		<div class="card-grid">
+			for _, ind := range industries {
+				<a class="card card--clickable" href={ templ.SafeURL("/industries/" + ind.Slug) }>
+					<div class="prompt-card__name">{ ind.Name }</div>
+					if ind.Description != "" {
+						<div class="prompt-card__desc">{ ind.Description }</div>
+					}
+					<div class="prompt-card__meta">
+						<span class="type-badge">{ ind.Slug }</span>
+					</div>
+				</a>
+			}
+		</div>
+	}
+}
+
+templ IndustryDetailPage(page PageData, industry *client.Industry, benchmarks []client.Benchmark) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/industries">Industries</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ industry.Name }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">{ industry.Name }</h1>
+		</div>
+		<div class="meta-grid mb-24">
+			<span class="meta-grid__label">Slug</span>
+			<span>{ industry.Slug }</span>
+			if industry.Description != "" {
+				<span class="meta-grid__label">Description</span>
+				<span>{ industry.Description }</span>
+			}
+		</div>
+		<!-- Compliance Check Form -->
+		<div class="card mb-24" style="padding: 24px;">
+			<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Compliance Check</h2>
+			<form
+				hx-post={ "/partials/industries/" + industry.Slug + "/compliance" }
+				hx-target="#compliance-result"
+				hx-swap="innerHTML"
+			>
+				<div class="form-field">
+					<label for="prompt-content">Prompt Content</label>
+					<textarea id="prompt-content" name="content" required placeholder="Paste prompt content to check compliance..."></textarea>
+				</div>
+				<button type="submit" class="btn btn--filled">
+					<span class="material-symbols-outlined">verified</span>
+					Check Compliance
+				</button>
+			</form>
+			<div id="compliance-result" class="mt-16"></div>
+		</div>
+		<!-- Benchmarks -->
+		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Benchmarks</h2>
+		if len(benchmarks) == 0 {
+			<div class="empty-state">
+				<span class="material-symbols-outlined">speed</span>
+				<div class="empty-state__title">No benchmarks available</div>
+				<div class="empty-state__desc">Benchmarks will appear once configured for this industry.</div>
+			</div>
+		} else {
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Benchmark</th>
+						<th>Value</th>
+						<th>Unit</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, b := range benchmarks {
+						<tr>
+							<td>{ b.Name }</td>
+							<td>{ fmt.Sprintf("%.2f", b.Value) }</td>
+							<td class="text-muted">{ b.Unit }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	}
+}
+
+templ ComplianceResultPartial(result *client.ComplianceResult) {
+	<div class="card" style="padding: 16px;">
+		<div class="flex items-center gap-8 mb-8">
+			<span class="meta-grid__label">Status:</span>
+			if result.Status == "pass" {
+				<span class="status-badge status-badge--success">Pass</span>
+			} else {
+				<span class="status-badge status-badge--error">Fail</span>
+			}
+			<span class="meta-grid__label" style="margin-left: 16px;">Score:</span>
+			<span>{ fmt.Sprintf("%.1f", result.Score) }</span>
+		</div>
+		if len(result.Issues) > 0 {
+			<div class="mt-16">
+				<span class="meta-grid__label mb-8" style="display: block;">Issues</span>
+				<ul style="padding-left: 20px; font: var(--md-sys-typescale-body-medium); color: var(--md-sys-color-error);">
+					for _, issue := range result.Issues {
+						<li>{ issue }</li>
+					}
+				</ul>
+			</div>
+		}
+	</div>
+}

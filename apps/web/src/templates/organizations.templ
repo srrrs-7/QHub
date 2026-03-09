@@ -1,0 +1,148 @@
+package templates
+
+import "web/src/client"
+
+templ OrganizationsPage(page PageData, orgs []client.Organization) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Organizations</h1>
+			<div class="page-header__actions">
+				<button class="btn btn--filled" onclick="document.getElementById('new-org-dialog').showModal()">
+					<span class="material-symbols-outlined">add</span>
+					New Organization
+				</button>
+			</div>
+		</div>
+		<div id="org-list">
+			@OrganizationList(orgs)
+		</div>
+		<dialog id="new-org-dialog">
+			<form
+				method="dialog"
+				hx-post="/partials/organizations"
+				hx-target="#org-list"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Organization</h2>
+				<div class="form-field">
+					<label for="name">Name</label>
+					<input type="text" id="name" name="name" required/>
+				</div>
+				<div class="form-field">
+					<label for="slug">Slug</label>
+					<input type="text" id="slug" name="slug" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"/>
+				</div>
+				<div class="form-field">
+					<label for="plan">Plan</label>
+					<select id="plan" name="plan">
+						<option value="free">Free</option>
+						<option value="pro">Pro</option>
+						<option value="enterprise">Enterprise</option>
+					</select>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}
+
+templ OrganizationList(orgs []client.Organization) {
+	if len(orgs) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">corporate_fare</span>
+			<div class="empty-state__title">No organizations yet</div>
+			<div class="empty-state__desc">Create your first organization to get started.</div>
+		</div>
+	} else {
+		<div class="card-grid">
+			for _, org := range orgs {
+				<a class="card card--clickable" href={ templ.SafeURL("/organizations/" + org.Slug) }>
+					<div class="prompt-card__name">{ org.Name }</div>
+					<div class="prompt-card__meta">
+						<span class="type-badge">{ org.Plan }</span>
+						<span class="prompt-card__version">{ org.Slug }</span>
+					</div>
+				</a>
+			}
+		</div>
+	}
+}
+
+templ OrganizationDetailPage(page PageData, org *client.Organization, projects []client.Project) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/organizations">Organizations</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ org.Name }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">{ org.Name }</h1>
+		</div>
+		<div class="meta-grid mb-24">
+			<span class="meta-grid__label">Slug</span>
+			<span>{ org.Slug }</span>
+			<span class="meta-grid__label">Plan</span>
+			<span class="type-badge">{ org.Plan }</span>
+		</div>
+		<hr class="divider"/>
+		<div class="flex items-center justify-between mb-16">
+			<h2 style="font: var(--md-sys-typescale-title-large)">Projects</h2>
+			<button class="btn btn--tonal btn--small" onclick="document.getElementById('new-project-dialog').showModal()">
+				<span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+				New Project
+			</button>
+		</div>
+		<div id="project-list">
+			if len(projects) == 0 {
+				<div class="empty-state">
+					<span class="material-symbols-outlined">folder_open</span>
+					<div class="empty-state__title">No projects yet</div>
+					<div class="empty-state__desc">Create a project to start managing prompts.</div>
+				</div>
+			} else {
+				<div class="card-grid">
+					for _, p := range projects {
+						<a
+							class="card card--clickable"
+							href={ templ.SafeURL("/orgs/" + org.Slug + "/projects/" + p.Slug + "/prompts") }
+						>
+							<div class="prompt-card__name">{ p.Name }</div>
+							if p.Description != "" {
+								<div class="prompt-card__desc">{ p.Description }</div>
+							}
+						</a>
+					}
+				</div>
+			}
+		</div>
+		<dialog id="new-project-dialog">
+			<form
+				method="dialog"
+				hx-post={ "/partials/orgs/" + org.ID + "/projects" }
+				hx-target="#snackbar"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Project</h2>
+				<div class="form-field">
+					<label for="proj-name">Name</label>
+					<input type="text" id="proj-name" name="name" required/>
+				</div>
+				<div class="form-field">
+					<label for="proj-slug">Slug</label>
+					<input type="text" id="proj-slug" name="slug" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"/>
+				</div>
+				<div class="form-field">
+					<label for="proj-desc">Description</label>
+					<textarea id="proj-desc" name="description"></textarea>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}

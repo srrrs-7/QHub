@@ -1,0 +1,118 @@
+package templates
+
+import "web/src/client"
+
+templ ConsultingPage(page PageData, sessions []client.ConsultingSession) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Consulting Sessions</h1>
+			<div class="page-header__actions">
+				<button class="btn btn--filled" onclick="document.getElementById('new-session-dialog').showModal()">
+					<span class="material-symbols-outlined">add</span>
+					New Session
+				</button>
+			</div>
+		</div>
+		<div id="session-list">
+			@SessionList(sessions)
+		</div>
+		<dialog id="new-session-dialog">
+			<form
+				method="dialog"
+				hx-post="/partials/consulting/sessions"
+				hx-target="#session-list"
+				hx-swap="innerHTML"
+			>
+				<h2 class="mb-16">New Consulting Session</h2>
+				<div class="form-field">
+					<label for="title">Title</label>
+					<input type="text" id="title" name="title" required/>
+				</div>
+				<div class="flex gap-8 justify-between">
+					<button type="button" class="btn btn--text" onclick="this.closest('dialog').close()">Cancel</button>
+					<button type="submit" class="btn btn--filled">Create</button>
+				</div>
+			</form>
+		</dialog>
+	}
+}
+
+templ SessionList(sessions []client.ConsultingSession) {
+	if len(sessions) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">chat</span>
+			<div class="empty-state__title">No consulting sessions</div>
+			<div class="empty-state__desc">Start a new consulting session to get AI-powered advice on your prompts.</div>
+		</div>
+	} else {
+		<div class="card-grid">
+			for _, s := range sessions {
+				<a class="card card--clickable" href={ templ.SafeURL("/consulting/" + s.ID) }>
+					<div class="prompt-card__name">{ s.Title }</div>
+					<div class="prompt-card__meta">
+						@SessionStatusBadge(s.Status)
+						<span class="prompt-card__version">{ s.CreatedAt }</span>
+					</div>
+				</a>
+			}
+		</div>
+	}
+}
+
+templ SessionStatusBadge(status string) {
+	if status == "active" {
+		<span class="status-badge status-badge--active">{ status }</span>
+	} else {
+		<span class="status-badge status-badge--closed">{ status }</span>
+	}
+}
+
+templ ChatPage(page PageData, session *client.ConsultingSession, messages []client.ConsultingMessage) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/consulting">Sessions</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ session.Title }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">{ session.Title }</h1>
+			<div class="page-header__actions">
+				@SessionStatusBadge(session.Status)
+			</div>
+		</div>
+		<div class="chat-container">
+			<div class="chat-messages" id="chat-messages" hx-ext="sse" sse-connect={ "/partials/consulting/sessions/" + session.ID + "/stream" }>
+				for _, m := range messages {
+					@ChatMessage(m)
+				}
+				<div sse-swap="message" hx-swap="beforeend"></div>
+			</div>
+			<form
+				class="chat-input"
+				hx-post={ "/partials/consulting/sessions/" + session.ID + "/messages" }
+				hx-target="#chat-messages"
+				hx-swap="beforeend"
+				hx-on::after-request="this.reset()"
+			>
+				<input type="text" name="content" placeholder="Type your message..." required autocomplete="off"/>
+				<button type="submit" class="btn btn--filled">
+					<span class="material-symbols-outlined">send</span>
+				</button>
+			</form>
+		</div>
+	}
+}
+
+templ ChatMessage(m client.ConsultingMessage) {
+	if m.Role == "user" {
+		<div class="chat-message chat-message--user">
+			<div class="chat-message__role">You</div>
+			{ m.Content }
+		</div>
+	} else {
+		<div class="chat-message chat-message--assistant">
+			<div class="chat-message__role">Consultant</div>
+			{ m.Content }
+		</div>
+	}
+}

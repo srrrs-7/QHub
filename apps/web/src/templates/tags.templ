@@ -1,0 +1,57 @@
+package templates
+
+import "web/src/client"
+
+templ TagsPage(page PageData, tags []client.Tag) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Tags</h1>
+		</div>
+		<div class="form-inline mb-24">
+			<form
+				class="form-inline"
+				hx-post="/partials/tags"
+				hx-target="#tag-list"
+				hx-swap="innerHTML"
+				hx-on::after-request="this.reset()"
+			>
+				<div class="form-field">
+					<label for="tag-name">New Tag</label>
+					<input type="text" id="tag-name" name="name" required placeholder="Enter tag name"/>
+				</div>
+				<button type="submit" class="btn btn--filled">
+					<span class="material-symbols-outlined">add</span>
+					Add
+				</button>
+			</form>
+		</div>
+		<div id="tag-list">
+			@TagList(tags)
+		</div>
+	}
+}
+
+templ TagList(tags []client.Tag) {
+	if len(tags) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">label</span>
+			<div class="empty-state__title">No tags yet</div>
+			<div class="empty-state__desc">Create tags to organize and categorize your prompts.</div>
+		</div>
+	} else {
+		<div class="chip-list">
+			for _, tag := range tags {
+				<span
+					class="chip chip--deletable"
+					hx-delete={ "/partials/tags?name=" + tag.Name }
+					hx-target="#tag-list"
+					hx-swap="innerHTML"
+					hx-confirm={ "Delete tag '" + tag.Name + "'?" }
+				>
+					{ tag.Name }
+					<span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+				</span>
+			}
+		</div>
+	}
+}

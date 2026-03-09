@@ -1,0 +1,128 @@
+package templates
+
+import (
+	"fmt"
+	"web/src/client"
+)
+
+templ LogsPage(page PageData, logs []client.ExecutionLog) {
+	@Layout(page) {
+		<div class="page-header">
+			<h1 class="page-header__title">Execution Logs</h1>
+		</div>
+		<div id="log-list">
+			@LogList(logs)
+		</div>
+	}
+}
+
+templ LogList(logs []client.ExecutionLog) {
+	if len(logs) == 0 {
+		<div class="empty-state">
+			<span class="material-symbols-outlined">receipt_long</span>
+			<div class="empty-state__title">No execution logs</div>
+			<div class="empty-state__desc">Logs will appear here when prompts are executed via the API.</div>
+		</div>
+	} else {
+		<table class="data-table">
+			<thead>
+				<tr>
+					<th>Status</th>
+					<th>Model</th>
+					<th>Duration</th>
+					<th>Tokens</th>
+					<th>Created</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, l := range logs {
+					<tr class="clickable" hx-get={ "/logs/" + l.ID } hx-target=".content-area" hx-push-url="true">
+						<td>
+							@LogStatusBadge(l.Status)
+						</td>
+						<td>{ l.Model }</td>
+						<td>{ fmt.Sprintf("%dms", l.DurationMs) }</td>
+						<td>{ fmt.Sprintf("%d", l.TokensUsed) }</td>
+						<td class="text-muted">{ l.CreatedAt }</td>
+						<td>
+							<span class="material-symbols-outlined" style="font-size: 18px; color: var(--md-sys-color-on-surface-variant);">chevron_right</span>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+templ LogStatusBadge(status string) {
+	if status == "success" {
+		<span class="status-badge status-badge--success">{ status }</span>
+	} else if status == "error" {
+		<span class="status-badge status-badge--error">{ status }</span>
+	} else {
+		<span class="status-badge status-badge--draft">{ status }</span>
+	}
+}
+
+templ LogDetailPage(page PageData, log *client.ExecutionLog, evals []client.Evaluation) {
+	@Layout(page) {
+		<div class="breadcrumb">
+			<a href="/logs">Logs</a>
+			<span class="breadcrumb__sep">/</span>
+			<span>{ log.ID }</span>
+		</div>
+		<div class="page-header">
+			<h1 class="page-header__title">Log Detail</h1>
+			<div class="page-header__actions">
+				@LogStatusBadge(log.Status)
+			</div>
+		</div>
+		<div class="meta-grid mb-24">
+			<span class="meta-grid__label">ID</span>
+			<span>{ log.ID }</span>
+			<span class="meta-grid__label">Model</span>
+			<span>{ log.Model }</span>
+			<span class="meta-grid__label">Duration</span>
+			<span>{ fmt.Sprintf("%d ms", log.DurationMs) }</span>
+			<span class="meta-grid__label">Tokens Used</span>
+			<span>{ fmt.Sprintf("%d", log.TokensUsed) }</span>
+			<span class="meta-grid__label">Created</span>
+			<span>{ log.CreatedAt }</span>
+		</div>
+		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-8">Input</h2>
+		<div class="prompt-content mb-24">{ log.InputString() }</div>
+		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-8">Output</h2>
+		<div class="prompt-content mb-24">{ log.OutputString() }</div>
+		<hr class="divider"/>
+		<h2 style="font: var(--md-sys-typescale-title-large)" class="mb-16">Evaluations</h2>
+		if len(evals) == 0 {
+			<div class="empty-state">
+				<span class="material-symbols-outlined">grade</span>
+				<div class="empty-state__title">No evaluations</div>
+				<div class="empty-state__desc">No evaluations have been recorded for this log.</div>
+			</div>
+		} else {
+			<table class="data-table">
+				<thead>
+					<tr>
+						<th>Evaluator</th>
+						<th>Score</th>
+						<th>Feedback</th>
+						<th>Created</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, e := range evals {
+						<tr>
+							<td><span class="type-badge">{ e.EvaluatorType }</span></td>
+							<td>{ fmt.Sprintf("%.1f", e.Score) }</td>
+							<td>{ e.Feedback }</td>
+							<td class="text-muted">{ e.CreatedAt }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	}
+}

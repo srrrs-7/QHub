@@ -25,6 +25,7 @@ import (
 	"api/src/services/diffservice"
 	"api/src/services/embeddingservice"
 	"api/src/services/lintservice"
+	"api/src/services/ragservice"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -38,6 +39,7 @@ import (
 	"utils/embedding"
 	"utils/env"
 	"utils/logger"
+	"utils/ollama"
 )
 
 func init() {
@@ -129,6 +131,24 @@ func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
 	}
 	embSvc := embeddingservice.NewEmbeddingService(embClient, versionRepo)
 
+	// Ollama client (optional: enabled when OLLAMA_URI is set)
+	var ollamaClient *ollama.Client
+	ollamaURI := env.GetStringOrDefault("OLLAMA_URI", "")
+	if ollamaURI != "" {
+		ollamaClient = ollama.NewClient(ollamaURI)
+		logger.Info("Ollama client enabled", "url", ollamaURI)
+	} else {
+		logger.Info("Ollama client disabled (set OLLAMA_URI to enable)")
+	}
+
+	// RAG service (optional: enabled when both embedding and Ollama are configured)
+	ragSvc := ragservice.NewRAGService(embSvc, ollamaClient, q)
+	if ragSvc.Available() {
+		logger.Info("RAG service enabled")
+	} else {
+		logger.Info("RAG service disabled (requires EMBEDDING_URL and OLLAMA_URI)")
+	}
+
 	return routes.Handlers{
 		Health:       healthHandler(conn),
 		Task:         tasks.NewTaskHandler(taskRepo),
@@ -137,7 +157,7 @@ func initHandlers(q dbq.Querier, conn *sql.DB) routes.Handlers {
 		Prompt:       prompts.NewPromptHandler(promptRepo, versionRepo, diffSvc, lintSvc, embSvc),
 		Log:          logs.NewLogHandler(logRepo, evalRepo),
 		Evaluation:   evaluations.NewEvaluationHandler(evalRepo),
-		Consulting:   consulting.NewConsultingHandler(sessionRepo, messageRepo, industryRepo),
+		Consulting:   consulting.NewConsultingHandler(sessionRepo, messageRepo, industryRepo, ragSvc),
 		Tag:          tags.NewTagHandler(tagRepo),
 		Industry:     industries.NewIndustryHandler(industryRepo, q),
 		Analytics:    analytics.NewAnalyticsHandler(q),

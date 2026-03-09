@@ -77,3 +77,103 @@ func (v PromptVersion) VariablesList() []string {
 	_ = json.Unmarshal(v.Variables, &vars)
 	return vars
 }
+
+// --- ExecutionLog ---
+
+type ExecutionLog struct {
+	ID              string          `json:"id"`
+	PromptID        string          `json:"prompt_id"`
+	PromptVersionID string          `json:"prompt_version_id"`
+	Input           json.RawMessage `json:"input"`
+	Output          json.RawMessage `json:"output"`
+	Status          string          `json:"status"`
+	DurationMs      int             `json:"duration_ms"`
+	TokensUsed      int             `json:"tokens_used"`
+	Model           string          `json:"model"`
+	CreatedAt       string          `json:"created_at"`
+}
+
+func (l ExecutionLog) InputString() string {
+	if l.Input == nil {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(l.Input, &s); err != nil {
+		return string(l.Input)
+	}
+	return s
+}
+
+func (l ExecutionLog) OutputString() string {
+	if l.Output == nil {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(l.Output, &s); err != nil {
+		return string(l.Output)
+	}
+	return s
+}
+
+// --- Evaluation ---
+
+type Evaluation struct {
+	ID             string  `json:"id"`
+	ExecutionLogID string  `json:"execution_log_id"`
+	EvaluatorType  string  `json:"evaluator_type"`
+	Score          float64 `json:"score"`
+	Feedback       string  `json:"feedback"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+// --- ConsultingSession ---
+
+type ConsultingSession struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+// --- ConsultingMessage ---
+
+type ConsultingMessage struct {
+	ID        string `json:"id"`
+	SessionID string `json:"session_id"`
+	Role      string `json:"role"`
+	Content   string `json:"content"`
+	CreatedAt string `json:"created_at"`
+}
+
+// --- Tag ---
+
+type Tag struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// --- Industry ---
+
+type Industry struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description"`
+}
+
+// --- ComplianceResult ---
+
+type ComplianceResult struct {
+	Status  string   `json:"status"`
+	Issues  []string `json:"issues"`
+	Score   float64  `json:"score"`
+}
+
+// --- Benchmark ---
+
+type Benchmark struct {
+	Name  string  `json:"name"`
+	Value float64 `json:"value"`
+	Unit  string  `json:"unit"`
+}

@@ -24,7 +24,7 @@ func setupHandler(t *testing.T) (db.Querier, *ConsultingHandler) {
 	sessionRepo := consulting_repository.NewSessionRepository(q)
 	messageRepo := consulting_repository.NewMessageRepository(q)
 	industryRepo := consulting_repository.NewIndustryConfigRepository(q)
-	handler := NewConsultingHandler(sessionRepo, messageRepo, industryRepo)
+	handler := NewConsultingHandler(sessionRepo, messageRepo, industryRepo, nil)
 	return q, handler
 }
 

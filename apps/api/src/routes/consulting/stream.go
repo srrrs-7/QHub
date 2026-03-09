@@ -1,9 +1,14 @@
 package consulting
 
 import (
+	domain "api/src/domain/consulting"
 	"api/src/routes/requtil"
 	"api/src/routes/response"
+	"encoding/json"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 // Stream returns an SSE handler that streams session messages.
@@ -13,8 +18,9 @@ import (
 // then sends a "done" event. It supports heartbeat pings to keep the
 // connection alive and respects client disconnection via context cancellation.
 //
-// Designed for future LLM integration: the streaming loop can be extended
-// to read from a channel of messages instead of (or in addition to) the database.
+// When RAG is available and the query parameter `rag=true` is set along with
+// `org_id`, the handler will generate an AI response using the RAG pipeline
+// and stream it as SSE "chunk" events before the final "done" event.
 func (h *ConsultingHandler) Stream() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionID, err := requtil.ParseUUID(r, "session_id")
@@ -24,7 +30,7 @@ func (h *ConsultingHandler) Stream() http.HandlerFunc {
 		}
 
 		// Verify the session exists
-		_, err = h.sessionRepo.FindByID(r.Context(), sessionID)
+		session, err := h.sessionRepo.FindByID(r.Context(), sessionID)
 		if err != nil {
 			response.HandleError(w, err)
 			return
@@ -60,7 +66,75 @@ func (h *ConsultingHandler) Stream() http.HandlerFunc {
 			}
 		}
 
+		// Check if RAG generation is requested
+		if h.ragSvc != nil && h.ragSvc.Available() && r.URL.Query().Get("rag") == "true" {
+			orgID := resolveOrgID(r, session)
+			query := r.URL.Query().Get("query")
+			if orgID != uuid.Nil && query != "" {
+				h.streamRAGResponse(r, sse, sessionID, query, orgID)
+			}
+		}
+
 		// Signal completion
 		sse.WriteDone()
 	}
+}
+
+// streamRAGResponse runs the RAG pipeline and streams chunks as SSE events.
+// It also persists the generated assistant message in the database.
+func (h *ConsultingHandler) streamRAGResponse(r *http.Request, sse *SSEWriter, sessionID uuid.UUID, query string, orgID uuid.UUID) {
+	ch, err := h.ragSvc.GenerateResponse(r.Context(), sessionID, query, orgID)
+	if err != nil {
+		sse.WriteError(err)
+		return
+	}
+
+	var fullContent string
+	for chunk := range ch {
+		select {
+		case <-r.Context().Done():
+			return
+		default:
+			fullContent += chunk
+			data, _ := json.Marshal(map[string]string{"chunk": chunk})
+			if err := sse.WriteEvent("chunk", string(data)); err != nil {
+				return
+			}
+		}
+	}
+
+	// Persist the generated assistant message
+	if fullContent != "" {
+		msg := domain.Message{
+			SessionID: sessionID,
+			Role:      "assistant",
+			Content:   fullContent,
+		}
+		created, err := h.messageRepo.Create(r.Context(), msg)
+		if err != nil {
+			sse.WriteError(err)
+			return
+		}
+		// Send the final persisted message
+		sse.WriteMessage(toMessageResponse(created))
+	}
+}
+
+// resolveOrgID extracts the org_id from the query parameter or session.
+func resolveOrgID(r *http.Request, session domain.Session) uuid.UUID {
+	if orgIDStr := r.URL.Query().Get("org_id"); orgIDStr != "" {
+		if id, err := uuid.Parse(orgIDStr); err == nil {
+			return id
+		}
+	}
+
+	// Try org_id from chi URL params
+	if orgIDStr := chi.URLParam(r, "org_id"); orgIDStr != "" {
+		if id, err := uuid.Parse(orgIDStr); err == nil {
+			return id
+		}
+	}
+
+	// Fall back to session's org ID
+	return session.OrgID
 }

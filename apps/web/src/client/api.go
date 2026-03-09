@@ -118,3 +118,123 @@ func (c *APIClient) UpdateVersionStatus(ctx context.Context, promptID, version, 
 	var v PromptVersion
 	return &v, c.do(ctx, http.MethodPut, "/api/v1/prompts/"+promptID+"/versions/"+version+"/status", map[string]string{"status": status}, &v)
 }
+
+// --- Organizations ---
+
+func (c *APIClient) ListOrganizations(ctx context.Context) ([]Organization, error) {
+	var orgs []Organization
+	// The API doesn't have a list-all endpoint; we use a search or just return empty.
+	// For now, we rely on a convention: the index page will link to known orgs.
+	return orgs, c.do(ctx, http.MethodGet, "/api/v1/organizations", nil, &orgs)
+}
+
+func (c *APIClient) CreateOrganization(ctx context.Context, body map[string]string) (*Organization, error) {
+	var org Organization
+	return &org, c.do(ctx, http.MethodPost, "/api/v1/organizations", body, &org)
+}
+
+// --- Execution Logs ---
+
+func (c *APIClient) ListLogs(ctx context.Context) ([]ExecutionLog, error) {
+	var logs []ExecutionLog
+	return logs, c.do(ctx, http.MethodGet, "/api/v1/logs", nil, &logs)
+}
+
+func (c *APIClient) GetLog(ctx context.Context, id string) (*ExecutionLog, error) {
+	var l ExecutionLog
+	return &l, c.do(ctx, http.MethodGet, "/api/v1/logs/"+id, nil, &l)
+}
+
+func (c *APIClient) ListLogEvaluations(ctx context.Context, logID string) ([]Evaluation, error) {
+	var evals []Evaluation
+	return evals, c.do(ctx, http.MethodGet, "/api/v1/logs/"+logID+"/evaluations", nil, &evals)
+}
+
+// --- Consulting ---
+
+func (c *APIClient) ListConsultingSessions(ctx context.Context) ([]ConsultingSession, error) {
+	var sessions []ConsultingSession
+	return sessions, c.do(ctx, http.MethodGet, "/api/v1/consulting/sessions", nil, &sessions)
+}
+
+func (c *APIClient) CreateConsultingSession(ctx context.Context, body map[string]string) (*ConsultingSession, error) {
+	var session ConsultingSession
+	return &session, c.do(ctx, http.MethodPost, "/api/v1/consulting/sessions", body, &session)
+}
+
+func (c *APIClient) GetConsultingSession(ctx context.Context, id string) (*ConsultingSession, error) {
+	var session ConsultingSession
+	return &session, c.do(ctx, http.MethodGet, "/api/v1/consulting/sessions/"+id, nil, &session)
+}
+
+func (c *APIClient) ListConsultingMessages(ctx context.Context, sessionID string) ([]ConsultingMessage, error) {
+	var msgs []ConsultingMessage
+	return msgs, c.do(ctx, http.MethodGet, "/api/v1/consulting/sessions/"+sessionID+"/messages", nil, &msgs)
+}
+
+func (c *APIClient) SendConsultingMessage(ctx context.Context, sessionID string, body map[string]string) (*ConsultingMessage, error) {
+	var msg ConsultingMessage
+	return &msg, c.do(ctx, http.MethodPost, "/api/v1/consulting/sessions/"+sessionID+"/messages", body, &msg)
+}
+
+// --- Tags ---
+
+func (c *APIClient) ListTags(ctx context.Context) ([]Tag, error) {
+	var tags []Tag
+	return tags, c.do(ctx, http.MethodGet, "/api/v1/tags", nil, &tags)
+}
+
+func (c *APIClient) CreateTag(ctx context.Context, body map[string]string) (*Tag, error) {
+	var tag Tag
+	return &tag, c.do(ctx, http.MethodPost, "/api/v1/tags", body, &tag)
+}
+
+func (c *APIClient) DeleteTag(ctx context.Context, name string) error {
+	return c.do(ctx, http.MethodDelete, "/api/v1/tags?name="+name, nil, nil)
+}
+
+// --- Industries ---
+
+func (c *APIClient) ListIndustries(ctx context.Context) ([]Industry, error) {
+	var industries []Industry
+	return industries, c.do(ctx, http.MethodGet, "/api/v1/industries", nil, &industries)
+}
+
+func (c *APIClient) GetIndustry(ctx context.Context, slug string) (*Industry, error) {
+	var ind Industry
+	return &ind, c.do(ctx, http.MethodGet, "/api/v1/industries/"+slug, nil, &ind)
+}
+
+func (c *APIClient) CreateIndustry(ctx context.Context, body map[string]string) (*Industry, error) {
+	var ind Industry
+	return &ind, c.do(ctx, http.MethodPost, "/api/v1/industries", body, &ind)
+}
+
+func (c *APIClient) UpdateIndustry(ctx context.Context, slug string, body map[string]string) (*Industry, error) {
+	var ind Industry
+	return &ind, c.do(ctx, http.MethodPut, "/api/v1/industries/"+slug, body, &ind)
+}
+
+func (c *APIClient) CheckCompliance(ctx context.Context, slug string, body map[string]string) (*ComplianceResult, error) {
+	var result ComplianceResult
+	return &result, c.do(ctx, http.MethodPost, "/api/v1/industries/"+slug+"/compliance", body, &result)
+}
+
+func (c *APIClient) ListBenchmarks(ctx context.Context, slug string) ([]Benchmark, error) {
+	var benchmarks []Benchmark
+	return benchmarks, c.do(ctx, http.MethodGet, "/api/v1/industries/"+slug+"/benchmarks", nil, &benchmarks)
+}
+
+// --- Evaluations ---
+
+func (c *APIClient) ListEvaluations(ctx context.Context) ([]Evaluation, error) {
+	var evals []Evaluation
+	return evals, c.do(ctx, http.MethodGet, "/api/v1/evaluations", nil, &evals)
+}
+
+// --- Projects (create) ---
+
+func (c *APIClient) CreateProject(ctx context.Context, orgID string, body map[string]string) (*Project, error) {
+	var project Project
+	return &project, c.do(ctx, http.MethodPost, "/api/v1/organizations/"+orgID+"/projects", body, &project)
+}
