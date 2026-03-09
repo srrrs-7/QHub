@@ -6,13 +6,15 @@
 
 ```
 apps/
-  api/      → バックエンド API (Go, chi router, :8080)
-  web/      → フロントエンド (templ + HTMX, M3 Design, :3000)
-  cli/      → CLI ツール「qhub」(Cobra)
-  sdk/      → Go SDK クライアント
-  pkgs/     → 共有パッケージ (db, env, logger, testutil)
-  iac/      → Terraform インフラ (AWS: ECS, Aurora, Cognito, CloudFront, WAF)
-  migrate/  → マイグレーション用コンテナ
+  api/             → バックエンド API (Go, chi router, :8080)
+  web/             → フロントエンド (templ + HTMX, M3 Design, :3000)
+  cli/             → CLI ツール「qhub」(Cobra)
+  sdk/             → Go SDK クライアント
+  sdk-python/      → Python SDK (httpx + Pydantic v2)
+  sdk-typescript/  → TypeScript SDK (native fetch)
+  pkgs/            → 共有パッケージ (db, env, logger, testutil)
+  iac/             → Terraform インフラ (AWS: ECS, Aurora, Cognito, CloudFront, WAF)
+  migrate/         → マイグレーション用コンテナ
 ```
 
 **クリーンアーキテクチャ**: `routes → domain ← infra`, `routes → services → domain`
@@ -35,6 +37,50 @@ apps/
 - Atlas (スキーマファーストマイグレーション) + sqlc (型安全クエリ生成)
 - templ + HTMX (SSR フロントエンド、JS 不要)
 - Dev Containers (PostgreSQL, Redis, ElasticMQ, TEI を自動起動)
+
+## クライアント SDK
+
+QHub API を各言語から利用するための公式 SDK を提供しています:
+
+| SDK | パッケージ名 | 説明 | ドキュメント |
+|-----|------------|------|-------------|
+| **Go** | `sdk` | 標準ライブラリのみ、ゼロ依存 | [README](apps/sdk/README.md) |
+| **Python** | `qhub-sdk` | httpx + Pydantic v2、pip インストール可能 | [README](apps/sdk-python/README.md) |
+| **TypeScript** | `@qhub/sdk` | native fetch、ゼロランタイム依存 | [README](apps/sdk-typescript/README.md) |
+
+### クイックスタート例
+
+#### Go
+
+```go
+import "sdk"
+
+client := sdk.NewClient("your-bearer-token")
+org, err := client.CreateOrganization(ctx, sdk.CreateOrganizationRequest{
+    Name: "My Org",
+    Slug: "my-org",
+})
+```
+
+#### Python
+
+```python
+from qhub import QHubClient
+
+client = QHubClient(bearer_token="your-token")
+org = client.organizations.create(name="My Org", slug="my-org")
+```
+
+#### TypeScript
+
+```typescript
+import { QHubClient } from '@qhub/sdk';
+
+const client = new QHubClient({ bearerToken: 'your-token' });
+const org = await client.organizations.create({ name: 'My Org', slug: 'my-org' });
+```
+
+詳細な使用方法は各 SDK の README を参照してください。
 
 ## セットアップ
 
