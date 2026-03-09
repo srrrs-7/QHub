@@ -67,12 +67,20 @@ func RoleLevel(role string) int {
 func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Eagerly grab the RequestLog pointer once; every branch below writes
+			// as many WHO fields as it can resolve, so even failed requests
+			// carry maximum identity context in the http.request log entry.
+			rl := logger.RequestLogFrom(r.Context())
+
 			// DEV_BYPASS_RBAC=true skips all role checks (development only).
 			// Set this when running the API locally without JWT/Cognito.
 			if os.Getenv("DEV_BYPASS_RBAC") == "true" {
-				rl := logger.RequestLogFrom(r.Context())
 				rl.AuthMethod = "bypass"
 				rl.UserID = devBypassUserID.String()
+				// Capture org_id from URL if present (best-effort; may be empty for non-org routes).
+				if orgIDStr := chi.URLParam(r, "org_id"); orgIDStr != "" {
+					rl.OrgID = orgIDStr
+				}
 				ctx := context.WithValue(r.Context(), memberRoleKey, RoleOwner)
 				ctx = context.WithValue(ctx, userIDKey, devBypassUserID)
 				next.ServeHTTP(w, r.WithContext(ctx))
@@ -85,15 +93,18 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// 2. Parse org_id from URL
+			// 2. Parse org_id from URL — write to RequestLog immediately so it
+			//    appears in the log even when subsequent steps fail.
 			orgIDStr := chi.URLParam(r, "org_id")
 			orgID, err := uuid.Parse(orgIDStr)
 			if err != nil {
 				writeRBACError(w, http.StatusBadRequest, "invalid organization ID")
 				return
 			}
+			rl.OrgID = orgIDStr
 
-			// 3. Extract user identity from X-User-ID header
+			// 3. Extract user identity from X-User-ID header — write to RequestLog
+			//    immediately so it appears in the log even when membership lookup fails.
 			//    TODO: Replace with JWT claim extraction when Cognito is integrated
 			userIDStr := r.Header.Get("X-User-ID")
 			userID, err := uuid.Parse(userIDStr)
@@ -101,6 +112,7 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 				writeRBACError(w, http.StatusUnauthorized, "invalid or missing user identity")
 				return
 			}
+			rl.UserID = userIDStr
 
 			// 4. Look up membership
 			member, err := q.GetOrganizationMember(r.Context(), db.GetOrganizationMemberParams{
@@ -112,7 +124,6 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 					writeRBACError(w, http.StatusForbidden, "not a member of this organization")
 					return
 				}
-				rl := logger.RequestLogFrom(r.Context())
 				logger.Error("rbac.membership_lookup_failed",
 					slog.Group("who",
 						slog.String("user_id", userIDStr),
@@ -140,12 +151,7 @@ func RequireRole(q db.Querier, minRole string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// 6. Populate WHO fields in RequestLog for the HTTP Logger.
-			rl := logger.RequestLogFrom(r.Context())
-			rl.UserID = userID.String()
-			rl.OrgID = orgID.String()
-
-			// 7. Store role and user ID in context for downstream use
+			// 6. Store role and user ID in context for downstream use
 			ctx := context.WithValue(r.Context(), memberRoleKey, member.Role)
 			ctx = context.WithValue(ctx, userIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
