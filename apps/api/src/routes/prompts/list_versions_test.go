@@ -53,7 +53,7 @@ func TestListVersionsHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).ListVersions()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).ListVersions()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -99,7 +99,7 @@ func TestListVersionsHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).ListVersions()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).ListVersions()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()

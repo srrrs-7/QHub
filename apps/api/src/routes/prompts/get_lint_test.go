@@ -63,7 +63,7 @@ func TestGetLintHandler(t *testing.T) {
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
 				lintSvc := lintservice.NewLintService(vRepo)
-				handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc, nil).GetLint()
+				handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc).GetLint()
 
 				req := httptest.NewRequest(http.MethodGet, "/prompts/"+promptID+"/versions/1/lint", nil)
 				testutil.SetAuthHeader(req)
@@ -109,7 +109,7 @@ func TestGetLintHandler(t *testing.T) {
 		vRepo := prompt_repository.NewVersionRepository(q)
 		pRepo := prompt_repository.NewPromptRepository(q)
 		lintSvc := lintservice.NewLintService(vRepo)
-		handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc, nil).GetLint()
+		handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc).GetLint()
 
 		req := httptest.NewRequest(http.MethodGet, "/prompts/"+promptID+"/versions/1/lint", nil)
 		testutil.SetAuthHeader(req)
@@ -163,7 +163,7 @@ func TestGetLintHandler(t *testing.T) {
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
 				lintSvc := lintservice.NewLintService(vRepo)
-				handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc, nil).GetLint()
+				handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc).GetLint()
 
 				req := httptest.NewRequest(http.MethodGet, "/prompts/"+promptID+"/versions/"+tt.version+"/lint", nil)
 				testutil.SetAuthHeader(req)
@@ -205,7 +205,7 @@ func TestGetLintHandler(t *testing.T) {
 				vRepo := prompt_repository.NewVersionRepository(q)
 				pRepo := prompt_repository.NewPromptRepository(q)
 				lintSvc := lintservice.NewLintService(vRepo)
-				handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc, nil).GetLint()
+				handler := NewPromptHandler(pRepo, vRepo, nil, lintSvc).GetLint()
 
 				req := httptest.NewRequest(http.MethodGet, "/prompts/"+tt.promptID+"/versions/"+tt.version+"/lint", nil)
 				testutil.SetAuthHeader(req)

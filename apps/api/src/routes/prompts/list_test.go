@@ -66,7 +66,7 @@ func TestListHandler(t *testing.T) {
 				w := httptest.NewRecorder()
 
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).List()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).List()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -112,7 +112,7 @@ func TestListHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).List()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).List()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()

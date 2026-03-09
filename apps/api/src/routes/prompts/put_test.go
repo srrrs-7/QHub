@@ -95,7 +95,7 @@ func TestPutHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).Put()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).Put()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -150,7 +150,7 @@ func TestPutHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).Put()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).Put()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -201,7 +201,7 @@ func TestPutHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).Put()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).Put()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()

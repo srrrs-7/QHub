@@ -66,7 +66,7 @@ func TestPutVersionStatusHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).PutVersionStatus()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).PutVersionStatus()
 
 				var resp *http.Response
 				for _, status := range tt.transitions {
@@ -127,7 +127,7 @@ func TestPutVersionStatusHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).PutVersionStatus()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).PutVersionStatus()
 
 				// Apply pre-transitions
 				for _, status := range tt.preTransitions {
@@ -210,7 +210,7 @@ func TestPutVersionStatusHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).PutVersionStatus()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).PutVersionStatus()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -255,7 +255,7 @@ func TestPutVersionStatusHandler(t *testing.T) {
 
 				pRepo := prompt_repository.NewPromptRepository(q)
 				vRepo := prompt_repository.NewVersionRepository(q)
-				handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).PutVersionStatus()
+				handler := NewPromptHandler(pRepo, vRepo, nil, nil).PutVersionStatus()
 				handler.ServeHTTP(w, req)
 
 				resp := w.Result()
@@ -275,7 +275,7 @@ func TestPutVersionStatusHandler(t *testing.T) {
 
 		pRepo := prompt_repository.NewPromptRepository(q)
 		vRepo := prompt_repository.NewVersionRepository(q)
-		handler := NewPromptHandler(pRepo, vRepo, nil, nil, nil).PutVersionStatus()
+		handler := NewPromptHandler(pRepo, vRepo, nil, nil).PutVersionStatus()
 
 		// Promote version 1: draft -> review -> production
 		for _, status := range []string{"review", "production"} {
