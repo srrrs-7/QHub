@@ -1,6 +1,7 @@
 services:
   dev:
     environment:
+      CLAUDE_CODE_OAUTH_TOKEN: <token>
       DB_URI: postgresql://postgres:postgres@db:5432/test?sslmode=disable
       DB_MIGRATE_URI: postgresql://postgres:postgres@db:5432?sslmode=disable
       CACHE_URI: redis://cache:6379
